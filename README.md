@@ -76,9 +76,6 @@
 <!-- Enviornment -->
 ## Setting up enviornment
 
-Please download the Conda program from the website. 
-https://conda.io/projects/conda/en/stable/user-guide/install/download.html
-
 Clone the repository using the following lines
 ```bash
 git clone https://github.com/ShoaibSajid/yolov2
@@ -104,12 +101,7 @@ conda create -n yolov2_tiny pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12
 OR
 
 conda install pip
-pip install torch==1.12.1+cu116 torchvision==0.13.1+cu116 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu116
-```
-
-Install the required packages using the following command
-```bash
-pip install tqdm matplotlib mnist==0.2.2 numpy bz2file gdown
+pip install -r requirements.txt
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
