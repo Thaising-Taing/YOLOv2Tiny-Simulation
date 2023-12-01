@@ -116,31 +116,10 @@ You can run this in the command terminal as instructed below.
 python main.py
 ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+To run this in VSCode, you can find the .vscode/launch.json file is already added. 
 
 
-
-To run this in VSCode, you can find the .vscode/launch.json file is already added. Simply run as given in this screenshot.
-<br />
-  <a href="https://github.com/ShoaibSajid/yolov2/tree/main">
-    <img src="readme_src/Running_VSCode.png" alt="MSIS Lab" >
-  </a>
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-
-Once you run the code, it should generate an output as shown in the figure below.
-Since the output has a large size so it is not possible to add the output data in the git repository.
-<br />
-  <a href="https://github.com/ShoaibSajid/yolov2/tree/main">
-    <img src="readme_src/Outputs.png" alt="MSIS Lab" >
-  </a>
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
- 
 
 
 
@@ -153,7 +132,6 @@ If you have a suggestion that would make this better, please fork the repo and c
 Don't forget to give the project a star! Thanks again!
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 
  
 
