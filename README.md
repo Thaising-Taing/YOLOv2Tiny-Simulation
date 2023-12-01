@@ -15,16 +15,15 @@
     <img src="readme_src/logo.jpg" alt="MSIS Lab" >
   </a>
 
-<h1 align="center">A Convolution Neural Network (CNN) From Scratch
+<h1 align="center">Yolo V2 - NPU
 </h2>
 
   <p align="center">
-    We implemented the object detector using simple python code to have in-depth understanding and control over the forward and backward propagation.
     <br />
-    <a href="https://github.com/ShoaibSajid/yolov2/tree/Yolov2-Tiny"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/ShoaibSajid/yolov2/tree/main"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/ShoaibSajid/yolov2/tree/Yolov2-Tiny">View Demo</a>
+    <a href="https://github.com/ShoaibSajid/yolov2/tree/main">View Demo</a>
     ·
     <a href="https://github.com/ShoaibSajid/yolov2/issues">Report Bug</a>
     ·
@@ -153,7 +152,7 @@ To run this in Jupyter Notebook, you can run using the file Jupyter_Notebook_CNN
 In the file cnn_python.py, Line no 240-244, you can give arguments to control the forward, backward propagation and enable or disable the generation of output files.
 It is shown below as well.
 <br />
-  <a href="https://github.com/ShoaibSajid/yolov2/tree/Yolov2-Tiny">
+  <a href="https://github.com/ShoaibSajid/yolov2/tree/main">
     <img src="readme_src/args.png" alt="MSIS Lab" >
   </a>
 
@@ -163,7 +162,7 @@ It is shown below as well.
 
 To run this in VSCode, you can find the .vscode/launch.json file is already added. Simply run as given in this screenshot.
 <br />
-  <a href="https://github.com/ShoaibSajid/yolov2/tree/Yolov2-Tiny">
+  <a href="https://github.com/ShoaibSajid/yolov2/tree/main">
     <img src="readme_src/Running_VSCode.png" alt="MSIS Lab" >
   </a>
 
@@ -175,7 +174,7 @@ To run this in VSCode, you can find the .vscode/launch.json file is already adde
 Once you run the code, it should generate an output as shown in the figure below.
 Since the output has a large size so it is not possible to add the output data in the git repository.
 <br />
-  <a href="https://github.com/ShoaibSajid/yolov2/tree/Yolov2-Tiny">
+  <a href="https://github.com/ShoaibSajid/yolov2/tree/main">
     <img src="readme_src/Outputs.png" alt="MSIS Lab" >
   </a>
 
@@ -217,7 +216,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 Shoaib Sajid - shoaib.sajid.ss@gmail.com
 
-Project Link: [https://github.com/ShoaibSajid/yolov2/tree/Yolov2-Tiny](https://github.com/ShoaibSajid/yolov2/tree/Yolov2-Tiny)
+Project Link: [https://github.com/ShoaibSajid/yolov2/tree/main](https://github.com/ShoaibSajid/yolov2/tree/main)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
