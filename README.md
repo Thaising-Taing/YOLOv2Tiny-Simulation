@@ -82,10 +82,7 @@ https://conda.io/projects/conda/en/stable/user-guide/install/download.html
 Clone the repository using the following lines
 ```bash
 git clone https://github.com/ShoaibSajid/yolov2
-cd Python_CNN
-git checkout Yolov2-Tiny
-pip install --upgrade --no-cache-dir gdown
-gdown --id 1B8hlZbsewj4RbEVM59yce0M3Nyz54KFQ
+cd yolov2
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
