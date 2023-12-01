@@ -96,10 +96,6 @@ Create an enviornment using the following command.
 
 
 ```bash
-conda create -n yolov2_tiny pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=10.2 -c pytorch
-
-OR
-
 conda install pip
 pip install -r requirements.txt
 ```
@@ -116,26 +112,9 @@ pip install -r requirements.txt
 ## Usage
 You can run this in the command terminal as instructed below.
 
-For python version, run the file as follow
 ```bash
-python yolov2tiny_python.py
+python main.py
 ```
-
-To run the Pytorch version, run the file as follow
-```bash
-python yolov2tiny_torch.py
-```
-
-To run this in Jupyter Notebook, you can run using the file Jupyter_Notebook_CNN_Python.ipynb
-
- 
-
-In the file cnn_python.py, Line no 240-244, you can give arguments to control the forward, backward propagation and enable or disable the generation of output files.
-It is shown below as well.
-<br />
-  <a href="https://github.com/ShoaibSajid/yolov2/tree/main">
-    <img src="readme_src/args.png" alt="MSIS Lab" >
-  </a>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
