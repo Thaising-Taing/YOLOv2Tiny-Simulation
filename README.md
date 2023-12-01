@@ -12,7 +12,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/ShoaibSajid/yolov2">
-    <img src="logo.jpg" alt="MSIS Lab" >
+    <img src="src/logo.jpg" alt="MSIS Lab" >
   </a>
 
 <h1 align="center">Yolo V2 - NPU
