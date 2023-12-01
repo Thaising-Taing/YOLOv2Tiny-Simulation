@@ -60,7 +60,9 @@
 <!--  Next -->
 ## Next
 <!-- - Compare different versions -->
-- Make single file for all versions.
+- Compare different versions.
+  - Make a single file for all versions.
+- Optimize the code..
 <!-- - Optimize the code  -->
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
