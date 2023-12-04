@@ -4,7 +4,7 @@ sys.path.append("../")
 from torch.utils.data import DataLoader
 from Dataset.factory import get_imdb
 from Dataset.roidb import RoiDataset, detection_collate
-from config import config as cfg
+from my_config import config as cfg
 import torch
 import numpy as np
 import pickle
