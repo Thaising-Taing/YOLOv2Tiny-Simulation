@@ -87,6 +87,8 @@ def get_bias_grads(model):
     gb['conv9'] = conv_bias_grad
 
     return gb
+   
+   
 
 def get_w_and_b(model):
     w  = get_weights(model)
@@ -203,6 +205,7 @@ def update_weight_values(custom_model, w, gw, b, gb):
             
             
     return custom_model
+
 
 def set_weight_values_FPGA(custom_model, Inputs, gInputs):
     """
@@ -420,6 +423,7 @@ def get_weight_values_FPGA(custom_model, Inputs, gInputs):
     Outputs = Weight, Bias, Gamma_WeightBN, BetaBN
     return Outputs
 
+
 def update_weights(w, gw, b, gb, custom_model, custom_optimizer):
     """
     Update the weights of a custom model using the provided gradients and optimizer.
@@ -477,3 +481,19 @@ def update_weights_FPGA(Inputs, gInputs, custom_model, custom_optimizer):
     
     return Outputs
 
+
+
+
+def get_dataset_names(name):
+    if name == 'voc07train':
+        imdb_name = 'voc_2007_train'
+        imdbval_name = 'voc_2007_train'
+    elif name == 'voc07trainval':
+        imdb_name = 'voc_2007_trainval'
+        imdbval_name = 'voc_2007_trainval'
+    elif name == 'voc0712trainval':
+        imdb_name = 'voc_2007_trainval+voc_2012_trainval'
+        imdbval_name ='voc_2007_test'
+    else:
+        raise NotImplementedError   
+    return imdb_name, imdbval_name
