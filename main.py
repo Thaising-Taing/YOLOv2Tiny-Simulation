@@ -45,7 +45,6 @@ from Detection.Detection import *
 from Weight_Update_Algorithm.weight_update import *
 from Weight_Update_Algorithm.yolov2_tiny import *
 from Pre_Processing_Scratch.Neural_Network_Operations_LightNorm import *
-from Main_Processing_Scratch.YOLOv2_Tiny_FPGA import *
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 
 
