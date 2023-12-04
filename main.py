@@ -1290,8 +1290,6 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"      :     
             self.whole_process_end = time.time()
             self.whole_process_time = self.whole_process_end - self.whole_process_start
-            # print("1 epoch time : ",whole_process_time)
-            # print("epoch : ", epoch+1, ", Loss : ", Loss)
             self.output_text = f"Epoch: {self.curr_epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
             print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
             self.Show_Text(self.output_text)
