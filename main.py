@@ -20,11 +20,12 @@ sys.path.append("../")
 sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(),"Dataset"))
 sys.path.append(os.path.join(os.getcwd(),"src"))
+sys.path.append(os.path.join(os.getcwd(),"src/GiTae"))
+sys.path.append(os.path.join(os.getcwd(),"src/config"))
 sys.path.append(os.path.join(os.getcwd(),"src/Main_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Pre_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Post_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
-sys.path.append(os.path.join(os.getcwd(),"Codes"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
 from  XdmaAccess import XdmaAccess
 from Pre_Processing_Scratch.Pre_Processing import *
@@ -104,7 +105,7 @@ class App(customtkinter.CTk):
         self.top_frame.place(x=20, y=20)
         
         try: original_image = Image.open("1.png")
-        except: original_image = Image.open("Codes/1.png")
+        except: original_image = Image.open("src/GiTae/1.png")
         resized_image = original_image.resize((177, 96), Image.ANTIALIAS)  # Adjust the size as needed
         self.image = ImageTk.PhotoImage(resized_image)
 
@@ -751,24 +752,15 @@ class App(customtkinter.CTk):
         print("mic write done")    
         
     def Run_Train(self):  
-        self.Train.configure(state="disabled")
-        self.Train.configure(fg_color='green')
-        self.Infer.configure(state="disabled")
-        self.Stop.configure(state="normal")
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         print(f"Start Training")
         self.Show_Text(f"Start Training")
         
         print(f'Mode : {self.mode}')
         
         self.parse_args()
-        
         self.Pre_Process()
-        
         self.Create_Output_Dir()
-        
         self.Load_Weights()
-        
         self.Load_Dataset()
 
         for epoch in range(self.args.start_epoch, self.args.max_epochs):
@@ -789,13 +781,8 @@ class App(customtkinter.CTk):
                 self.Backward()
                 self.Weight_Update() 
 
-                if epoch % 18 == 0:
-                    self.Clear_Text()
-
             self.Save_Pickle()
-            
             self.Check_mAP()
-            
             self.Post_Epoch()
 
     def Run_Infer(self):
@@ -903,51 +890,59 @@ class App(customtkinter.CTk):
             os.makedirs(out_path)
 
     def Load_Weights(self):
-        
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
-        if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        
-        s = time.time()
-        self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
-        e = time.time()
-        print("WeightLoader : ",e-s)
-        
-        pass
+        if self.mode == "Pytorch"   : 
+            pass #Add code by Wathna
+        if self.mode == "Python"    : 
+            pass #Add code by Wathna
+        if self.mode == "Simulation": 
+            pass #Add code by Thaising
+        if self.mode == "FPGA"      : 
+            # Code by GiTae 
+            s = time.time()
+            self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
+            e = time.time()
+            print("WeightLoader : ",e-s)
 
     def Load_Dataset(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
-        if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        self.imdb_name = 'voc_2007_trainval+voc_2012_trainval'
-        self.train_dataset = self.get_dataset(self.imdb_name)
-        # Whole Training Dataset 
-        self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        # Small Training Dataset
-        self.small_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
-        # print("Sub Training Dataset: " + str(len(small_dataset)))
-        self.s = time.time()
-        self.small_dataloader = DataLoader(self.small_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.e = time.time()
-        print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch = int(len(self.small_dataset) / self.args.batch_size)
-    
+        if self.mode == "Pytorch"   : 
+            pass #Add code by Wathna
+        if self.mode == "Python"    : 
+            pass #Add code by Wathna
+        if self.mode == "Simulation": 
+            pass #Add code by Thaising
+        if self.mode == "FPGA"      : 
+            # Code by GiTae : 
+            self.imdb_name = 'voc_2007_trainval+voc_2012_trainval'
+            self.train_dataset = self.get_dataset(self.imdb_name)
+            # Whole Training Dataset 
+            self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+            # Small Training Dataset
+            self.small_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
+            # print("Sub Training Dataset: " + str(len(small_dataset)))
+            self.s = time.time()
+            self.small_dataloader = DataLoader(self.small_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+            self.e = time.time()
+            print("Data Loader : ",self.e-self.s)
+            self.iters_per_epoch = int(len(self.small_dataset) / self.args.batch_size)
+        
     def Adjust_Learning_Rate(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
-        if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        # learning_rate = 0.001
-        self.learning_rate = 0.001
-        # Various of Learning will Change with the Epochs    
-        if self.curr_epoch >= 10 and self.curr_epoch < 20:
-            self.learning_rate = 0.0001
-        elif self.curr_epoch >= 20 and self.curr_epoch < 30:
-            self.learning_rate = 0.000001
-        elif self.curr_epoch >= 30:
-            self.learning_rate = 0.0000001
+        if self.mode == "Pytorch"   : 
+            pass #Add code by Wathna
+        if self.mode == "Python"    : 
+            pass #Add code by Wathna
+        if self.mode == "Simulation": 
+            pass #Add code by Thaising
+        if self.mode == "FPGA"      : 
+            # Code by GiTae 
+            # learning_rate = 0.001
+            self.learning_rate = 0.001
+            # Various of Learning will Change with the Epochs    
+            if self.curr_epoch >= 10 and self.curr_epoch < 20:
+                self.learning_rate = 0.0001
+            elif self.curr_epoch >= 20 and self.curr_epoch < 30:
+                self.learning_rate = 0.000001
+            elif self.curr_epoch >= 30:
+                self.learning_rate = 0.0000001
             
     def Before_Forward(self):
         if self.mode == "Pytorch"   : pass
@@ -987,18 +982,20 @@ class App(customtkinter.CTk):
         self.bar.write(0x14, 0x00000000) # axi rd en low
     
     def Forward(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
-        if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-
-        print("Start NPU")
-        
-        s = time.time()
-        self.Loss = self.YOLOv2TinyFPGA.Forward(gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
-        e = time.time()
-        print("Forward Process Time : ",e-s)
-        self.change_color_red()
+        if self.mode == "Pytorch"   : 
+            pass #Add code by Wathna
+        if self.mode == "Python"    : 
+            pass #Add code by Wathna
+        if self.mode == "Simulation": 
+            pass #Add code by Thaising
+        if self.mode == "FPGA"      : 
+            # Code by GiTae 
+            print("Start NPU")
+            s = time.time()
+            self.Loss = self.YOLOv2TinyFPGA.Forward(gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
+            e = time.time()
+            print("Forward Process Time : ",e-s)
+            self.change_color_red()
     
     def Loss(self):
         if self.mode == "Pytorch"   : pass
@@ -1070,16 +1067,24 @@ class App(customtkinter.CTk):
     def Post_Epoch(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
-        if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass    
-        self.whole_process_end = time.time()
-        self.whole_process_time = self.whole_process_end - self.whole_process_start
-        # print("1 epoch time : ",whole_process_time)
-        # print("epoch : ", epoch+1, ", Loss : ", Loss)
-        self.output_text = f"Epoch: {self.curr_epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
-        print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
-        self.Show_Text(self.output_text)
-        print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
+        if self.mode == "Simulation": 
+            self.whole_process_end = time.time()
+            self.whole_process_time = self.whole_process_end - self.whole_process_start
+            # print("1 epoch time : ",whole_process_time)
+            # print("epoch : ", epoch+1, ", Loss : ", Loss)
+            self.output_text = f"Epoch: {self.curr_epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
+            print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
+            self.Show_Text(self.output_text)
+            print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
+        if self.mode == "FPGA"      :     
+            self.whole_process_end = time.time()
+            self.whole_process_time = self.whole_process_end - self.whole_process_start
+            # print("1 epoch time : ",whole_process_time)
+            # print("epoch : ", epoch+1, ", Loss : ", Loss)
+            self.output_text = f"Epoch: {self.curr_epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
+            print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
+            self.Show_Text(self.output_text)
+            print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
         
         
 if __name__ == "__main__":
