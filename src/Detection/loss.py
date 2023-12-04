@@ -7,8 +7,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import config as cfg
-# from config import config as cfg
+from my_config import config as cfg
+# from my_config import config as cfg
 from pathlib import Path
 
 import numpy as np

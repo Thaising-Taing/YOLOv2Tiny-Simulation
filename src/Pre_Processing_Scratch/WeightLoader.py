@@ -2,7 +2,9 @@ import numpy as np
 from Pre_Processing_Scratch.DeepConvNet import *
 import torch.nn as nn
 import torch.nn.functional as F
-from config import config as cfg
+import os, sys
+sys.path.append(os.path.join(os.getcwd(),"src"))
+from my_config import config as cfg
 # from Pre_Processing_Scratch.cnn_python_latest_LightNorm import build_target, yolo_loss
 
 def box_ious(box1, box2):
