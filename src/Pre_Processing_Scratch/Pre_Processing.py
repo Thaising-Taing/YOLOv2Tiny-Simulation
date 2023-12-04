@@ -138,10 +138,6 @@ class Pre_Processing:
         return Total_Image
 
 
-
-
-
-
     def WeightLoader(self):
         global Weight, Bias, Beta, Gamma, Running_Mean, Running_Var
         if self.Mode == "Training":

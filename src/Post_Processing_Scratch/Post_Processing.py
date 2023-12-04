@@ -1,5 +1,5 @@
 from .Post_Processing_Function import *
-from .Calculate_Loss import *
+from .Loss import *
 from .Dataset import *
 import torch
 
