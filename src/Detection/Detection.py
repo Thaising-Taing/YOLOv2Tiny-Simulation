@@ -17,7 +17,7 @@ from Dataset.roidb import RoiDataset, detection_collate
 import matplotlib.pyplot as plt
 from util.network import WeightLoader
 from torch.utils.data import DataLoader
-from config import config as cfg
+from my_config import config as cfg
 from tqdm import tqdm
 from pathlib import Path
 

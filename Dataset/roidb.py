@@ -9,7 +9,7 @@ import PIL
 from PIL import Image
 import numpy as np
 from torch.utils.data import Dataset
-from config import config as cfg
+from my_config import config as cfg
 from util.augmentation import augment_img
 
 
