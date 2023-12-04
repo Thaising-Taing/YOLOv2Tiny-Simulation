@@ -796,7 +796,11 @@ class App(customtkinter.CTk):
         self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         print(f"Start Inference")
         self.Show_Text(f"Start Inference")
-        pass      
+        
+        if self.mode == "Pytorch"   : pass
+        if self.mode == "Python"    : pass
+        if self.mode == "Simulation": pass
+        if self.mode == "FPGA"      : pass      
         
     def Stop_Process(self):
         self.Train.configure(state="normal")
@@ -808,10 +812,15 @@ class App(customtkinter.CTk):
         print("Stop the process")
         self.Show_Text(f"Stop the process")
         
-        self.d = Device("0000:08:00.0")
-        self.bar = self.d.bar[0]
-        self.bar.write(0x0, 0x00000011) # yolo start
-        self.bar.write(0x0, 0x00000010) # yolo start low
+        
+        if self.mode == "Pytorch"   : pass
+        if self.mode == "Python"    : pass
+        if self.mode == "Simulation": pass
+        if self.mode == "FPGA"      : 
+            self.d = Device("0000:08:00.0")
+            self.bar = self.d.bar[0]
+            self.bar.write(0x0, 0x00000011) # yolo start
+            self.bar.write(0x0, 0x00000010) # yolo start low
 
         self.bar.write(0x8, 0x00000011) # rd addr
         self.bar.write(0x0, 0x00000014) # rd en
@@ -820,7 +829,10 @@ class App(customtkinter.CTk):
         self.bar.write(0x18, 0x00008001) # axi addr
         self.bar.write(0x14, 0x00000001) # axi rd en
         self.bar.write(0x14, 0x00000000) # axi rd en low
-         
+        
+        
+        
+        
     # Training Helper Functions
     def parse_args(self):
         """
@@ -990,39 +1002,39 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
+        if self.mode == "FPGA"      : 
+            # Code by GiTae
+            self.Image_1_start = time.time()   
+            self.YOLOv2TinyFPGA = YOLOv2_Tiny_FPGA(self.Weight_Dec, self.Bias_Dec, 
+                                    self.Beta_Dec, self.Gamma_Dec,
+                                    self.Running_Mean_Dec, 
+                                    self.Running_Var_Dec,
+                                    self.im_data,
+                                    self) 
 
-        self.Image_1_start = time.time()   
-        self.YOLOv2TinyFPGA = YOLOv2_Tiny_FPGA(self.Weight_Dec, self.Bias_Dec, 
-                                self.Beta_Dec, self.Gamma_Dec,
-                                self.Running_Mean_Dec, 
-                                self.Running_Var_Dec,
-                                self.im_data,
-                                self) 
+            s = time.time()
+            self.YOLOv2TinyFPGA.Write_Weight(self)       
+            e = time.time()
+            print("Write Weight Time : ",e-s)
 
-        s = time.time()
-        self.YOLOv2TinyFPGA.Write_Weight(self)       
-        e = time.time()
-        print("Write Weight Time : ",e-s)
+            s = time.time()
+            self.YOLOv2TinyFPGA.Write_Image()
+            e = time.time()
+            print("Write Image Time : ",e-s)
 
-        s = time.time()
-        self.YOLOv2TinyFPGA.Write_Image()
-        e = time.time()
-        print("Write Image Time : ",e-s)
+            self.d = Device("0000:08:00.0")
+            self.bar = self.d.bar[0]
+            self.bar.write(0x0, 0x00000011) # yolo start
+            self.bar.write(0x0, 0x00000010) # yolo start low
 
-        self.d = Device("0000:08:00.0")
-        self.bar = self.d.bar[0]
-        self.bar.write(0x0, 0x00000011) # yolo start
-        self.bar.write(0x0, 0x00000010) # yolo start low
+            self.bar.write(0x8, 0x00000011) # rd addr
+            self.bar.write(0x0, 0x00000014) # rd en
+            self.bar.write(0x0, 0x00000010) # rd en low
 
-        self.bar.write(0x8, 0x00000011) # rd addr
-        self.bar.write(0x0, 0x00000014) # rd en
-        self.bar.write(0x0, 0x00000010) # rd en low
-
-        self.bar.write(0x18, 0x00008001) # axi addr
-        self.bar.write(0x14, 0x00000001) # axi rd en
-        self.bar.write(0x14, 0x00000000) # axi rd en low
-    
+            self.bar.write(0x18, 0x00008001) # axi addr
+            self.bar.write(0x14, 0x00000001) # axi rd en
+            self.bar.write(0x14, 0x00000000) # axi rd en low
+        
     def Forward(self):
         if self.mode == "Pytorch"   : 
             pass #Add code by Wathna
