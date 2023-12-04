@@ -31,7 +31,6 @@ sys.path.append("/home/msis/Desktop/pcie_python/GUI")
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
 from Post_Processing_Scratch.Post_Processing_2Iterations import Post_Processing
-from Pre_Processing_Scratch.ImageLoader import ImageLoader
 import time
 from tabulate import tabulate
 import os.path 
