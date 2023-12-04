@@ -793,7 +793,11 @@ class App(customtkinter.CTk):
         self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         print(f"Start Inference")
         self.Show_Text(f"Start Inference")
-        pass      
+        
+        if self.mode == "Pytorch"   : pass
+        if self.mode == "Python"    : pass
+        if self.mode == "Simulation": pass
+        if self.mode == "FPGA"      : pass      
         
     def Stop_Process(self):
         self.Train.configure(state="normal")
@@ -805,18 +809,23 @@ class App(customtkinter.CTk):
         print("Stop the process")
         self.Show_Text(f"Stop the process")
         
-        self.d = Device("0000:08:00.0")
-        self.bar = self.d.bar[0]
-        self.bar.write(0x0, 0x00000011) # yolo start
-        self.bar.write(0x0, 0x00000010) # yolo start low
+        
+        if self.mode == "Pytorch"   : pass
+        if self.mode == "Python"    : pass
+        if self.mode == "Simulation": pass
+        if self.mode == "FPGA"      : 
+            self.d = Device("0000:08:00.0")
+            self.bar = self.d.bar[0]
+            self.bar.write(0x0, 0x00000011) # yolo start
+            self.bar.write(0x0, 0x00000010) # yolo start low
 
-        self.bar.write(0x8, 0x00000011) # rd addr
-        self.bar.write(0x0, 0x00000014) # rd en
-        self.bar.write(0x0, 0x00000010) # rd en low
+            self.bar.write(0x8, 0x00000011) # rd addr
+            self.bar.write(0x0, 0x00000014) # rd en
+            self.bar.write(0x0, 0x00000010) # rd en low
 
-        self.bar.write(0x18, 0x00008001) # axi addr
-        self.bar.write(0x14, 0x00000001) # axi rd en
-        self.bar.write(0x14, 0x00000000) # axi rd en low
+            self.bar.write(0x18, 0x00008001) # axi addr
+            self.bar.write(0x14, 0x00000001) # axi rd en
+            self.bar.write(0x14, 0x00000000) # axi rd en low
         
         
         
@@ -883,11 +892,10 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        
-         # Create Directory
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
+        if self.mode == "FPGA"      : 
+            # Create Directory
+            if not os.path.exists(out_path):
+                os.makedirs(out_path)
 
     def Load_Weights(self):
         if self.mode == "Pytorch"   : 
@@ -948,39 +956,39 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
+        if self.mode == "FPGA"      : 
+            # Code by GiTae
+            self.Image_1_start = time.time()   
+            self.YOLOv2TinyFPGA = YOLOv2_Tiny_FPGA(self.Weight_Dec, self.Bias_Dec, 
+                                    self.Beta_Dec, self.Gamma_Dec,
+                                    self.Running_Mean_Dec, 
+                                    self.Running_Var_Dec,
+                                    self.im_data,
+                                    self) 
 
-        self.Image_1_start = time.time()   
-        self.YOLOv2TinyFPGA = YOLOv2_Tiny_FPGA(self.Weight_Dec, self.Bias_Dec, 
-                                self.Beta_Dec, self.Gamma_Dec,
-                                self.Running_Mean_Dec, 
-                                self.Running_Var_Dec,
-                                self.im_data,
-                                self) 
+            s = time.time()
+            self.YOLOv2TinyFPGA.Write_Weight(self)       
+            e = time.time()
+            print("Write Weight Time : ",e-s)
 
-        s = time.time()
-        self.YOLOv2TinyFPGA.Write_Weight(self)       
-        e = time.time()
-        print("Write Weight Time : ",e-s)
+            s = time.time()
+            self.YOLOv2TinyFPGA.Write_Image()
+            e = time.time()
+            print("Write Image Time : ",e-s)
 
-        s = time.time()
-        self.YOLOv2TinyFPGA.Write_Image()
-        e = time.time()
-        print("Write Image Time : ",e-s)
+            self.d = Device("0000:08:00.0")
+            self.bar = self.d.bar[0]
+            self.bar.write(0x0, 0x00000011) # yolo start
+            self.bar.write(0x0, 0x00000010) # yolo start low
 
-        self.d = Device("0000:08:00.0")
-        self.bar = self.d.bar[0]
-        self.bar.write(0x0, 0x00000011) # yolo start
-        self.bar.write(0x0, 0x00000010) # yolo start low
+            self.bar.write(0x8, 0x00000011) # rd addr
+            self.bar.write(0x0, 0x00000014) # rd en
+            self.bar.write(0x0, 0x00000010) # rd en low
 
-        self.bar.write(0x8, 0x00000011) # rd addr
-        self.bar.write(0x0, 0x00000014) # rd en
-        self.bar.write(0x0, 0x00000010) # rd en low
-
-        self.bar.write(0x18, 0x00008001) # axi addr
-        self.bar.write(0x14, 0x00000001) # axi rd en
-        self.bar.write(0x14, 0x00000000) # axi rd en low
-    
+            self.bar.write(0x18, 0x00008001) # axi addr
+            self.bar.write(0x14, 0x00000001) # axi rd en
+            self.bar.write(0x14, 0x00000000) # axi rd en low
+        
     def Forward(self):
         if self.mode == "Pytorch"   : 
             pass #Add code by Wathna
@@ -1015,47 +1023,45 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        
-        s = time.time()
-        self.YOLOv2TinyFPGA.Backward()
-        e = time.time()
-        print("Backward Process Time : ",e-s)
+        if self.mode == "FPGA"      : 
+            # Code by GiTae 
+            s = time.time()
+            self.YOLOv2TinyFPGA.Backward()
+            e = time.time()
+            print("Backward Process Time : ",e-s)
 
-        self.change_color_red()
+            self.change_color_red()
 
     def Weight_Update(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        pass
-
-        s = time.time()
-        self.Inputs  = self.Weight_Dec,       self.Bias_Dec,   self.Gamma_Dec,      self.Beta_Dec,
-        self.gInputs = self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient
-        self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec = self.YOLOv2TinyFPGA.Weight_Update(self.Inputs, self.gInputs, self.learning_rate)
-        e = time.time()
-        print("Weight Update Time : ", e-s)
-        self.Image_1_end = time.time()
-        print("1 Image Train Time : ",self.Image_1_end-self.Image_1_start)
-        # self.output_text = f"Batch: {step+1}/{10}--Loss: {Loss}"
-        # print(f"Batch: {step+1}/{10}--Loss: {Loss}")
-        # self.Show_Text(self.output_text)
+        if self.mode == "FPGA"      : 
+            # Code by GiTae
+            s = time.time()
+            self.Inputs  = self.Weight_Dec,       self.Bias_Dec,   self.Gamma_Dec,      self.Beta_Dec,
+            self.gInputs = self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient
+            self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec = self.YOLOv2TinyFPGA.Weight_Update(self.Inputs, self.gInputs, self.learning_rate)
+            e = time.time()
+            print("Weight Update Time : ", e-s)
+            self.Image_1_end = time.time()
+            print("1 Image Train Time : ",self.Image_1_end-self.Image_1_start)
+            # self.output_text = f"Batch: {step+1}/{10}--Loss: {Loss}"
+            # print(f"Batch: {step+1}/{10}--Loss: {Loss}")
+            # self.Show_Text(self.output_text)
 
     def Save_Pickle(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        pass
-    
-        # Save Pickle: 
-        if self.curr_epoch % self.args.save_interval == 0:
-            self._data = self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec, self.curr_epoch
-            self.output_file = os.path.join(self.output_dir, f'Params_{self.curr_epoch}.pickle')
-            with open(self.output_file, 'wb') as handle:
-                pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+        if self.mode == "FPGA"      : 
+            # Code by GiTae
+            # Save Pickle: 
+            if self.curr_epoch % self.args.save_interval == 0:
+                self._data = self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec, self.curr_epoch
+                self.output_file = os.path.join(self.output_dir, f'Params_{self.curr_epoch}.pickle')
+                with open(self.output_file, 'wb') as handle:
+                    pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
 
     def Check_mAP(self):
         if self.mode == "Pytorch"   : pass
