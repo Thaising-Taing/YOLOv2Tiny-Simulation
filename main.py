@@ -27,7 +27,7 @@ sys.path.append(os.path.join(os.getcwd(),"src/Pre_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Post_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
-# from  XdmaAccess import XdmaAccess
+from  XdmaAccess import XdmaAccess
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
 from Post_Processing_Scratch.Post_Processing_2Iterations import Post_Processing
