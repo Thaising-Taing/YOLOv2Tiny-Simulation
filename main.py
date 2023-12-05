@@ -781,7 +781,7 @@ class App(customtkinter.CTk):
                 
                 self.Before_Forward()
                 self.Forward()
-                self.Loss()
+                self.Calculate_Loss()
                 self.Before_Backward()
                 self.Backward()
                 self.Weight_Update() 
@@ -846,7 +846,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=80, type=int)
+                            default=16, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=10, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -1139,7 +1139,7 @@ class App(customtkinter.CTk):
             print("Forward Process Time : ",e-s)
             self.change_color_red()
     
-    def Loss(self):
+    def Calculate_Loss(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": # Add By Thaising
@@ -1195,14 +1195,13 @@ class App(customtkinter.CTk):
             
             # return Weight_Gradient, Bias_Grad, Gamma_Gradient, Beta_Gradient
         
-        if self.mode == "FPGA"      : pass
-        
-        s = time.time()
-        self.YOLOv2TinyFPGA.Backward()
-        e = time.time()
-        print("Backward Process Time : ",e-s)
+        if self.mode == "FPGA"      : 
+            s = time.time()
+            self.YOLOv2TinyFPGA.Backward()
+            e = time.time()
+            print("Backward Process Time : ",e-s)
 
-        self.change_color_red()
+            self.change_color_red()
 
     def Weight_Update(self):
         if self.mode == "Pytorch"   : pass
@@ -1219,7 +1218,7 @@ class App(customtkinter.CTk):
                 pth_weights_path="/data/Circuit_Team/Thaising/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
                 model=Yolov2,
                 optim=optim)
-            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec] = \
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], self.custom_model = \
             Shoaib.update_weights_FPGA(
                 Inputs  = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], 
                 gInputs = [self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient ])
@@ -1240,7 +1239,7 @@ class App(customtkinter.CTk):
                 self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
                 print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
                 torch.save({
-                    'model': self.model.state_dict(),
+                    'model': self.custom_model.state_dict(),
                     'epoch': self.epoch,
                     'loss': self.Loss.item(),
                     'map': map
@@ -1255,7 +1254,7 @@ class App(customtkinter.CTk):
         # Save Pickle: 
         if self.epoch % self.args.save_interval == 0:
             self._data = self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec, self.epoch
-            self.output_file = os.path.join(self.output_dir, f'Params_{self.epoch}.pickle')
+            self.output_file = os.path.join(self.args.output_dir, f'Params_{self.epoch}.pickle')
             with open(self.output_file, 'wb') as handle:
                 pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
 
