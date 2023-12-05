@@ -742,7 +742,7 @@ class App(customtkinter.CTk):
         #self.textbox.insert("0.0", "CTkTextbox\n\n" )
 
         #microcode = Microcode("mic_2iteration_forward_hex_add_0x.txt") 
-        microcode = Microcode("MICROCODE.txt")
+        microcode = Microcode("src/GiTae/MICROCODE.txt")
 
         for i in range (0, len(microcode)):
             self.bar.write(0x4, microcode[i]) # wr mic
@@ -770,20 +770,34 @@ class App(customtkinter.CTk):
             
             self.whole_process_start = time.time()
             self.train_data_iter = iter(self.small_dataloader)
-            
-            for step in range(self.iters_per_epoch):
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-                
-                self.Before_Forward()
-                self.Forward()
-                self.Loss()
-                self.Before_Backward()
-                self.Backward()
-                self.Weight_Update() 
+            if self.mode == "FPGA":
+                for step in range(self.iters_per_epoch):
+                    self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
+                    
+                    self.Before_Forward()
+                    Bias_Grad_ = self.Forward()
+                    self.Loss()
+                    self.Before_Backward()
+                    Weight_Gradient_, Beta_Gradient_, Gamma_Gradient_ = self.Backward()
+                    self.Weight_Update(Bias_Grad=Bias_Grad_ ,Weight_Gradient=Weight_Gradient_, Beta_Gradient=Beta_Gradient_, Gamma_Gradient=Gamma_Gradient_) 
 
-            self.Save_Pickle()
-            self.Check_mAP()
-            self.Post_Epoch()
+                self.Save_Pickle()
+                self.Check_mAP()
+                self.Post_Epoch()
+            else :    
+                for step in range(self.iters_per_epoch):
+                    self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
+                    
+                    self.Before_Forward()
+                    self.Forward()
+                    self.Loss()
+                    self.Before_Backward()
+                    self.Backward()
+                    self.Weight_Update()
+                    
+                self.Save_Pickle()
+                self.Check_mAP()
+                self.Post_Epoch()
 
     def Run_Infer(self):
         self.Train.configure(state="disabled")
@@ -964,7 +978,7 @@ class App(customtkinter.CTk):
         print("Write Weight Time : ",e-s)
 
         s = time.time()
-        self.YOLOv2TinyFPGA.Write_Image()
+        self.YOLOv2TinyFPGA.Write_Image(self)
         e = time.time()
         print("Write Image Time : ",e-s)
 
@@ -990,12 +1004,19 @@ class App(customtkinter.CTk):
             pass #Add code by Thaising
         if self.mode == "FPGA"      : 
             # Code by GiTae 
+            self.YOLOv2TinyFPGA = YOLOv2_Tiny_FPGA(self.Weight_Dec, self.Bias_Dec, 
+                                self.Beta_Dec, self.Gamma_Dec,
+                                self.Running_Mean_Dec, 
+                                self.Running_Var_Dec,
+                                self.im_data,
+                                self) 
             print("Start NPU")
             s = time.time()
-            self.Loss = self.YOLOv2TinyFPGA.Forward(gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
+            Bias_Grad = self.YOLOv2TinyFPGA.Forward(self, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
             e = time.time()
             print("Forward Process Time : ",e-s)
             self.change_color_red()
+            return Bias_Grad
     
     def Loss(self):
         if self.mode == "Pytorch"   : pass
@@ -1015,16 +1036,22 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        
-        s = time.time()
-        self.YOLOv2TinyFPGA.Backward()
-        e = time.time()
-        print("Backward Process Time : ",e-s)
+        if self.mode == "FPGA"      : 
+            self.YOLOv2TinyFPGA = YOLOv2_Tiny_FPGA(self.Weight_Dec, self.Bias_Dec, 
+                                    self.Beta_Dec, self.Gamma_Dec,
+                                    self.Running_Mean_Dec, 
+                                    self.Running_Var_Dec,
+                                    self.im_data,
+                                    self) 
+            s = time.time()
+            Weight_Gradient, Beta_Gradient, Gamma_Gradient = self.YOLOv2TinyFPGA.Backward(self)
+            e = time.time()
+            print("Backward Process Time : ",e-s)
 
-        self.change_color_red()
+            self.change_color_red()
+            return Weight_Gradient, Beta_Gradient, Gamma_Gradient
 
-    def Weight_Update(self):
+    def Weight_Update(self, Bias_Grad, Weight_Gradient, Beta_Gradient, Gamma_Gradient):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
@@ -1033,7 +1060,7 @@ class App(customtkinter.CTk):
 
         s = time.time()
         self.Inputs  = self.Weight_Dec,       self.Bias_Dec,   self.Gamma_Dec,      self.Beta_Dec,
-        self.gInputs = self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient
+        self.gInputs = Weight_Gradient,  Bias_Grad,  Gamma_Gradient, Beta_Gradient
         self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec = self.YOLOv2TinyFPGA.Weight_Update(self.Inputs, self.gInputs, self.learning_rate)
         e = time.time()
         print("Weight Update Time : ", e-s)

@@ -155,7 +155,7 @@ class Pre_Processing:
 
             model = Yolov2()
             weightloader = WeightLoader()
-            Data_Path = "./Dataset/Dataset/pretrained/yolov2-tiny-voc.weights"
+            Data_Path = "Dataset/Dataset/pretrained/yolov2-tiny-voc.weights"
             pytorch_model = weightloader.load(pytorch_model, model, Data_Path)
             Weight, Bias, Beta, Gamma, Running_Mean, Running_Var = pytorch_model.Training_Parameters()
             print("\t --> " + " The Weights are Successfully Converted!")
