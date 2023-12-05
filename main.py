@@ -27,7 +27,7 @@ sys.path.append(os.path.join(os.getcwd(),"src/Pre_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Post_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
-from  XdmaAccess import XdmaAccess
+# from  XdmaAccess import XdmaAccess
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
 from Post_Processing_Scratch.Post_Processing_2Iterations import Post_Processing
@@ -45,6 +45,7 @@ from Weight_Update_Algorithm.weight_update import *
 from Weight_Update_Algorithm.yolov2_tiny import *
 from Pre_Processing_Scratch.Neural_Network_Operations_LightNorm import *
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
+from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 
 from GiTae_Functions import *
@@ -94,6 +95,8 @@ class App(customtkinter.CTk):
         self.YOLOv2_Hardware_Forward     = True
         self.YOLOv2_Hardware_Backward    = True
 
+        self.phase_forward = 'Forward'
+        self.phase_backward = 'Backward'
 
         # configure window
         self.title("Yolov2 Accelerator.py")
@@ -451,8 +454,6 @@ class App(customtkinter.CTk):
         self.textbox.update_idletasks()
 
 
-
-
     # Select Modes
     def Mode1_click(self):
         self.mode =  "Pytorch"
@@ -763,6 +764,9 @@ class App(customtkinter.CTk):
         self.Create_Output_Dir()
         self.Load_Weights()
         self.Load_Dataset()
+        
+        # To keep a record of weights with best mAP  
+        max_map, best_map_score, best_map_epoch, best_map_loss = 0, -1, -1, -1
 
         for epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.curr_epoch = epoch
@@ -776,7 +780,7 @@ class App(customtkinter.CTk):
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
                 
                 self.Before_Forward()
-                Output_Image, cache = self.Forward()
+                Output_Image, cache = self.Forward(self.im_data)
                 Loss, Loss_Gradient = self.Loss(OutImage_Data=Output_Image, gt_boxes=self.gt_boxes, 
                           gt_classes=self.gt_classes, num_boxes=self.num_obj)
                 self.Before_Backward()
@@ -784,7 +788,7 @@ class App(customtkinter.CTk):
                 self.Weight_Update(Weight_Gradient, Bias_Grad, Gamma_Gradient, Beta_Gradient) 
 
             map = self.Check_mAP()
-            best_map_score, best_map_epoch, best_map_loss = self.Save_Pickle(map, epoch, Loss)
+            best_map_score, best_map_epoch, best_map_loss = self.Save_Pickle(map, max_map, epoch, Loss)
         
         self.Post_Epoch(best_map_score, best_map_epoch, best_map_loss)
 
@@ -831,8 +835,6 @@ class App(customtkinter.CTk):
         self.bar.write(0x14, 0x00000000) # axi rd en low
         
         
-        
-        
     # Training Helper Functions
     def parse_args(self):
         """
@@ -857,6 +859,10 @@ class App(customtkinter.CTk):
                             default=True, type=bool)
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
+        parser.add_argument('--output_dir', dest='output_dir',
+                            default="Output_FPGA_Simulation", type=str)
+        parser.add_argument('--cuda', dest='use_cuda',
+                            default=True, type=bool)
 
         self.args = parser.parse_args()
          
@@ -897,14 +903,13 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": 
-            output_dir = 'Output_FPGA_Simulation'
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
+            if not os.path.exists(self.args.output_dir):
+                os.makedirs(self.args.output_dir)
         if self.mode == "FPGA"      : pass
         
          # Create Directory
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
+        # if not os.path.exists(out_path):
+        #     os.makedirs(out_path)
 
     def Load_Weights(self):
         if self.mode == "Pytorch"   : 
@@ -924,8 +929,8 @@ class App(customtkinter.CTk):
                 Gamma_Dec=self.Gamma_Dec,
                 Running_Mean_Dec=self.Running_Mean_Dec, 
                 Running_Var_Dec=self.Running_Var_Dec,
-                args=args,
-                pth_weights_path="../src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
+                args=self.args,
+                pth_weights_path="/data/Circuit_Team/Thaising/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
                 model=Yolov2,
                 optim=optim)
 
@@ -955,9 +960,8 @@ class App(customtkinter.CTk):
             # Whole Training Dataset 
             self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=False)
             # Small Training Dataset
-            if args.use_small_dataset:
-                self.small_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
-                print("Sub Training Dataset: " + str(len(self.small_dataset)))
+            self.small_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
+            print("Sub Training Dataset: " + str(len(self.small_dataset)))
             self.s = time.time()
             self.small_dataloader = DataLoader(self.small_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=False)
             self.e = time.time()
@@ -1035,13 +1039,12 @@ class App(customtkinter.CTk):
             self.bar.write(0x14, 0x00000001) # axi rd en
             self.bar.write(0x14, 0x00000000) # axi rd en low
         
-    def Forward(self):
+    def Forward(self, Input):
         if self.mode == "Pytorch"   : 
             pass #Add code by Wathna
         if self.mode == "Python"    : 
             pass #Add code by Wathna
         if self.mode == "Simulation": # Add Code By Thaising
-            Input = self.Image
             Weight_Tensor = self.Weight_Dec
             Gamma_Tensor = self.Gamma_Dec
             Beta_Tensor = self.Beta_Dec
@@ -1056,90 +1059,73 @@ class App(customtkinter.CTk):
             temp_cache = {}
 
             # Layer0: Conv-BN-ReLU-Pool
-            temp_Out[0], temp_cache['0'] = Torch_Conv_Pool.forward(Input, Weight_Tensor[0], conv_param, pool_param_stride2,
-                                                                layer_no=0, save_txt=False, save_hex=False, phase=self.phase_forward)
+            temp_Out[0], temp_cache['0'] = Torch_Conv_Pool.forward(Input, Weight_Tensor[0], conv_param, pool_param_stride2)
             
-            mean, var = Cal_mean_var.forward(temp_Out[0], layer_no=0, save_txt=False, save_hex=False, phase=self.phase_forward)
+            mean, var = Cal_mean_var.forward(temp_Out[0])
             
             Out0, cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Input, Weight_Tensor[0], Gamma_Tensor[0],
                                                                     Beta_Tensor[0], conv_param, running_mean[0], 
-                                                                    running_var[0], mean, var, self.Mode, pool_param_stride2,
-                                                                    layer_no=0, save_txt=False, save_hex=False, phase=self.phase_forward)
+                                                                    running_var[0], mean, var, self.Mode, pool_param_stride2)
             # Layer1: Conv-BN-ReLU-Pool
-            temp_Out[1], temp_cache['1'] = Torch_FastConv.forward(Out0, Weight_Tensor[1], conv_param, layer_no=1, 
-                                                                save_txt=False, save_hex=False, phase=self.phase_forward)
+            temp_Out[1], temp_cache['1'] = Torch_FastConv.forward(Out0, Weight_Tensor[1], conv_param)
             
-            mean, var = Cal_mean_var.forward(temp_Out[1], layer_no=1, save_txt=False, save_hex=False, phase=self.phase_forward)
+            mean, var = Cal_mean_var.forward(temp_Out[1])
             
             Out1, cache['1'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out0, Weight_Tensor[1], Gamma_Tensor[1], Beta_Tensor[1],
                                                                     conv_param, running_mean[1], running_var[1],
-                                                                    mean, var, self.Mode, pool_param_stride2,
-                                                                    layer_no=1, save_txt=False, save_hex=False, phase=self.phase_forward)
+                                                                    mean, var, self.Mode, pool_param_stride2)
             # Layer2: Conv-BN-ReLU-Pool
-            temp_Out[2], temp_cache['2'] = Torch_FastConv.forward(Out1, Weight_Tensor[2], conv_param, layer_no=2,
-                                                                save_txt=False, save_hex=False, phase=self.phase_forward)
+            temp_Out[2], temp_cache['2'] = Torch_FastConv.forward(Out1, Weight_Tensor[2], conv_param)
             
-            mean, var = Cal_mean_var.forward(temp_Out[2], layer_no=2, save_txt=False, save_hex=False, phase=self.phase_forward)
+            mean, var = Cal_mean_var.forward(temp_Out[2])
             
             Out2, cache['2'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out1, Weight_Tensor[2], Gamma_Tensor[2], Beta_Tensor[2],
                                                                     conv_param, running_mean[2], running_var[2],
-                                                                    mean, var, self.Mode, pool_param_stride2,
-                                                                    layer_no=2, save_txt=False, save_hex=False, phase=self.phase_forward)
+                                                                    mean, var, self.Mode, pool_param_stride2)
             # Layer3: Conv-BN-ReLU-Pool
-            temp_Out[3], temp_cache['3'] = Torch_FastConv.forward(Out2, Weight_Tensor[3], conv_param, layer_no=3,
-                                                                save_txt=False, save_hex=False, phase=self.phase_forward)
+            temp_Out[3], temp_cache['3'] = Torch_FastConv.forward(Out2, Weight_Tensor[3], conv_param)
             
-            mean, var = Cal_mean_var.forward(temp_Out[3], layer_no=3, save_txt=False, save_hex=False, phase=self.phase_forward)
+            mean, var = Cal_mean_var.forward(temp_Out[3])
             
             Out3, cache['3'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out2, Weight_Tensor[3], Gamma_Tensor[3], Beta_Tensor[3],
                                                                     conv_param, running_mean[3], running_var[3],
-                                                                    mean, var, self.Mode, pool_param_stride2,
-                                                                    layer_no=3, save_txt=False, save_hex=False, phase=self.phase_forward)
+                                                                    mean, var, self.Mode, pool_param_stride2)
             # Layer4: Conv-BN-ReLU-Pool
-            temp_Out[4], temp_cache['4'] = Torch_FastConv.forward(Out3, Weight_Tensor[4], conv_param, layer_no=4,
-                                                                save_txt=False, save_hex=False, phase=self.phase_forward)
+            temp_Out[4], temp_cache['4'] = Torch_FastConv.forward(Out3, Weight_Tensor[4], conv_param)
             
-            mean, var = Cal_mean_var.forward(temp_Out[4], layer_no=4, save_txt=False, save_hex=False, phase=self.phase_forward)
+            mean, var = Cal_mean_var.forward(temp_Out[4])
             
             Out4, cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], Beta_Tensor[4],
                                                                     conv_param, running_mean[4], running_var[4],
-                                                                    mean, var, self.Mode, pool_param_stride2,
-                                                                    layer_no=4, save_txt=False, save_hex=False, phase=self.phase_forward)
+                                                                    mean, var, self.Mode, pool_param_stride2)
             # Layer5: Conv-BN-ReLU
-            temp_Out[5], temp_cache['5'] = Torch_FastConv.forward(Out4, Weight_Tensor[5], conv_param, layer_no=5,
-                                                                save_txt=False, save_hex=False, phase=self.phase_forward)
+            temp_Out[5], temp_cache['5'] = Torch_FastConv.forward(Out4, Weight_Tensor[5], conv_param)
             
-            mean, var = Cal_mean_var.forward(temp_Out[5], layer_no=5, save_txt=False, save_hex=False, phase=self.phase_forward)
+            mean, var = Cal_mean_var.forward(temp_Out[5])
             
             Out5, cache['5'] = Torch_Conv_BatchNorm_ReLU.forward(Out4, Weight_Tensor[5], Gamma_Tensor[5], Beta_Tensor[5],
                                                                 conv_param, running_mean[5], running_var[5],
-                                                                mean, var, self.Mode,
-                                                                layer_no=5, save_txt=False, save_hex=False, phase=self.phase_forward)
+                                                                mean, var, self.Mode)
 
             # Layer6: Conv-BN-ReLU
-            temp_Out[6], temp_cache['6'] = Torch_FastConv.forward(Out5, Weight_Tensor[6], conv_param, layer_no=6,
-                                                                save_txt=False, save_hex=False, phase=self.phase_forward)
+            temp_Out[6], temp_cache['6'] = Torch_FastConv.forward(Out5, Weight_Tensor[6], conv_param)
             
-            mean, var = Cal_mean_var.forward(temp_Out[6], layer_no=6, save_txt=False, save_hex=False, phase=self.phase_forward)
+            mean, var = Cal_mean_var.forward(temp_Out[6])
             
             Out6, cache['6'] = Torch_Conv_BatchNorm_ReLU.forward(Out5, Weight_Tensor[6], Gamma_Tensor[6],
                                                                 Beta_Tensor[6], conv_param, running_mean[6], running_var[6],
-                                                                mean, var, self.Mode,
-                                                                layer_no=6, save_txt=False, save_hex=False, phase=self.phase_forward)
+                                                                mean, var, self.Mode)
             # Layer7: Conv-BN-ReLU
-            temp_Out[7], temp_cache['7'] = Torch_FastConv.forward(Out6, Weight_Tensor[7], conv_param, layer_no=7,
-                                                                save_txt=False, save_hex=False, phase=self.phase_forward)
+            temp_Out[7], temp_cache['7'] = Torch_FastConv.forward(Out6, Weight_Tensor[7], conv_param)
             
-            mean, var = Cal_mean_var.forward(temp_Out[7], layer_no=7, save_txt=False, save_hex=False, phase=self.phase_forward)
+            mean, var = Cal_mean_var.forward(temp_Out[7])
             
             Out7, cache['7'] = Torch_Conv_BatchNorm_ReLU.forward(Out6, Weight_Tensor[7], Gamma_Tensor[7], Beta_Tensor[7],
                                                                 conv_param, running_mean[7], running_var[7],
-                                                                mean, var, self.Mode,
-                                                                layer_no=7, save_txt=False, save_hex=False, phase=self.phase_forward)
+                                                                mean, var, self.Mode)
             # Layer8: ConvWB
             conv_param['pad'] = 0
-            Out8, cache['8'] = Torch_FastConvWB.forward(Out7, Weight_Tensor[8], bias, conv_param, layer_no=8,
-                                                        save_txt=False, save_hex=False, phase=self.phase_forward)
+            Out8, cache['8'] = Torch_FastConvWB.forward(Out7, Weight_Tensor[8], bias, conv_param)
             Output_Image = Out8
             
             return Output_Image, cache
@@ -1178,29 +1164,15 @@ class App(customtkinter.CTk):
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": # Add By Thaising
             
-            Input_Grad_Layer8, Weight_Gradient_Layer8, Bias_Grad  = Torch_FastConvWB.backward(Loss_Gradient, cache['8'],
-                                                                                          layer_no=8, save_txt=False, save_hex=False, phase=self.phase_backward)
-            Input_Grad_Layer7, Weight_Gradient_Layer7, Gamma_Gradient_Layer7, Beta_Gradient_Layer7  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer8, cache['7'],
-                                                                                                                                        layer_no=7, save_txt=False, save_hex=False, 
-                                                                                                                                        phase=self.phase_backward)
-            Input_Grad_Layer6, Weight_Gradient_Layer6, Gamma_Gradient_Layer6, Beta_Gradient_Layer6  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer7, cache['6'],
-                                                                                                                                        layer_no=6, save_txt=False, save_hex=False, 
-                                                                                                                                        phase=self.phase_backward)
-            Input_Grad_Layer5, Weight_Gradient_Layer5, Gamma_Gradient_Layer5, Beta_Gradient_Layer5  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer6, cache['5'],
-                                                                                                                                        layer_no=5, save_txt=False, save_hex=False, 
-                                                                                                                                        phase=self.phase_backward)
-            Input_Grad_Layer4, Weight_Gradient_Layer4, Gamma_Gradient_Layer4, Beta_Gradient_Layer4  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer5, cache['4'],
-                                                                                                                                            layer_no=4, save_txt=False, save_hex=False, 
-                                                                                                                                            phase=self.phase_backward)
-            Input_Grad_Layer3, Weight_Gradient_Layer3, Gamma_Gradient_Layer3, Beta_Gradient_Layer3  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer4, cache['3'],
-                                                                                                                                            layer_no=3, save_txt=False, save_hex=False, 
-                                                                                                                                            phase=self.phase_backward)
-            Input_Grad_Layer2, Weight_Gradient_Layer2, Gamma_Gradient_Layer2, Beta_Gradient_Layer2  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer3, cache['2'], layer_no=2, save_txt=False, 
-                                                                                                                                            save_hex=False, phase=self.phase_backward)
-            Input_Grad_Layer1, Weight_Gradient_Layer1, Gamma_Gradient_Layer1, Beta_Gradient_Layer1  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer2, cache['1'], layer_no=1, save_txt=False, 
-                                                                                                                                            save_hex=False, phase=self.phase_backward)
-            Input_Grad_Layer0, Weight_Gradient_Layer0, Gamma_Gradient_Layer0, Beta_Gradient_Layer0  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer1, cache['0'], layer_no=0, save_txt=False, 
-                                                                                                                                            save_hex=False, phase=self.phase_backward)
+            Input_Grad_Layer8, Weight_Gradient_Layer8, Bias_Grad  = Torch_FastConvWB.backward(Loss_Gradient, cache['8'])
+            Input_Grad_Layer7, Weight_Gradient_Layer7, Gamma_Gradient_Layer7, Beta_Gradient_Layer7  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer8, cache['7'])
+            Input_Grad_Layer6, Weight_Gradient_Layer6, Gamma_Gradient_Layer6, Beta_Gradient_Layer6  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer7, cache['6'])
+            Input_Grad_Layer5, Weight_Gradient_Layer5, Gamma_Gradient_Layer5, Beta_Gradient_Layer5  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer6, cache['5'])
+            Input_Grad_Layer4, Weight_Gradient_Layer4, Gamma_Gradient_Layer4, Beta_Gradient_Layer4  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer5, cache['4'])
+            Input_Grad_Layer3, Weight_Gradient_Layer3, Gamma_Gradient_Layer3, Beta_Gradient_Layer3  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer4, cache['3'])
+            Input_Grad_Layer2, Weight_Gradient_Layer2, Gamma_Gradient_Layer2, Beta_Gradient_Layer2  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer3, cache['2'])
+            Input_Grad_Layer1, Weight_Gradient_Layer1, Gamma_Gradient_Layer1, Beta_Gradient_Layer1  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer2, cache['1'])
+            Input_Grad_Layer0, Weight_Gradient_Layer0, Gamma_Gradient_Layer0, Beta_Gradient_Layer0  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer1, cache['0'])
             
             # Gradient Value for Weight Update
             Weight_Gradient = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 
@@ -1228,36 +1200,35 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": # Add By Thaising
+            Shoaib = Shoaib_Code(
+                Weight_Dec=self.Weight_Dec, 
+                Bias_Dec=self.Bias_Dec, 
+                Beta_Dec=self.Beta_Dec, 
+                Gamma_Dec=self.Gamma_Dec,
+                Running_Mean_Dec=self.Running_Mean_Dec, 
+                Running_Var_Dec=self.Running_Var_Dec,
+                args=self.args,
+                pth_weights_path="/data/Circuit_Team/Thaising/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
+                model=Yolov2,
+                optim=optim)
             [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec] = \
-            self.Shoaib.update_weights_FPGA(
+            Shoaib.update_weights_FPGA(
                 Inputs  = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], 
                 gInputs = [Weight_Gradient,  Bias_Grad,  Gamma_Gradient, Beta_Gradient ])
         if self.mode == "FPGA"      : pass
-        pass
 
-        s = time.time()
-        self.Inputs  = self.Weight_Dec,       self.Bias_Dec,   self.Gamma_Dec,      self.Beta_Dec,
-        self.gInputs = self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient
-        self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec = self.YOLOv2TinyFPGA.Weight_Update(self.Inputs, self.gInputs, self.learning_rate)
-        e = time.time()
-        print("Weight Update Time : ", e-s)
-        self.Image_1_end = time.time()
-        print("1 Image Train Time : ",self.Image_1_end-self.Image_1_start)
-        # self.output_text = f"Batch: {step+1}/{10}--Loss: {Loss}"
-        # print(f"Batch: {step+1}/{10}--Loss: {Loss}")
-        # self.Show_Text(self.output_text)
-
-    def Save_Pickle(self, map, epoch, Loss):
+    def Save_Pickle(self, map, max_map, epoch, Loss):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": 
+            model = Yolov2()
             # Check and save the best mAP
             if map > max_map:
                 max_map = map
                 best_map_score = round((map*100),2)
                 best_map_epoch = epoch
                 best_map_loss  = round(Loss.item(),2)
-                save_name = os.path.join("Output", 'yolov2_best_map.pth')
+                save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
                 print(f'\n\t--------------------->>Saving best weights at Epoch {epoch}, with mAP={round((map*100),2)}% and loss={round(Loss.item(),2)}\n')
                 torch.save({
                     'model': model.state_dict(),
@@ -1283,7 +1254,18 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": 
-            map = self.Shoaib.cal_mAP(Inputs_with_running = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, 
+            Shoaib = Shoaib_Code(
+                Weight_Dec=self.Weight_Dec, 
+                Bias_Dec=self.Bias_Dec, 
+                Beta_Dec=self.Beta_Dec, 
+                Gamma_Dec=self.Gamma_Dec,
+                Running_Mean_Dec=self.Running_Mean_Dec, 
+                Running_Var_Dec=self.Running_Var_Dec,
+                args=self.args,
+                pth_weights_path="/data/Circuit_Team/Thaising/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
+                model=Yolov2,
+                optim=optim)
+            map = Shoaib.cal_mAP(Inputs_with_running = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, 
                                                              self.Running_Mean_Dec, self.Running_Var_Dec])
             return map
         if self.mode == "FPGA"      : pass

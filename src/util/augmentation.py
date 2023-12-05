@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from PIL import Image
-from my_config import config as cfg
+from config import config as cfg
 
 
 def random_scale_translation(img, boxes, jitter=0.2):
