@@ -766,10 +766,10 @@ class App(customtkinter.CTk):
         self.Load_Dataset()
         
         # To keep a record of weights with best mAP  
-        max_map, best_map_score, best_map_epoch, best_map_loss = 0, -1, -1, -1
+        self.max_map, self.best_map_score, self.best_map_epoch, self.best_map_loss = 0, -1, -1, -1
 
         for epoch in range(self.args.start_epoch, self.args.max_epochs):
-            self.curr_epoch = epoch
+            self.epoch = epoch
             
             self.Adjust_Learning_Rate()
             
@@ -780,17 +780,16 @@ class App(customtkinter.CTk):
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
                 
                 self.Before_Forward()
-                Output_Image, cache = self.Forward(self.im_data)
-                Loss, Loss_Gradient = self.Loss(OutImage_Data=Output_Image, gt_boxes=self.gt_boxes, 
-                          gt_classes=self.gt_classes, num_boxes=self.num_obj)
+                self.Forward()
+                self.Loss()
                 self.Before_Backward()
-                Weight_Gradient, Bias_Grad, Gamma_Gradient, Beta_Gradient = self.Backward(Loss_Gradient, cache)
-                self.Weight_Update(Weight_Gradient, Bias_Grad, Gamma_Gradient, Beta_Gradient) 
+                self.Backward()
+                self.Weight_Update() 
 
-            map = self.Check_mAP()
-            best_map_score, best_map_epoch, best_map_loss = self.Save_Pickle(map, max_map, epoch, Loss)
+            self.Check_mAP()
+            self.Save_Pickle()
         
-        self.Post_Epoch(best_map_score, best_map_epoch, best_map_loss)
+        self.Post_Epoch()
 
     def Run_Infer(self):
         self.Train.configure(state="disabled")
@@ -995,11 +994,11 @@ class App(customtkinter.CTk):
             # learning_rate = 0.001
             self.learning_rate = 0.001
             # Various of Learning will Change with the Epochs    
-            if self.curr_epoch >= 10 and self.curr_epoch < 20:
+            if self.epoch >= 10 and self.epoch < 20:
                 self.learning_rate = 0.0001
-            elif self.curr_epoch >= 20 and self.curr_epoch < 30:
+            elif self.epoch >= 20 and self.epoch < 30:
                 self.learning_rate = 0.000001
-            elif self.curr_epoch >= 30:
+            elif self.epoch >= 30:
                 self.learning_rate = 0.0000001
             
     def Before_Forward(self):
@@ -1039,7 +1038,8 @@ class App(customtkinter.CTk):
             self.bar.write(0x14, 0x00000001) # axi rd en
             self.bar.write(0x14, 0x00000000) # axi rd en low
         
-    def Forward(self, Input):
+    def Forward(self):
+        Input = self.im_data
         if self.mode == "Pytorch"   : 
             pass #Add code by Wathna
         if self.mode == "Python"    : 
@@ -1127,8 +1127,8 @@ class App(customtkinter.CTk):
             conv_param['pad'] = 0
             Out8, cache['8'] = Torch_FastConvWB.forward(Out7, Weight_Tensor[8], bias, conv_param)
             Output_Image = Out8
-            
-            return Output_Image, cache
+            self.Output_Image, self.cache = Output_Image, cache 
+            # return Output_Image, cache
         
         if self.mode == "FPGA"      : 
             # Code by GiTae 
@@ -1139,16 +1139,22 @@ class App(customtkinter.CTk):
             print("Forward Process Time : ",e-s)
             self.change_color_red()
     
-    def Loss(self, OutImage_Data, gt_boxes, gt_classes, num_boxes):
+    def Loss(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": # Add By Thaising
+                
+            OutImage_Data=self.Output_Image
+            gt_boxes=self.gt_boxes
+            gt_classes=self.gt_classes
+            num_boxes=self.num_obj
+            
             if self.Mode == "Training":
-                Loss, Loss_Gradient = loss(out=OutImage_Data, gt_boxes=gt_boxes, gt_classes=gt_classes, num_boxes=num_boxes)
-                return Loss, Loss_Gradient
+                self.Loss, self.Loss_Gradient = loss(out=OutImage_Data, gt_boxes=gt_boxes, gt_classes=gt_classes, num_boxes=num_boxes)
+                # return Loss, Loss_Gradient
             if self.Mode == "Inference":
-                output_data = reshape_output(gt_boxes=None, gt_classes=None, num_boxes=None)
-                return output_data
+                self.output_data = reshape_output(gt_boxes=None, gt_classes=None, num_boxes=None)
+                # return output_data
         if self.mode == "FPGA"      : pass
         pass
        
@@ -1159,11 +1165,11 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"      : pass
         pass
      
-    def Backward(self, Loss_Gradient, cache):
+    def Backward(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": # Add By Thaising
-            
+            Loss_Gradient, cache = self.Loss_Gradient, self.cache
             Input_Grad_Layer8, Weight_Gradient_Layer8, Bias_Grad  = Torch_FastConvWB.backward(Loss_Gradient, cache['8'])
             Input_Grad_Layer7, Weight_Gradient_Layer7, Gamma_Gradient_Layer7, Beta_Gradient_Layer7  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer8, cache['7'])
             Input_Grad_Layer6, Weight_Gradient_Layer6, Gamma_Gradient_Layer6, Beta_Gradient_Layer6  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer7, cache['6'])
@@ -1175,17 +1181,19 @@ class App(customtkinter.CTk):
             Input_Grad_Layer0, Weight_Gradient_Layer0, Gamma_Gradient_Layer0, Beta_Gradient_Layer0  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer1, cache['0'])
             
             # Gradient Value for Weight Update
-            Weight_Gradient = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 
+            self.Weight_Gradient = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 
                             Weight_Gradient_Layer4, Weight_Gradient_Layer5, Weight_Gradient_Layer6, Weight_Gradient_Layer7, 
                             Weight_Gradient_Layer8]
             
-            Beta_Gradient = [Beta_Gradient_Layer0, Beta_Gradient_Layer1, Beta_Gradient_Layer2, Beta_Gradient_Layer3, 
+            self.Beta_Gradient = [Beta_Gradient_Layer0, Beta_Gradient_Layer1, Beta_Gradient_Layer2, Beta_Gradient_Layer3, 
                             Beta_Gradient_Layer4, Beta_Gradient_Layer5,Beta_Gradient_Layer6, Beta_Gradient_Layer7]
             
-            Gamma_Gradient = [Gamma_Gradient_Layer0, Gamma_Gradient_Layer1, Gamma_Gradient_Layer2, Gamma_Gradient_Layer3, 
+            self.Gamma_Gradient = [Gamma_Gradient_Layer0, Gamma_Gradient_Layer1, Gamma_Gradient_Layer2, Gamma_Gradient_Layer3, 
                             Gamma_Gradient_Layer4, Gamma_Gradient_Layer5, Gamma_Gradient_Layer6, Gamma_Gradient_Layer7]
             
-            return Weight_Gradient, Bias_Grad, Gamma_Gradient, Beta_Gradient
+            self.Bias_Grad = Bias_Grad
+            
+            # return Weight_Gradient, Bias_Grad, Gamma_Gradient, Beta_Gradient
         
         if self.mode == "FPGA"      : pass
         
@@ -1196,7 +1204,7 @@ class App(customtkinter.CTk):
 
         self.change_color_red()
 
-    def Weight_Update(self, Weight_Gradient, Bias_Grad, Gamma_Gradient, Beta_Gradient):
+    def Weight_Update(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": # Add By Thaising
@@ -1214,39 +1222,40 @@ class App(customtkinter.CTk):
             [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec] = \
             Shoaib.update_weights_FPGA(
                 Inputs  = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], 
-                gInputs = [Weight_Gradient,  Bias_Grad,  Gamma_Gradient, Beta_Gradient ])
+                gInputs = [self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient ])
         if self.mode == "FPGA"      : pass
 
-    def Save_Pickle(self, map, max_map, epoch, Loss):
+    def Save_Pickle(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": 
+            # map, max_map, epoch, Loss = self.map, self.max_map, self.epoch, self.Loss
             model = Yolov2()
             # Check and save the best mAP
-            if map > max_map:
-                max_map = map
-                best_map_score = round((map*100),2)
-                best_map_epoch = epoch
-                best_map_loss  = round(Loss.item(),2)
-                save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
-                print(f'\n\t--------------------->>Saving best weights at Epoch {epoch}, with mAP={round((map*100),2)}% and loss={round(Loss.item(),2)}\n')
+            if self.map > self.max_map:
+                self.max_map = self.map
+                self.best_map_score = round((self.map*100),2)
+                self.best_map_epoch = self.epoch
+                self.best_map_loss  = round(self.Loss.item(),2)
+                self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+                print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
                 torch.save({
-                    'model': model.state_dict(),
-                    'epoch': epoch,
-                    'loss': Loss.item(),
+                    'model': self.model.state_dict(),
+                    'epoch': self.epoch,
+                    'loss': self.Loss.item(),
                     'map': map
-                    }, save_name)
-            if epoch == 0: pass
-            print(f"Epoch: {epoch}/{self.args.max_epochs} --Loss: {round(Loss.item(),2)} --mAP: {map} --Best mAP: {best_map_score}  at Epoch {best_map_epoch}") 
-            return best_map_score, best_map_epoch, best_map_loss
+                    }, self.save_name)
+            if self.epoch == 0: pass
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
+            # return best_map_score, best_map_epoch, best_map_loss
                 
         if self.mode == "FPGA"      : pass
         pass
     
         # Save Pickle: 
-        if self.curr_epoch % self.args.save_interval == 0:
-            self._data = self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec, self.curr_epoch
-            self.output_file = os.path.join(self.output_dir, f'Params_{self.curr_epoch}.pickle')
+        if self.epoch % self.args.save_interval == 0:
+            self._data = self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec, self.epoch
+            self.output_file = os.path.join(self.output_dir, f'Params_{self.epoch}.pickle')
             with open(self.output_file, 'wb') as handle:
                 pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
 
@@ -1265,28 +1274,26 @@ class App(customtkinter.CTk):
                 pth_weights_path="/data/Circuit_Team/Thaising/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
                 model=Yolov2,
                 optim=optim)
-            map = Shoaib.cal_mAP(Inputs_with_running = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, 
+            self.map = Shoaib.cal_mAP(Inputs_with_running = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, 
                                                              self.Running_Mean_Dec, self.Running_Var_Dec])
-            return map
         if self.mode == "FPGA"      : pass
         pass
     
-    def Post_Epoch(self, best_map_score, best_map_epoch, best_map_loss):
+    def Post_Epoch(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": # Add By Thaising
-            args = parse_args()
             self.whole_process_end = time.time()
             self.whole_process_time = self.whole_process_end - self.whole_process_start
-            print(f'\n\t---------------------Best mAP was at Epoch {best_map_epoch}, with mAP={best_map_score}% and loss={best_map_loss}\n')
+            print(f'\n\t---------------------Best mAP was at Epoch {self.best_map_epoch}, with mAP={self.best_map_score}% and loss={self.best_map_loss}\n')
        
         if self.mode == "FPGA"      :     
             self.whole_process_end = time.time()
             self.whole_process_time = self.whole_process_end - self.whole_process_start
-            self.output_text = f"Epoch: {self.curr_epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
-            print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
+            self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
             self.Show_Text(self.output_text)
-            print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
         
         
 if __name__ == "__main__":
