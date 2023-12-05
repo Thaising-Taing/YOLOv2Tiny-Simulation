@@ -542,7 +542,7 @@ class Shoaib_Code(object):
         # Get the updated state dictionary of the custom model
         Outputs = self.get_weight_values_FPGA(Inputs)
         
-        return Outputs
+        return Outputs, self.custom_model
 
     def load_weights(self):
         """
