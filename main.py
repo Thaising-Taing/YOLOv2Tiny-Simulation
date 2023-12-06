@@ -26,6 +26,7 @@ sys.path.append(os.path.join(os.getcwd(),"src/Main_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Pre_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Post_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
+sys.path.append(os.path.join(os.getcwd(),"src/Wathna"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
 # from  XdmaAccess import XdmaAccess
 from Pre_Processing_Scratch.Pre_Processing import *
@@ -46,6 +47,8 @@ from Weight_Update_Algorithm.yolov2_tiny import *
 from Pre_Processing_Scratch.Neural_Network_Operations_LightNorm import *
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
+from torch_2iteration import *
+from python_original import *
 
 
 from GiTae_Functions import *
@@ -894,8 +897,12 @@ class App(customtkinter.CTk):
 
     def Create_Output_Dir(self, out_path = "Output"):
         
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
+        if self.mode == "Pytorch"   :
+            if not os.path.exists(self.args.output_dir):
+                os.makedirs(self.args.output_dir)
+        if self.mode == "Python"    :
+            if not os.path.exists(self.args.output_dir):
+                os.makedirs(self.args.output_dir)
         if self.mode == "Simulation": 
             if not os.path.exists(self.args.output_dir):
                 os.makedirs(self.args.output_dir)
@@ -943,9 +950,35 @@ class App(customtkinter.CTk):
 
     def Load_Dataset(self):
         if self.mode == "Pytorch"   : 
-            pass #Add code by Wathna
+            args = parse_args()
+            self.imdb_name = 'voc_2007_trainval+voc_2012_trainval'
+            self.train_dataset = self.get_dataset(self.imdb_name)
+            print("Training Dataset: " + str(len(self.train_dataset)))
+            # Whole Training Dataset 
+            self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=False)
+            # Small Training Dataset
+            self.small_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
+            print("Sub Training Dataset: " + str(len(self.small_dataset)))
+            self.s = time.time()
+            self.small_dataloader = DataLoader(self.small_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=False)
+            self.e = time.time()
+            print("Data Loader : ",self.e-self.s)
+            self.iters_per_epoch = int(len(self.small_dataset) / self.args.batch_size)
         if self.mode == "Python"    : 
-            pass #Add code by Wathna
+            args = parse_args()
+            self.imdb_name = 'voc_2007_trainval+voc_2012_trainval'
+            self.train_dataset = self.get_dataset(self.imdb_name)
+            print("Training Dataset: " + str(len(self.train_dataset)))
+            # Whole Training Dataset 
+            self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=False)
+            # Small Training Dataset
+            self.small_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
+            print("Sub Training Dataset: " + str(len(self.small_dataset)))
+            self.s = time.time()
+            self.small_dataloader = DataLoader(self.small_dataset, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=False)
+            self.e = time.time()
+            print("Data Loader : ",self.e-self.s)
+            self.iters_per_epoch = int(len(self.small_dataset) / self.args.batch_size)
         if self.mode == "Simulation": # Add By Thaising
             args = parse_args()
             self.imdb_name = 'voc_2007_trainval+voc_2012_trainval'
@@ -997,8 +1030,20 @@ class App(customtkinter.CTk):
             
     def Before_Forward(self):
         # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
+        if self.mode == "Pytorch"   :
+            modtorch_model = DeepConvNetTorch(input_dims=(3, 416, 416),
+                                            num_filters=[16, 32, 64, 128, 256, 512, 1024, 1024],
+                                            max_pools=[0, 1, 2, 3, 4],
+                                            weight_scale='kaiming',
+                                            batchnorm=True,
+                                            dtype=torch.float32, device='cpu')
+        if self.mode == "Python"    :
+            python_model = DeepConvNet(input_dims=(3, 416, 416),
+                                            num_filters=[16, 32, 64, 128, 256, 512, 1024, 1024],
+                                            max_pools=[0, 1, 2, 3, 4],
+                                            weight_scale='kaiming',
+                                            batchnorm=True,
+                                            dtype=torch.float32, device='cpu')
         if self.mode == "Simulation": pass
         if self.mode == "FPGA"      : 
             # Code by GiTae
@@ -1035,10 +1080,484 @@ class App(customtkinter.CTk):
         
     def Forward(self):
         Input = self.im_data
-        if self.mode == "Pytorch"   : 
-            pass #Add code by Wathna
+        if self.mode == "Pytorch"   :
+            X = Input
+        # Set train/test mode for batchnorm params since they
+        # behave differently during training and testing.
+            if self.batchnorm:
+                for bn_params in self.bn_params:
+                    bn_params['mode'] = 'test'
+
+            scores = None
+            # pass conv_param to the forward pass for the convolutional layer
+            # Padding and stride chosen to preserve the input spatial size
+            filter_size = 3
+            conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
+
+            # pass pool_param to the forward pass for the max-pooling layer
+            pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
+
+            scores = None
+            # pass conv_param to the forward pass for the convolutional layer
+            # Padding and stride chosen to preserve the input spatial size
+            filter_size = 3
+            conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
+
+            # pass pool_param to the forward pass for the max-pooling layer
+            pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
+
+            scores = None
+
+            slowpool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 1}
+            cache = {}
+            Out = {}
+            self.phase = 'Forward'
+            temp_Out = {}
+            temp_cache = {}
+            
+            self.save_txt = False
+            self.save_hex = False
+            
+            #0
+            temp_Out[0], temp_cache['0'] = Torch_Conv_Pool.forward(X,
+                                                        self.params['W0'],
+                                                        conv_param,
+                                                        pool_param,
+                                                        layer_no=0,
+                                                        save_txt=False,
+                                                        save_hex=False,
+                                                        phase=self.phase,
+                                                        )
+            
+            mean, var = Cal_mean_var.forward(temp_Out[0], layer_no=0, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+
+            Out[0], cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(X,
+                                                        self.params['W0'],
+                                                        self.params['gamma0'],
+                                                        self.params['beta0'],
+                                                        conv_param,
+                                                        self.bn_params[0],
+                                                        mean,
+                                                        var,
+                                                        pool_param,
+                                                        layer_no=0,
+                                                        save_txt=self.save_txt,
+                                                        save_hex=self.save_hex,
+                                                        phase=self.phase,
+                                                        )
+            #1   
+            temp_Out[1], temp_cache['1'] = Torch_FastConv.forward(Out[0],
+                                                        self.params['W1'],
+                                                        conv_param,
+                                                        # pool_param,
+                                                        layer_no=1,
+                                                        save_txt=False,
+                                                        save_hex=False,
+                                                        phase=self.phase,
+                                                        )
+            
+            mean, var = Cal_mean_var.forward(temp_Out[1], layer_no=1, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+
+            Out[1], cache['1'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out[0],
+                                                        self.params['W1'],
+                                                        self.params['gamma1'],
+                                                        self.params['beta1'],
+                                                        conv_param,
+                                                        self.bn_params[1],
+                                                        mean,
+                                                        var,
+                                                        pool_param,
+                                                        layer_no=1,
+                                                        save_txt=self.save_txt,
+                                                        save_hex=self.save_hex,
+                                                        phase=self.phase,
+                                                        )
+            #2
+            temp_Out[2], temp_cache['2'] = Torch_FastConv.forward(Out[1],
+                                                        self.params['W2'],
+                                                        conv_param,
+                                                        # pool_param,
+                                                        layer_no=2,
+                                                        save_txt=False,
+                                                        save_hex=False,
+                                                        phase=self.phase,
+                                                        )
+            
+            mean, var = Cal_mean_var.forward(temp_Out[2], layer_no=2, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+
+            Out[2], cache['2'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out[1],
+                                                        self.params['W2'],
+                                                        self.params['gamma2'],
+                                                        self.params['beta2'],
+                                                        conv_param,
+                                                        self.bn_params[2],
+                                                        mean,
+                                                        var,
+                                                        pool_param,
+                                                        layer_no=2,
+                                                        save_txt=self.save_txt,
+                                                        save_hex=self.save_hex,
+                                                        phase=self.phase,
+                                                        )
+            #3
+            temp_Out[3], temp_cache['3'] = Torch_FastConv.forward(Out[2],
+                                                        self.params['W3'],
+                                                        conv_param,
+                                                        # pool_param,
+                                                        layer_no=3,
+                                                        save_txt=False,
+                                                        save_hex=False,
+                                                        phase=self.phase,
+                                                        )
+            
+            mean, var = Cal_mean_var.forward(temp_Out[3], layer_no=3, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+
+            Out[3], cache['3'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out[2],
+                                                        self.params['W3'],
+                                                        self.params['gamma3'],
+                                                        self.params['beta3'],
+                                                        conv_param,
+                                                        self.bn_params[3],
+                                                        mean,
+                                                        var,
+                                                        pool_param,
+                                                        layer_no=3,
+                                                        save_txt=self.save_txt,
+                                                        save_hex=self.save_hex,
+                                                        phase=self.phase,
+                                                        )
+
+        #4
+            temp_Out[4], temp_cache['4'] = Torch_FastConv.forward(Out[3],
+                                                        self.params['W4'],
+                                                        conv_param,
+                                                        # pool_param,
+                                                        layer_no=4,
+                                                        save_txt=False,
+                                                        save_hex=False,
+                                                        phase=self.phase,
+                                                        )
+            
+            mean, var = Cal_mean_var.forward(temp_Out[4], layer_no=4, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+
+            Out[4], cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out[3],
+                                                        self.params['W4'],
+                                                        self.params['gamma4'],
+                                                        self.params['beta4'],
+                                                        conv_param,
+                                                        self.bn_params[4],
+                                                        mean,
+                                                        var,
+                                                        pool_param,
+                                                        layer_no=4,
+                                                        save_txt=self.save_txt,
+                                                        save_hex=self.save_hex,
+                                                        phase=self.phase,
+                                                        )
+            
+            #5    
+            temp_Out[5], temp_cache['5'] = Torch_FastConv.forward(Out[4],
+                                                        self.params['W5'],
+                                                        conv_param,
+                                                        layer_no=5,
+                                                        save_txt=False,
+                                                        save_hex=False,
+                                                        phase=self.phase,
+                                                        )
+            
+            mean, var = Cal_mean_var.forward(temp_Out[5], layer_no=5, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+
+
+            Out[5], cache['5'] = Torch_Conv_BatchNorm_ReLU.forward(Out[4],
+                                                        self.params['W5'],
+                                                        self.params['gamma5'],
+                                                        self.params['beta5'],
+                                                        conv_param,
+                                                        self.bn_params[5],
+                                                        mean,
+                                                        var,
+                                                        layer_no=5,
+                                                        save_txt=self.save_txt,
+                                                        save_hex=self.save_hex,
+                                                        phase=self.phase,
+                                                        )
+            #6    
+            temp_Out[6], temp_cache['6'] = Torch_FastConv.forward(Out[5],
+                                                        self.params['W6'],
+                                                        conv_param,
+                                                        layer_no=6,
+                                                        save_txt=False,
+                                                        save_hex=False,
+                                                        phase=self.phase,
+                                                        )
+            
+            mean, var = Cal_mean_var.forward(temp_Out[6], layer_no=6, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+
+
+            Out[6], cache['6'] = Torch_Conv_BatchNorm_ReLU.forward(Out[5],
+                                                        self.params['W6'],
+                                                        self.params['gamma6'],
+                                                        self.params['beta6'],
+                                                        conv_param,
+                                                        self.bn_params[6],
+                                                        mean,
+                                                        var,
+                                                        layer_no=6,
+                                                        save_txt=self.save_txt,
+                                                        save_hex=self.save_hex,
+                                                        phase=self.phase,
+                                                        )
+
+            #7    
+            temp_Out[7], temp_cache['7'] = Torch_FastConv.forward(Out[6],
+                                                        self.params['W7'],
+                                                        conv_param,
+                                                        layer_no=7,
+                                                        save_txt=False,
+                                                        save_hex=False,
+                                                        phase=self.phase,
+                                                        )
+            
+            mean, var = Cal_mean_var.forward(temp_Out[7], layer_no=7, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+
+
+            Out[7], cache['7'] = Torch_Conv_BatchNorm_ReLU.forward(Out[6],
+                                                        self.params['W7'],
+                                                        self.params['gamma7'],
+                                                        self.params['beta7'],
+                                                        conv_param,
+                                                        self.bn_params[7],
+                                                        mean,
+                                                        var,
+                                                        layer_no=7,
+                                                        save_txt=self.save_txt,
+                                                        save_hex=self.save_hex,
+                                                        phase=self.phase,
+                                                        )
+            
+            #8
+            conv_param['pad'] = 0
+            temp_Out[8], temp_cache['8'] = Torch_FastConvWB.forward(Out[7],
+                                                                self.params['W8'],
+                                                                self.params['b8'],
+                                                                conv_param,
+                                                                layer_no=8,
+                                                                save_txt=False,
+                                                                save_hex=False,
+                                                                phase=self.phase)
+
+            mean, var = Cal_mean_var.forward(temp_Out[8], layer_no=8, save_txt=False, save_hex=False, phase=self.phase)
+
+            Out[8], cache['8'] = Torch_FastConvWB.forward(Out[7],
+                                                    self.params["W8"],
+                                                    self.params["b8"],
+                                                    conv_param,
+                                                    layer_no=8,
+                                                    save_txt=self.save_txt,
+                                                    save_hex=self.save_hex,
+                                                    phase=self.phase,
+                                                    )
+
+
+            out = Out[8]
+            # print('\n\nFwd Out', out.dtype, out[out != 0], '\n\n')
+
+            return out, cache, Out
+            # pass #Add code by Wathna
         if self.mode == "Python"    : 
-            pass #Add code by Wathna
+            if self.batchnorm:
+                for bn_params in self.bn_params:
+                    bn_params['mode'] = 'test'
+            
+            self.save_txt = False
+            self.save_hex = False
+
+            scores = None
+            # pass conv_param to the forward pass for the convolutional layer
+            # Padding and stride chosen to preserve the input spatial size
+            filter_size = 3
+            conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
+
+            # pass pool_param to the forward pass for the max-pooling layer
+            pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
+
+            scores = None
+            # pass conv_param to the forward pass for the convolutional layer
+            # Padding and stride chosen to preserve the input spatial size
+            filter_size = 3
+            conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
+
+            # pass pool_param to the forward pass for the max-pooling layer
+            pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
+
+            scores = None
+
+            slowpool_param = {'pool_height':2, 'pool_width':2, 'stride': 1}
+            cache = {}
+            Out={}
+            self.phase='Forward'
+            
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            #   X = convert_to_16(self, X)
+            Out[0], cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.forward(X                      , 
+                                                                        self.params['W0']       , 
+                                                                        self.params['gamma0']   , 
+                                                                        self.params['beta0']    , 
+                                                                        conv_param              , 
+                                                                        self.bn_params[0]       ,
+                                                                        pool_param              ,
+                                                                        layer_no= 0             , 
+                                                                        save_txt= self.save_txt , 
+                                                                        save_hex= self.save_hex ,
+                                                                        phase   = self.phase    ,
+                                                                        args = self  ,
+                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            # Out[0] = convert_to_16(self, Out[0])
+            Out[1], cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[0]                 , 
+                                                                        self.params['W1']       , 
+                                                                        self.params['gamma1']   , 
+                                                                        self.params['beta1']    , 
+                                                                        conv_param              , 
+                                                                        self.bn_params[1]       ,
+                                                                        pool_param              ,
+                                                                        layer_no= 1             , 
+                                                                        save_txt= self.save_txt , 
+                                                                        save_hex= self.save_hex ,
+                                                                        phase   = self.phase    ,
+                                                                        args = self  ,
+                                                                        )
+
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            # Out[1] = convert_to_16(self, Out[1])
+            Out[2], cache['2'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[1]                 , 
+                                                                        self.params['W2']       , 
+                                                                        self.params['gamma2']   , 
+                                                                        self.params['beta2']    , 
+                                                                        conv_param              , 
+                                                                        self.bn_params[2]       ,
+                                                                        pool_param              ,
+                                                                        layer_no= 2             , 
+                                                                        save_txt= self.save_txt , 
+                                                                        save_hex= self.save_hex ,
+                                                                        phase   = self.phase    ,
+                                                                        args = self  ,
+                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            #   Out[2] = convert_to_16(self, Out[2])
+            Out[3], cache['3'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[2]                 , 
+                                                                        self.params['W3']       , 
+                                                                        self.params['gamma3']   , 
+                                                                        self.params['beta3']    , 
+                                                                        conv_param              , 
+                                                                        self.bn_params[3]       ,
+                                                                        pool_param              ,
+                                                                        layer_no= 3             , 
+                                                                        save_txt= self.save_txt , 
+                                                                        save_hex= self.save_hex ,
+                                                                        phase   = self.phase    ,
+                                                                        args = self  ,
+                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            #   Out[3] = convert_to_16(self, Out[3])
+            Out[4], cache['4'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[3]                 , 
+                                                                        self.params['W4']       , 
+                                                                        self.params['gamma4']   , 
+                                                                        self.params['beta4']    , 
+                                                                        conv_param              , 
+                                                                        self.bn_params[4]       ,
+                                                                        pool_param              ,
+                                                                        layer_no= 4             , 
+                                                                        save_txt= self.save_txt , 
+                                                                        save_hex= self.save_hex ,
+                                                                        phase   = self.phase    ,
+                                                                        args = self  ,
+                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            #   Out[4] = convert_to_16(self, Out[4])
+            Out[5], cache['5'] = Python_Conv_BatchNorm_ReLU.forward     (Out[4]                 , 
+                                                                        self.params['W5']       , 
+                                                                        self.params['gamma5']   , 
+                                                                        self.params['beta5']    , 
+                                                                        conv_param              , 
+                                                                        self.bn_params[5]       ,
+                                                                        layer_no= 5             , 
+                                                                        save_txt= self.save_txt , 
+                                                                        save_hex= self.save_hex ,
+                                                                        phase   = self.phase    ,
+                                                                        args = self  ,
+                                                                        )
+            
+            
+            # save_file('Input' , Out[5], module='Pad', layer_no=6, save_hex=self.save_hex, save_txt=self.save_txt, phase=self.phase)
+            # Out[60]            = F.pad                                  (Out[5] , (0, 1, 0, 1))
+            # save_file('Output', Out[60], module='Pad', layer_no=6, save_hex=self.save_hex, save_txt=self.save_txt, phase=self.phase)
+            
+            # Out[61],cache['60']= Python_MaxPool.forward                 (Out[60]                , 
+            #                                                             slowpool_param          ,
+            #                                                             layer_no= 6            , 
+            #                                                             save_txt= self.save_txt , 
+            #                                                             save_hex= self.save_hex ,
+            #                                                             phase   = self.phase    ,
+            #                                                             )
+            
+            # Out[6], cache['6'] = Python_Conv_BatchNorm_ReLU.forward     (Out[61]                , 
+            
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            #   Out[5] = convert_to_16(self, Out[5])
+            Out[6], cache['6'] = Python_Conv_BatchNorm_ReLU.forward     (Out[5]                , 
+                                                                        self.params['W6']       , 
+                                                                        self.params['gamma6']   , 
+                                                                        self.params['beta6']    , 
+                                                                        conv_param              , 
+                                                                        self.bn_params[6]       ,
+                                                                        layer_no= 6             , 
+                                                                        save_txt= self.save_txt , 
+                                                                        save_hex= self.save_hex ,
+                                                                        phase   = self.phase    ,
+                                                                        args = self  ,
+                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            #   Out[6] = convert_to_16(self, Out[6])
+            Out[7], cache['7'] = Python_Conv_BatchNorm_ReLU.forward     (Out[6]                 , 
+                                                                        self.params['W7']       , 
+                                                                        self.params['gamma7']   , 
+                                                                        self.params['beta7']    , 
+                                                                        conv_param              , 
+                                                                        self.bn_params[7]       ,
+                                                                        layer_no= 7             , 
+                                                                        save_txt= self.save_txt , 
+                                                                        save_hex= self.save_hex ,
+                                                                        phase   = self.phase    ,
+                                                                        args = self  ,
+                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            #   Out[7] = convert_to_16(self, Out[7])
+            conv_param['pad']  = 0
+            Out[8], cache['8'] = Python_ConvB.forward                   (Out[7]                 , 
+                                                                        self.params['W8']       , 
+                                                                        self.params['b8']       , 
+                                                                        conv_param              ,
+                                                                        layer_no=8              , 
+                                                                        save_txt=self.save_txt  , 
+                                                                        save_hex=self.save_hex  ,
+                                                                        phase   = self.phase    ,
+                                                                        args = self  ,
+                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+            #   Out[8] = convert_to_16(self, Out[8])
+            out = Out[8]
+            
+            print('\n\nFwd Out', out.dtype, out[out!=0],'\n\n')
+            
+            return out, cache, Out
         if self.mode == "Simulation": # Add Code By Thaising
             Weight_Tensor = self.Weight_Dec
             Gamma_Tensor = self.Gamma_Dec
@@ -1135,8 +1654,95 @@ class App(customtkinter.CTk):
             self.change_color_red()
     
     def Calculate_Loss(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
+        if self.mode == "Pytorch"   :
+            print('Calculating the loss and its gradients for pytorch model.')
+            out = torch.tensor(out, requires_grad=True)
+
+            scores = out
+            bsize, _, h, w = out.shape
+            out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)
+
+            xy_pred = torch.sigmoid(out[:, :, 0:2])
+            conf_pred = torch.sigmoid(out[:, :, 4:5])
+            hw_pred = torch.exp(out[:, :, 2:4])
+            class_score = out[:, :, 5:]
+            class_pred = F.softmax(class_score, dim=-1)
+            delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
+
+
+            output_variable = (delta_pred, conf_pred, class_score)
+            output_data = [v.data for v in output_variable]
+            gt_data = (gt_boxes, gt_classes, num_boxes)
+            target_data = build_target(output_data, gt_data, h, w)
+
+            target_variable = [v for v in target_data]
+
+            box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
+            loss = box_loss + iou_loss + class_loss
+            
+            print(f"\nLoss = {loss}\n")
+            out = scores
+            out.retain_grad()
+            loss.backward(retain_graph=True)
+            dout = out.grad.detach()
+            # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
+            # dout = pickle.load(dout)
+            # print('\n\n',dout.dtype, dout[dout!=0])
+            print(f'\n\nLoss Gradients\n\t{dout.dtype}\n\t{dout[dout!=0][:10]}')
+            
+            # # Save output for circuit team and pickle for future.
+            # if self.save_pickle:
+            #   Path("Temp_Files/Python").mkdir(parents=True, exist_ok=True)
+            #   with open('Temp_Files/Python/Backward_loss_gradients.pickle','wb') as handle:
+            #     pickle.dump(dout,handle, protocol=pickle.HIGHEST_PROTOCOL)
+            # if self.save_output:
+            #   Path("Outputs/Python/Backward/").mkdir(parents=True, exist_ok=True)
+            #   save_file(f'Outputs/Python/Backward/Backward_loss_gradients.txt', dout)
+            #   # save_file(f'Outputs/Python/Backward/Loss.txt', loss)
+                
+            # if self.convert_to_fp16 and self.convert_loss_grad:
+            #   dout = convert_to_16(self, dout)
+            #   loss = convert_to_16(self, loss)
+            return loss, dout
+        
+        if self.mode == "Python"    :
+            print('Calculating the loss and its gradients for python model.')
+            out = torch.tensor(out, requires_grad=True)
+
+            scores = out
+            bsize, _, h, w = out.shape
+            out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)
+
+            xy_pred = torch.sigmoid(out[:, :, 0:2])
+            conf_pred = torch.sigmoid(out[:, :, 4:5])
+            hw_pred = torch.exp(out[:, :, 2:4])
+            class_score = out[:, :, 5:]
+            class_pred = F.softmax(class_score, dim=-1)
+            delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
+
+
+            output_variable = (delta_pred, conf_pred, class_score)
+            output_data = [v.data for v in output_variable]
+            gt_data = (gt_boxes, gt_classes, num_boxes)
+            target_data = build_target(output_data, gt_data, h, w)
+
+            target_variable = [v for v in target_data]
+
+            box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
+            loss = box_loss + iou_loss + class_loss
+            
+            print(f"\nLoss = {loss}\n")
+            out = scores
+            out.retain_grad()
+            loss.backward(retain_graph=True)
+            dout = out.grad.detach()
+            # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
+            # dout = pickle.load(dout)
+            # print('\n\n',dout.dtype, dout[dout!=0])
+            print(f'\n\nLoss Gradients\n\t{dout.dtype}\n\t{dout[dout!=0][:10]}')
+            
+            return loss, dout
+        
         if self.mode == "Simulation": # Add By Thaising
                 
             OutImage_Data=self.Output_Image
@@ -1161,8 +1767,288 @@ class App(customtkinter.CTk):
         pass
      
     def Backward(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
+        if self.mode == "Pytorch"   :
+            grads = {}
+            dOut = {}
+            self.save_txt = False
+            self.save_hex = False
+            self.phase = 'Backwards'
+            
+            dOut[8], grads['W8'], grads['b8'] = Torch_FastConvWB.backward(dout,
+                                                                    cache['8'],
+                                                                    layer_no=8,
+                                                                    save_txt=True,
+                                                                    save_hex=True,
+                                                                    phase=self.phase)
+            dw, db = grads['W8'], grads['b8'] 
+            last_dout = dOut[8]
+            
+            dOut[7], grads['W7'], grads['gamma7'], grads['beta7'] = Torch_Conv_BatchNorm_ReLU.backward(
+                dOut[8],
+                cache['7'],
+                layer_no=7,
+                save_txt=self.save_txt,
+                save_hex=self.save_hex,
+                phase=self.phase,
+            )
+
+        
+
+            dOut[6], grads['W6'], grads['gamma6'], grads['beta6'] = Torch_Conv_BatchNorm_ReLU.backward(
+                dOut[7],
+                cache['6'],
+                layer_no=6,
+                save_txt=self.save_txt,
+                save_hex=self.save_hex,
+                phase=self.phase,
+            )
+
+            dOut[5], grads['W5'], grads['gamma5'], grads['beta5'] = Torch_Conv_BatchNorm_ReLU.backward(
+                dOut[6],
+                cache['5'],
+                layer_no=5,
+                save_txt=self.save_txt,
+                save_hex=self.save_hex,
+                phase=self.phase,
+            )
+
+            dOut[4], grads['W4'], grads['gamma4'], grads['beta4'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+                dOut[5],
+                cache['4'],
+                layer_no=4,
+                save_txt=self.save_txt,
+                save_hex=self.save_hex,
+                phase=self.phase,
+            )
+
+            dOut[3], grads['W3'], grads['gamma3'], grads['beta3'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+                dOut[4],
+                cache['3'],
+                layer_no=3,
+                save_txt=self.save_txt,
+                save_hex=self.save_hex,
+                phase=self.phase,
+            )
+
+            dOut[2], grads['W2'], grads['gamma2'], grads['beta2'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+                dOut[3],
+                cache['2'],
+                layer_no=2,
+                save_txt=self.save_txt,
+                save_hex=self.save_hex,
+                phase=self.phase,
+            )
+
+            dOut[1], grads['W1'], grads['gamma1'], grads['beta1'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+                dOut[2],
+                cache['1'],
+                layer_no=1,
+                save_txt=self.save_txt,
+                save_hex=self.save_hex,
+                phase=self.phase,
+            )
+
+            dOut[0], grads['W0'], grads['gamma0'], grads['beta0'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+                dOut[1],
+                cache['0'],
+                layer_no=0,
+                save_txt=self.save_txt,
+                save_hex=self.save_hex,
+                phase=self.phase,
+            )
+
+            return dOut, grads
+        if self.mode == "Python"    :
+            grads = {}
+            dOut={}
+            self.save_hex = False
+            self.save_txt = False
+            self.phase ='Backwards'
+
+            dOut[8], grads['W8'], grads['b8']                     = Python_ConvB.backward(                dout,  
+                                                                                                        cache['8'], 
+                                                                                                        layer_no=8              , 
+                                                                                                        save_txt=self.save_txt  , 
+                                                                                                        save_hex=self.save_hex  ,
+                                                                                                        phase   = self.phase    ,
+                                                                                                        args = self ,)
+                
+            # if self.convert_to_fp16 and self.convert_backward and self.convert_layer_IpOp:
+            #   dOut[8]     = convert_to_16(self, dOut[8])
+            #   grads['W8'] = convert_to_16(self, grads['W8'])
+            #   grads['b8'] = convert_to_16(self, grads['b8'])
+            
+            
+            # last_dout = 2 * last_dout
+            # dw        = 2 * dw
+            # db        = 2 * db
+
+            # dw, db = grads['W8'], grads['b8']
+            # print(f'\n\tdw8\n\t\t{dw.shape}\n\t\t{dw[dw!=0]}\n\t\t{dw.dtype}')
+            # print(f'\n\tdb8\n\t\t{db.shape}\n\t\t{db[db!=0]}\n\t\t{db.dtype}')
+            # print(f'\n\tlast_dout\n\t\t{dOut[8].shape}\n\t\t{dOut[8][dOut[8]!=0]}\n\t\t{dOut[8].dtype}')
+
+            # print(f'\n\nBackward Grads Outputs')   
+            # print(f"\n\t grads['W8']\n\t\t{grads['W8'].shape}\n\t\t{grads['W8'][grads['W8']!=0]}\n")
+
+
+            dOut[7], grads['W7'], grads['gamma7'], grads['beta7']  = Python_Conv_BatchNorm_ReLU.backward( 
+                                                                                                        dOut[8]                 , 
+                                                                                                        cache['7']              , 
+                                                                                                        layer_no=7              , 
+                                                                                                        save_txt=self.save_txt  , 
+                                                                                                        save_hex=self.save_hex  ,
+                                                                                                        phase   = self.phase    ,
+                                                                                                        args = self ,
+                                                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_backward and self.convert_layer_IpOp:
+            #   dOut[7]     = convert_to_16(self, dOut[7])
+            #   grads['W7'] = convert_to_16(self, grads['W7'])
+            #   grads['gamma7'] = convert_to_16(self, grads['gamma7'])
+            #   grads['beta7'] = convert_to_16(self, grads['beta7'])
+
+
+            dOut[6], grads['W6'], grads['gamma6'], grads['beta6']  = Python_Conv_BatchNorm_ReLU.backward( 
+                                                                                                        dOut[7]                 , 
+                                                                                                        cache['6']              , 
+                                                                                                        layer_no=6              , 
+                                                                                                        save_txt=self.save_txt  , 
+                                                                                                        save_hex=self.save_hex  ,
+                                                                                                        phase   = self.phase    ,
+                                                                                                        args = self ,
+                                                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_backward and self.convert_layer_IpOp:
+            #   dOut[6]     = convert_to_16(self, dOut[6])
+            #   grads['W6'] = convert_to_16(self, grads['W6'])
+            #   grads['gamma6'] = convert_to_16(self, grads['gamma6'])
+            #   grads['beta6'] = convert_to_16(self, grads['beta6'])
+
+
+            dOut[5], grads['W5'], grads['gamma5'], grads['beta5']  = Python_Conv_BatchNorm_ReLU.backward( 
+                                                                                                        dOut[6]                 , 
+                                                                                                        cache['5']              , 
+                                                                                                        layer_no=5              , 
+                                                                                                        save_txt=self.save_txt  , 
+                                                                                                        save_hex=self.save_hex  ,
+                                                                                                        phase   = self.phase    ,
+                                                                                                        args = self ,
+                                                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_backward and self.convert_layer_IpOp:
+            #   dOut[5]     = convert_to_16(self, dOut[5])
+            #   grads['W5'] = convert_to_16(self, grads['W5'])
+            #   grads['gamma5'] = convert_to_16(self, grads['gamma5'])
+            #   grads['beta5'] = convert_to_16(self, grads['beta5'])
+
+
+            dOut[4], grads['W4'], grads['gamma4'], grads['beta4']  = Python_Conv_BatchNorm_ReLU_Pool.backward( 
+                                                                                                        dOut[5]                 , 
+                                                                                                        cache['4']              , 
+                                                                                                        layer_no=4              , 
+                                                                                                        save_txt=self.save_txt  , 
+                                                                                                        save_hex=self.save_hex  ,
+                                                                                                        phase   = self.phase    ,
+                                                                                                        args = self ,
+                                                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_backward and self.convert_layer_IpOp:
+            #   dOut[4]     = convert_to_16(self, dOut[4])
+            #   grads['W4'] = convert_to_16(self, grads['W4'])
+            #   grads['gamma4'] = convert_to_16(self, grads['gamma4'])
+            #   grads['beta4'] = convert_to_16(self, grads['beta4'])
+
+
+            dOut[3], grads['W3'], grads['gamma3'], grads['beta3']  = Python_Conv_BatchNorm_ReLU_Pool.backward( 
+                                                                                                        dOut[4]                 , 
+                                                                                                        cache['3']              , 
+                                                                                                        layer_no=3              , 
+                                                                                                        save_txt=self.save_txt  , 
+                                                                                                        save_hex=self.save_hex  ,
+                                                                                                        phase   = self.phase    ,
+                                                                                                        args = self ,
+                                                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_backward and self.convert_layer_IpOp:
+            #   dOut[3]     = convert_to_16(self, dOut[3])
+            #   grads['W3'] = convert_to_16(self, grads['W3'])
+            #   grads['gamma3'] = convert_to_16(self, grads['gamma3'])
+            #   grads['beta3'] = convert_to_16(self, grads['beta3'])
+
+
+            dOut[2], grads['W2'], grads['gamma2'], grads['beta2']  = Python_Conv_BatchNorm_ReLU_Pool.backward( 
+                                                                                                        dOut[3]                 , 
+                                                                                                        cache['2']              , 
+                                                                                                        layer_no=2              , 
+                                                                                                        save_txt=self.save_txt  , 
+                                                                                                        save_hex=self.save_hex  ,
+                                                                                                        phase   = self.phase    ,
+                                                                                                        args = self ,
+                                                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_backward and self.convert_layer_IpOp:
+            #   dOut[2]     = convert_to_16(self, dOut[2])
+            #   grads['W2'] = convert_to_16(self, grads['W2'])
+            #   grads['gamma2'] = convert_to_16(self, grads['gamma2'])
+            #   grads['beta2'] = convert_to_16(self, grads['beta2'])
+
+
+            dOut[1], grads['W1'], grads['gamma1'], grads['beta1']  = Python_Conv_BatchNorm_ReLU_Pool.backward( 
+                                                                                                        dOut[2]                 , 
+                                                                                                        cache['1']              , 
+                                                                                                        layer_no=1              , 
+                                                                                                        save_txt=self.save_txt  , 
+                                                                                                        save_hex=self.save_hex  ,
+                                                                                                        phase   = self.phase    ,
+                                                                                                        args = self ,
+                                                                                                        )
+            
+            # if self.convert_to_fp16 and self.convert_backward and self.convert_layer_IpOp:
+            #   dOut[1]     = convert_to_16(self, dOut[1])
+            #   grads['W1'] = convert_to_16(self, grads['W1'])
+            #   grads['gamma1'] = convert_to_16(self, grads['gamma1'])
+            #   grads['beta1'] = convert_to_16(self, grads['beta1'])
+
+
+            dOut[0], grads['W0'], grads['gamma0'], grads['beta0']  = Python_Conv_BatchNorm_ReLU_Pool.backward( 
+                                                                                                        dOut[1]                 , 
+                                                                                                        cache['0']              , 
+                                                                                                        layer_no=0              , 
+                                                                                                        save_txt=self.save_txt  , 
+                                                                                                        save_hex=self.save_hex  ,
+                                                                                                        phase   = self.phase    ,
+                                                                                                        args = self ,
+                                                                                                        )
+            # if self.convert_to_fp16 and self.convert_backward and self.convert_layer_IpOp:
+            #   dOut[0]     = convert_to_16(self, dOut[0])
+            #   grads['W0'] = convert_to_16(self, grads['W0'])
+            #   grads['gamma0'] = convert_to_16(self, grads['gamma0'])
+            #   grads['beta0'] = convert_to_16(self, grads['beta0'])
+
+
+            
+            # # Sa =     convert_to_16(self, 
+            # # Sa
+
+                
+            # # Save pickle files for future use
+            # if self.save_pickle:
+            #   Path("Temp_Files/Python/").mkdir(parents=True, exist_ok=True)
+            #   with open('Temp_Files/Python/Backward_dOut.pickle','wb') as handle:
+            #     pickle.dump(dOut,handle, protocol=pickle.HIGHEST_PROTOCOL)
+            #   with open('Temp_Files/Python/Backward_grads.pickle','wb') as handle:
+            #     pickle.dump(grads,handle, protocol=pickle.HIGHEST_PROTOCOL)
+                
+            # if self.save_output:
+            #   Path("Outputs/Python/Backward/").mkdir(parents=True, exist_ok=True)
+            #   for _key in dOut.keys():
+            #     save_file(f'Outputs/Python/Backward/dOut_Layer_{_key}.txt', dOut[_key])
+            #   for _key in grads.keys():
+            #     save_file(f'Outputs/Python/Backward/grads_Layer_{_key}.txt', grads[_key])
+                
+                
+            return  dOut, grads
         if self.mode == "Simulation": # Add By Thaising
             Loss_Gradient, cache = self.Loss_Gradient, self.cache
             Input_Grad_Layer8, Weight_Gradient_Layer8, Bias_Grad  = Torch_FastConvWB.backward(Loss_Gradient, cache['8'])
