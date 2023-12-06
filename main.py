@@ -756,7 +756,6 @@ class App(customtkinter.CTk):
     def Run_Train(self):  
         print(f"Start Training")
         self.Show_Text(f"Start Training")
-        
         print(f'Mode : {self.mode}')
         
         self.parse_args()
@@ -764,28 +763,21 @@ class App(customtkinter.CTk):
         self.Create_Output_Dir()
         self.Load_Weights()
         self.Load_Dataset()
-        
-        # To keep a record of weights with best mAP  
-        self.max_map, self.best_map_score, self.best_map_epoch, self.best_map_loss = 0, -1, -1, -1
 
-        for epoch in range(self.args.start_epoch, self.args.max_epochs):
-            self.epoch = epoch
-            
-            self.Adjust_Learning_Rate()
-            
+        for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
             self.train_data_iter = iter(self.small_dataloader)
+            self.Adjust_Learning_Rate()
             
-            for step in tqdm(range(self.iters_per_epoch), desc=f"Training for Epoch {epoch}", total=self.iters_per_epoch):
+            for step in tqdm(range(self.iters_per_epoch), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch):
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-                
                 self.Before_Forward()
                 self.Forward()
                 self.Calculate_Loss()
                 self.Before_Backward()
                 self.Backward()
                 self.Weight_Update() 
-
+                
             self.Check_mAP()
             self.Save_Pickle()
         
@@ -876,6 +868,9 @@ class App(customtkinter.CTk):
         return dataset
     
     def Pre_Process(self):
+        # To keep a record of weights with best mAP  
+        self.max_map, self.best_map_score, self.best_map_epoch, self.best_map_loss = 0, -1, -1, -1
+        
         if self.mode=="Pytorch": 
             self.PreProcessing = Pre_Processing(Mode =   self.Mode,
                                 Brain_Floating_Point =   self.Brain_Floating_Point,
@@ -921,7 +916,7 @@ class App(customtkinter.CTk):
             self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
             
             # Initialize Pre-Trained Weight
-            Shoaib = Shoaib_Code(
+            self.Shoaib = Shoaib_Code(
                 Weight_Dec=self.Weight_Dec, 
                 Bias_Dec=self.Bias_Dec, 
                 Beta_Dec=self.Beta_Dec, 
@@ -934,7 +929,7 @@ class App(customtkinter.CTk):
                 optim=optim)
 
             # Loading Weight From pth File: 
-            self.update_weights(Shoaib.load_weights())
+            self.update_weights(self.Shoaib.load_weights())
             
         if self.mode == "FPGA"      : 
             # Code by GiTae 
@@ -966,7 +961,6 @@ class App(customtkinter.CTk):
             self.e = time.time()
             print("Data Loader : ",self.e-self.s)
             self.iters_per_epoch = int(len(self.small_dataset) / self.args.batch_size)
-            
         if self.mode == "FPGA"      : 
             # Code by GiTae : 
             self.imdb_name = 'voc_2007_trainval+voc_2012_trainval'
@@ -1002,6 +996,7 @@ class App(customtkinter.CTk):
                 self.learning_rate = 0.0000001
             
     def Before_Forward(self):
+        # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
@@ -1207,19 +1202,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": # Add By Thaising
-            Shoaib = Shoaib_Code(
-                Weight_Dec=self.Weight_Dec, 
-                Bias_Dec=self.Bias_Dec, 
-                Beta_Dec=self.Beta_Dec, 
-                Gamma_Dec=self.Gamma_Dec,
-                Running_Mean_Dec=self.Running_Mean_Dec, 
-                Running_Var_Dec=self.Running_Var_Dec,
-                args=self.args,
-                pth_weights_path="/data/Circuit_Team/Thaising/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
-                model=Yolov2,
-                optim=optim)
             [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], self.custom_model = \
-            Shoaib.update_weights_FPGA(
+            self.Shoaib.update_weights_FPGA(
                 Inputs  = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], 
                 gInputs = [self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient ])
         if self.mode == "FPGA"      : pass
@@ -1262,21 +1246,9 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": 
-            Shoaib = Shoaib_Code(
-                Weight_Dec=self.Weight_Dec, 
-                Bias_Dec=self.Bias_Dec, 
-                Beta_Dec=self.Beta_Dec, 
-                Gamma_Dec=self.Gamma_Dec,
-                Running_Mean_Dec=self.Running_Mean_Dec, 
-                Running_Var_Dec=self.Running_Var_Dec,
-                args=self.args,
-                pth_weights_path="/data/Circuit_Team/Thaising/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
-                model=Yolov2,
-                optim=optim)
-            self.map = Shoaib.cal_mAP(Inputs_with_running = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, 
-                                                             self.Running_Mean_Dec, self.Running_Var_Dec])
+            self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
+                [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec])
         if self.mode == "FPGA"      : pass
-        pass
     
     def Post_Epoch(self):
         if self.mode == "Pytorch"   : pass
