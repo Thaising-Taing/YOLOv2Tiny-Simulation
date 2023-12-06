@@ -450,15 +450,6 @@ def data_32_to_16(data):
     return formatted_data
 
 class YOLOv2_Tiny_FPGA(object):
-    
-    # def __init__(self, Weight_Dec, Bias_Dec, Beta_Dec, Gamma_Dec, Running_Mean_Dec, Running_Var_Dec, Image):
-    #     self.Weight_Dec = Weight_Dec
-    #     self.Bias_Dec = Bias_Dec
-    #     self.Beta_Dec = Beta_Dec
-    #     self.Gamma_Dec = Gamma_Dec
-    #     self.Running_Mean_Dec = Running_Mean_Dec
-    #     self.Running_Var_Dec = Running_Var_Dec
-    #     self.Image = Image
 
     def __init__(self, Weight_Dec, Bias_Dec, Beta_Dec, Gamma_Dec, Running_Mean_Dec, Running_Var_Dec, Image, app_instance):
         self.Weight_Dec = Weight_Dec
@@ -473,7 +464,7 @@ class YOLOv2_Tiny_FPGA(object):
         self.custom_optimizer = optim.SGD(self.custom_model.parameters(), lr=0.001, momentum=0.001, weight_decay=0.001)
 
         
-    def Forward(self, data, gt_boxes, gt_classes, num_boxes):
+    def Forward(self, data):
         global layer0_cache, layer1_cache, layer2_cache, layer3_cache, layer4_cache, layer5_cache, layer6_cache, layer7_cache
         start = time.time()
         #################################################
@@ -2787,6 +2778,9 @@ class YOLOv2_Tiny_FPGA(object):
         #################################################
         #                Layer 8 Start                  #
         #################################################
+    
+    # Modified By Thaising
+    def Post_Processing(self, data, gt_boxes, gt_classes, num_boxes):
         # check Layer8 IRQ
         check_irq_otherlayer()
         # self.app_instance .change_color(self.app_instance.L9_IRQ_canvas, self.app_instance.L9_IRQ, "green")
@@ -3023,7 +3017,12 @@ class YOLOv2_Tiny_FPGA(object):
             for item in (Loss_Gradient):
                 output_file_2.write(str(item) + "\n")        
         output_file_1.close()
-        output_file_2.close()     
+        output_file_2.close()
+        
+        return Loss, Loss_Gradient
+    
+    # Modified By Thaising
+    def Pre_Processing_Backward(self, data, Loss_Gradient):     
                 
             # print(f"Loss Calculation Time: {(Loss_Calculation_Time):.2f} s\n")
         '''
@@ -3058,6 +3057,7 @@ class YOLOv2_Tiny_FPGA(object):
         # if YOLOv2_Hardware_Backward:
         # Weight_Backward_Layer8 for Soft2Hardware
         # if epoch == 0:
+        layer8_start = time.time()
         s = time.time()
         Weight_Backward_Layer8 = Weight_Hardware_Backward_ReOrdering_Layer8(128, 1024, data.Weight_Bfloat[8]+["0000"]*3072, ["0000"]*128, ["0000"]*128)
         e = time.time()
@@ -3149,12 +3149,11 @@ class YOLOv2_Tiny_FPGA(object):
         '''    
 
         # Bias Gradient Calculation
-        Bias_Grad = torch.sum(Loss_Gradient, dim=(0, 2, 3))   
-        return Bias_Grad
+        # Bias_Grad = torch.sum(Loss_Gradient, dim=(0, 2, 3))   
+        # return Bias_Grad
         # return Loss
         
-
-       
+     
     def Forward_Inference(self, data):
 
         #################################################
@@ -3257,13 +3256,16 @@ class YOLOv2_Tiny_FPGA(object):
 
 
 
-    def Backward(self, data):
+    def Backward(self, data, Loss_Gradient):
+        
+        Bias_Grad = torch.sum(Loss_Gradient, dim=(0, 2, 3)) 
+         
         Blayer8_start = time.time()
         #################################################
         #             Backward Layer 8 Start            #
         #################################################
         global Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, Weight_Gradient_Layer4,\
-            Weight_Gradient_Layer5, Weight_Gradient_Layer6, Weight_Gradient_Layer7, Weight_Gradient_Layer8, Bias_Grad
+            Weight_Gradient_Layer5, Weight_Gradient_Layer6, Weight_Gradient_Layer7, Weight_Gradient_Layer8
         global dL_dgamma_7, dL_dbeta_7, dL_dgamma_6, dL_dbeta_6, dL_dgamma_5, dL_dbeta_5, dL_dgamma_4, dL_dbeta_4, dL_dgamma_3, dL_dbeta_3, dL_dgamma_2, dL_dbeta_2, \
             dL_dgamma_1, dL_dbeta_1, dL_dgamma_0, dL_dbeta_0
         
@@ -6781,30 +6783,7 @@ class YOLOv2_Tiny_FPGA(object):
         # pdb.set_trace() 
         resume()
         
-        return Weight_Gradient, Beta_Gradient, Gamma_Gradient
-
-
-    # def Weight_Update(self, lr):
-    #         # Temporarily Disable Gradient Computation
-    #         with torch.no_grad():
-    #             for i in range(8):
-    #                 self.Weight_Dec[i] -= lr * Weight_Gradient[i]
-    #                 self.Beta_Dec[i] -= lr * Beta_Gradient[i].reshape(-1) # Reshaping into 1-D Array
-    #                 self.Gamma_Dec[i] -= lr * Gamma_Gradient[i].reshape(-1) # Reshaping into 1-D Array
-    #             self.Weight_Dec[8] -= lr * Weight_Gradient[8]
-    #             self.Bias_Dec -= lr * Bias_Grad
-    #         return self.Weight_Dec, self.Beta_Dec, self.Gamma_Dec, self.Bias_Dec
-    def Weight_Update(self, Inputs, gInputs, lr):
-    
-        # Update weights using given weights, bias and their gradients
-        [ Weight, Bias, Gamma_WeightBN, BetaBN] = update_weights_FPGA(Inputs, gInputs, self.custom_model, self.custom_optimizer)
-        
-        self.Weight_Dec = Weight       
-        self.Bias_Dec   = Bias     
-        self.Gamma_Dec  = Gamma_WeightBN      
-        self.Beta_Dec   = BetaBN     
-            
-        return self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec
+        return Weight_Gradient, Bias_Grad, Beta_Gradient, Gamma_Gradient
     
 
     def Write_Weight(self, data):

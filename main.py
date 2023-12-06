@@ -8,7 +8,7 @@ from PIL import Image, ImageTk
 from pypcie import Device
 from ast import literal_eval
 import subprocess
-
+import tqdm
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -42,8 +42,8 @@ from torch.utils.data import DataLoader
 import pickle
 from Post_Processing_Scratch.Post_Processing_2Iterations_Training_Inference import *
 from Detection.Detection import *
-from Weight_Update_Algorithm.weight_update import *
-from Weight_Update_Algorithm.yolov2_tiny import *
+from Weight_Update_Algorithm.Shoaib import Shoaib_Code
+from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 
 from GiTae_Functions import *
@@ -450,8 +450,6 @@ class App(customtkinter.CTk):
         self.textbox.update_idletasks()
 
 
-
-
     # Select Modes
     def Mode1_click(self):
         self.mode =  "Pytorch"
@@ -741,8 +739,9 @@ class App(customtkinter.CTk):
         self.bar = self.d.bar[0]
         #self.textbox.insert("0.0", "CTkTextbox\n\n" )
 
-        #microcode = Microcode("mic_2iteration_forward_hex_add_0x.txt") 
-        microcode = Microcode("src/GiTae/MICROCODE.txt")
+        microcode = Microcode("src/GiTae/Forward.txt") 
+        #microcode = Microcode("src/GiTae/MICROCODE.txt")
+        
 
         for i in range (0, len(microcode)):
             self.bar.write(0x4, microcode[i]) # wr mic
@@ -770,34 +769,21 @@ class App(customtkinter.CTk):
             
             self.whole_process_start = time.time()
             self.train_data_iter = iter(self.small_dataloader)
-            if self.mode == "FPGA":
-                for step in range(self.iters_per_epoch):
-                    self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-                    
-                    self.Before_Forward()
-                    Bias_Grad_ = self.Forward()
-                    self.Loss()
-                    self.Before_Backward()
-                    Weight_Gradient_, Beta_Gradient_, Gamma_Gradient_ = self.Backward()
-                    self.Weight_Update(Bias_Grad=Bias_Grad_ ,Weight_Gradient=Weight_Gradient_, Beta_Gradient=Beta_Gradient_, Gamma_Gradient=Gamma_Gradient_) 
+            
+            for step in tqdm(range(self.iters_per_epoch), desc=f"Training for Epoch {epoch}", total=self.iters_per_epoch):
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
+                
+                self.Before_Forward()
+                self.Forward()
+                self.Calculate_Loss()
+                self.Before_Backward()
+                self.Backward()
+                self.Weight_Update() 
 
-                self.Save_Pickle()
-                self.Check_mAP()
-                self.Post_Epoch()
-            else :    
-                for step in range(self.iters_per_epoch):
-                    self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-                    
-                    self.Before_Forward()
-                    self.Forward()
-                    self.Loss()
-                    self.Before_Backward()
-                    self.Backward()
-                    self.Weight_Update()
-                    
-                self.Save_Pickle()
-                self.Check_mAP()
-                self.Post_Epoch()
+            self.Check_mAP()
+            self.Save_Pickle()
+            
+        self.Post_Epoch()
 
     def Run_Infer(self):
         self.Train.configure(state="disabled")
@@ -806,7 +792,7 @@ class App(customtkinter.CTk):
         self.Stop.configure(state="normal")
         self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         print(f"Start Inference")
-        self.Show_Text(f"Start Inference")
+        self.Show_Text(f"Start Inference")      
         pass      
         
     def Stop_Process(self):
@@ -833,8 +819,6 @@ class App(customtkinter.CTk):
         self.bar.write(0x14, 0x00000000) # axi rd en low
         
         
-        
-        
     # Training Helper Functions
     def parse_args(self):
         """
@@ -847,7 +831,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=80, type=int)
+                            default=16, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=10, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -855,8 +839,14 @@ class App(customtkinter.CTk):
         parser.add_argument('--nw', dest='num_workers',
                             help='number of workers to load training data',
                             default=2, type=int)
+        parser.add_argument('--use_small_dataset', dest='use_small_dataset',
+                            default=True, type=bool)
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
+        parser.add_argument('--output_dir', dest='output_dir',
+                            default="Output_FPGA", type=str)
+        parser.add_argument('--cuda', dest='use_cuda',
+                            default=True, type=bool)
 
         self.args = parser.parse_args()
          
@@ -900,8 +890,8 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"      : pass
         
          # Create Directory
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
+        if not os.path.exists(self.args.output_dir):
+            os.makedirs(self.args.output_dir)
 
     def Load_Weights(self):
         if self.mode == "Pytorch"   : 
@@ -914,9 +904,29 @@ class App(customtkinter.CTk):
             # Code by GiTae 
             s = time.time()
             self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
+            
+            # Initialize Pre-Trained Weight: Adding By Thaising
+            Shoaib = Shoaib_Code(
+                Weight_Dec=self.Weight_Dec, 
+                Bias_Dec=self.Bias_Dec, 
+                Beta_Dec=self.Beta_Dec, 
+                Gamma_Dec=self.Gamma_Dec,
+                Running_Mean_Dec=self.Running_Mean_Dec, 
+                Running_Var_Dec=self.Running_Var_Dec,
+                args=self.args,
+                pth_weights_path="/home/msis/training/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
+                model=Yolov2,
+                optim=optim)
+            
+            # Loading Weight From pth File: Adding By Thaising
+            self.update_weights(Shoaib.load_weights())
+            
             e = time.time()
             print("WeightLoader : ",e-s)
 
+    def update_weights(self, data):
+        [ self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec ] = data
+        
     def Load_Dataset(self):
         if self.mode == "Pytorch"   : 
             pass #Add code by Wathna
@@ -962,38 +972,37 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
+        if self.mode == "FPGA"      : 
+            self.Image_1_start = time.time()   
+            self.YOLOv2TinyFPGA = YOLOv2_Tiny_FPGA(self.Weight_Dec, self.Bias_Dec, 
+                                    self.Beta_Dec, self.Gamma_Dec,
+                                    self.Running_Mean_Dec, 
+                                    self.Running_Var_Dec,
+                                    self.im_data,
+                                    self.Brain_Floating_Point) 
 
-        self.Image_1_start = time.time()   
-        self.YOLOv2TinyFPGA = YOLOv2_Tiny_FPGA(self.Weight_Dec, self.Bias_Dec, 
-                                self.Beta_Dec, self.Gamma_Dec,
-                                self.Running_Mean_Dec, 
-                                self.Running_Var_Dec,
-                                self.im_data,
-                                self) 
+            s = time.time()
+            self.YOLOv2TinyFPGA.Write_Weight(self)       
+            e = time.time()
+            print("Write Weight Time : ",e-s)
 
-        s = time.time()
-        self.YOLOv2TinyFPGA.Write_Weight(self)       
-        e = time.time()
-        print("Write Weight Time : ",e-s)
+            s = time.time()
+            self.YOLOv2TinyFPGA.Write_Image(self)
+            e = time.time()
+            print("Write Image Time : ",e-s)
 
-        s = time.time()
-        self.YOLOv2TinyFPGA.Write_Image(self)
-        e = time.time()
-        print("Write Image Time : ",e-s)
+            self.d = Device("0000:08:00.0")
+            self.bar = self.d.bar[0]
+            self.bar.write(0x0, 0x00000011) # yolo start
+            self.bar.write(0x0, 0x00000010) # yolo start low
 
-        self.d = Device("0000:08:00.0")
-        self.bar = self.d.bar[0]
-        self.bar.write(0x0, 0x00000011) # yolo start
-        self.bar.write(0x0, 0x00000010) # yolo start low
+            self.bar.write(0x8, 0x00000011) # rd addr
+            self.bar.write(0x0, 0x00000014) # rd en
+            self.bar.write(0x0, 0x00000010) # rd en low
 
-        self.bar.write(0x8, 0x00000011) # rd addr
-        self.bar.write(0x0, 0x00000014) # rd en
-        self.bar.write(0x0, 0x00000010) # rd en low
-
-        self.bar.write(0x18, 0x00008001) # axi addr
-        self.bar.write(0x14, 0x00000001) # axi rd en
-        self.bar.write(0x14, 0x00000000) # axi rd en low
+            self.bar.write(0x18, 0x00008001) # axi addr
+            self.bar.write(0x14, 0x00000001) # axi rd en
+            self.bar.write(0x14, 0x00000000) # axi rd en low
     
     def Forward(self):
         if self.mode == "Pytorch"   : 
@@ -1012,25 +1021,25 @@ class App(customtkinter.CTk):
                                 self) 
             print("Start NPU")
             s = time.time()
-            Bias_Grad = self.YOLOv2TinyFPGA.Forward(self, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
+            self.YOLOv2TinyFPGA.Forward(self)
             e = time.time()
             print("Forward Process Time : ",e-s)
             self.change_color_red()
-            return Bias_Grad
+            # return Bias_Grad
     
-    def Loss(self):
+    def Calculate_Loss(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        pass
+        if self.mode == "FPGA"      : 
+            self.Loss, self.Loss_Gradient = self.YOLOv2TinyFPGA.Post_Processing(self, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
        
     def Before_Backward(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        pass
+        if self.mode == "FPGA"      : 
+            self.YOLOv2TinyFPGA.Pre_Processing_Backward(self, self.Loss_Gradient)
      
     def Backward(self):
         if self.mode == "Pytorch"   : pass
@@ -1044,65 +1053,80 @@ class App(customtkinter.CTk):
                                     self.im_data,
                                     self) 
             s = time.time()
-            Weight_Gradient, Beta_Gradient, Gamma_Gradient = self.YOLOv2TinyFPGA.Backward(self)
+            self.Weight_Gradient, self.Bias_Grad, self.Beta_Gradient, self.Gamma_Gradient = self.YOLOv2TinyFPGA.Backward(self, self.Loss_Gradient)
             e = time.time()
             print("Backward Process Time : ",e-s)
 
             self.change_color_red()
-            return Weight_Gradient, Beta_Gradient, Gamma_Gradient
+            # return Weight_Gradient, Beta_Gradient, Gamma_Gradient
 
-    def Weight_Update(self, Bias_Grad, Weight_Gradient, Beta_Gradient, Gamma_Gradient):
+    def Weight_Update(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        pass
-
-        s = time.time()
-        self.Inputs  = self.Weight_Dec,       self.Bias_Dec,   self.Gamma_Dec,      self.Beta_Dec,
-        self.gInputs = Weight_Gradient,  Bias_Grad,  Gamma_Gradient, Beta_Gradient
-        self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec = self.YOLOv2TinyFPGA.Weight_Update(self.Inputs, self.gInputs, self.learning_rate)
-        e = time.time()
-        print("Weight Update Time : ", e-s)
-        self.Image_1_end = time.time()
-        print("1 Image Train Time : ",self.Image_1_end-self.Image_1_start)
-        # self.output_text = f"Batch: {step+1}/{10}--Loss: {Loss}"
-        # print(f"Batch: {step+1}/{10}--Loss: {Loss}")
-        # self.Show_Text(self.output_text)
+        if self.mode == "FPGA"      : 
+            s = time.time()
+            # Modified By Thaising
+            Shoaib = Shoaib_Code(
+                Weight_Dec=self.Weight_Dec, 
+                Bias_Dec=self.Bias_Dec, 
+                Beta_Dec=self.Beta_Dec, 
+                Gamma_Dec=self.Gamma_Dec,
+                Running_Mean_Dec=self.Running_Mean_Dec, 
+                Running_Var_Dec=self.Running_Var_Dec,
+                args=self.args,
+                pth_weights_path="/home/msis/training/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
+                model=Yolov2,
+                optim=optim)
+            
+            # [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], self.custom_model = \
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec] = \
+            Shoaib.update_weights_FPGA(
+                Inputs  = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], 
+                gInputs = [self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient ])
+            e = time.time()
+            print("Weight Update Time : ", e-s)
+            self.Image_1_end = time.time()
+            print("1 Image Train Time : ",self.Image_1_end-self.Image_1_start)
+            # self.output_text = f"Batch: {step+1}/{10}--Loss: {Loss}"
+            # print(f"Batch: {step+1}/{10}--Loss: {Loss}")
+            # self.Show_Text(self.output_text)
 
     def Save_Pickle(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        pass
-    
-        # Save Pickle: 
-        if self.curr_epoch % self.args.save_interval == 0:
-            self._data = self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec, self.curr_epoch
-            self.output_file = os.path.join(self.output_dir, f'Params_{self.curr_epoch}.pickle')
-            with open(self.output_file, 'wb') as handle:
-                pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+        if self.mode == "FPGA"      : 
+            # Save Pickle: 
+            if self.curr_epoch % self.args.save_interval == 0:
+                self._data = self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec, self.curr_epoch
+                self.output_file = os.path.join(self.args.output_dir, f'Params_{self.curr_epoch}.pickle')
+                with open(self.output_file, 'wb') as handle:
+                    pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
 
     def Check_mAP(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass
-        pass
+        if self.mode == "FPGA"      : 
+            Shoaib = Shoaib_Code(
+                Weight_Dec=self.Weight_Dec, 
+                Bias_Dec=self.Bias_Dec, 
+                Beta_Dec=self.Beta_Dec, 
+                Gamma_Dec=self.Gamma_Dec,
+                Running_Mean_Dec=self.Running_Mean_Dec, 
+                Running_Var_Dec=self.Running_Var_Dec,
+                args=self.args,
+                pth_weights_path="/home/msis/training/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth",
+                model=Yolov2,
+                optim=optim)
+            self.map = Shoaib.cal_mAP(Inputs_with_running = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, 
+                                                             self.Running_Mean_Dec, self.Running_Var_Dec])
     
     def Post_Epoch(self):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
-        if self.mode == "Simulation": 
-            self.whole_process_end = time.time()
-            self.whole_process_time = self.whole_process_end - self.whole_process_start
-            # print("1 epoch time : ",whole_process_time)
-            # print("epoch : ", epoch+1, ", Loss : ", Loss)
-            self.output_text = f"Epoch: {self.curr_epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
-            print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
-            self.Show_Text(self.output_text)
-            print(f"Epoch: {self.curr_epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
+        if self.mode == "Simulation": pass
         if self.mode == "FPGA"      :     
             self.whole_process_end = time.time()
             self.whole_process_time = self.whole_process_end - self.whole_process_start
