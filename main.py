@@ -47,8 +47,8 @@ from Weight_Update_Algorithm.yolov2_tiny import *
 from Pre_Processing_Scratch.Neural_Network_Operations_LightNorm import *
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
-from torch_2iteration import *
-from python_original import *
+# from src.Wathna.torch_2iteration import *
+# from src.Wathna.python_original import *
 
 from GiTae_Functions import *
 
@@ -1093,7 +1093,7 @@ class App(customtkinter.CTk):
                                     self.Running_Mean_Dec, 
                                     self.Running_Var_Dec,
                                     self.im_data,
-                                    self.Brain_Floating_Point) 
+                                    self.Brain_Floating_Point, 
                                     self) 
 
             s = time.time()
@@ -1727,12 +1727,12 @@ class App(customtkinter.CTk):
             target_variable = [v for v in target_data]
 
             box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
-            loss = box_loss + iou_loss + class_loss
+            _loss = box_loss + iou_loss + class_loss
             
-            print(f"\nLoss = {loss}\n")
+            print(f"\nLoss = {_loss}\n")
             out = scores
             out.retain_grad()
-            loss.backward(retain_graph=True)
+            _loss.backward(retain_graph=True)
             dout = out.grad.detach()
             # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
             # dout = pickle.load(dout)
@@ -1752,7 +1752,7 @@ class App(customtkinter.CTk):
             # if self.convert_to_fp16 and self.convert_loss_grad:
             #   dout = convert_to_16(self, dout)
             #   loss = convert_to_16(self, loss)
-            return loss, dout
+            return _loss, dout
         
         if self.mode == "Python"    :
             print('Calculating the loss and its gradients for python model.')
@@ -1778,19 +1778,19 @@ class App(customtkinter.CTk):
             target_variable = [v for v in target_data]
 
             box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
-            loss = box_loss + iou_loss + class_loss
+            _loss = box_loss + iou_loss + class_loss
             
-            print(f"\nLoss = {loss}\n")
+            print(f"\nLoss = {_loss}\n")
             out = scores
             out.retain_grad()
-            loss.backward(retain_graph=True)
+            _loss.backward(retain_graph=True)
             dout = out.grad.detach()
             # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
             # dout = pickle.load(dout)
             # print('\n\n',dout.dtype, dout[dout!=0])
             print(f'\n\nLoss Gradients\n\t{dout.dtype}\n\t{dout[dout!=0][:10]}')
             
-            return loss, dout
+            return _loss, dout
         
         if self.mode == "Simulation": # Add By Thaising
                 
@@ -2190,8 +2190,6 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": 
-            # map, max_map, epoch, Loss = self.map, self.max_map, self.epoch, self.Loss
-            model = Yolov2()
             # Check and save the best mAP
             if self.map > self.max_map:
                 self.max_map = self.map

@@ -316,7 +316,3 @@ class pascal_voc(imdb):
                 filename = self._get_voc_results_file_template().format(cls)
                 os.remove(filename)
         return map
-
-
-
-        # return os.path.join('Dataset','Dataset','VOCdevkit' + self._year)
