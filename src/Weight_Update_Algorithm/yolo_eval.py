@@ -16,6 +16,7 @@ import time
 from config import config as cfg
 
 
+
 def yolo_filter_boxes(boxes_pred, conf_pred, classes_pred, confidence_threshold=0.6):
     """
     Filter boxes whose confidence is lower than a given threshold

@@ -56,6 +56,7 @@ class XdmaAccess():
         os.lseek(self.fd_c2h0, addr, os.SEEK_SET)
         dma_raw = os.read(self.fd_c2h0, len_bytes)
         data = np.frombuffer(dma_raw, np.uint32)
+        # data = np.frombuffer(dma_raw, np.uint16)
         return data
 
     def write_dma(self, addr, data):
