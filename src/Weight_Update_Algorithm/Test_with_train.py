@@ -13,11 +13,11 @@ from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Dataset.factory import get_imdb
 from Dataset.roidb import RoiDataset
 from Weight_Update_Algorithm.yolo_eval import yolo_eval
-from util.visualize import draw_detection_boxes
+from src.util.visualize import draw_detection_boxes
 import matplotlib.pyplot as plt
-from util.network import WeightLoader
+from src.util.network import WeightLoader
 from torch.utils.data import DataLoader
-from config import config as cfg
+from my_config import config as cfg
 
 
 def prepare_im_data(img):

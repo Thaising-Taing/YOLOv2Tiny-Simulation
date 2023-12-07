@@ -76,7 +76,7 @@ class Post_Processing:
             # Convert Output Image into List of Floating 32 Format
             Float_OutputImage = [np.float32(x) for x in Output_Image]
             # print("Float_OutputImage len : ", len(Float_OutputImage))
-            test_out = 'Weight_Result/Float_OutputImage.txt'
+            test_out = 'Float_OutputImage.txt'
             with open(test_out, 'w+') as test_output:
                 for item in Float_OutputImage:
                     line = str(item) 
