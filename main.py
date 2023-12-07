@@ -913,10 +913,25 @@ class App(customtkinter.CTk):
         #     os.makedirs(out_path)
 
     def Load_Weights(self):
-        if self.mode == "Pytorch"   : 
-            pass #Add code by Wathna
+        if self.mode == "Pytorch"   :
+            for i in range(8):
+                grads[f'gamma{i}'] = grads[f'gamma{i}'].view(-1)
+            for i in range(8):
+                grads[f'beta{i}'] = grads[f'beta{i}'].view(-1)
+                
+            update_weights_modular(pytorch_model.params, grads, custom_model, custom_optimizer, pytorch_model)
+                    
+            # Replace values in Pytorch_model (such as hardware)
+            update_model(custom_model, pytorch_model)
+            
         if self.mode == "Python"    : 
-            pass #Add code by Wathna
+            for i in range(8): grads[f'gamma{i}'] = grads[f'gamma{i}'].view(-1)
+            for i in range(8): grads[f'beta{i}'] = grads[f'beta{i}'].view(-1)
+                
+            update_weights_modular(pytorch_model.params, grads, custom_model, custom_optimizer, pytorch_model)
+                    
+            # Replace values in Pytorch_model (such as hardware)
+            update_model(custom_model, pytorch_model)
         if self.mode == "Simulation": 
             args = parse_args()
             
@@ -1011,9 +1026,17 @@ class App(customtkinter.CTk):
         
     def Adjust_Learning_Rate(self):
         if self.mode == "Pytorch"   : 
-            pass #Add code by Wathna
-        if self.mode == "Python"    : 
-            pass #Add code by Wathna
+            self.learning_rate = 0.0001
+            if self.epoch > 60 and self.epoch < 90:
+                self.learning_rate = 0.00001
+            elif self.epoch > 90:
+                self.learning_rate = 0.0000001
+        if self.mode == "Python"    :
+            self.learning_rate = 0.0001
+            if self.epoch > 60 and self.epoch < 90:
+                self.learning_rate = 0.00001
+            elif self.epoch > 90:
+                self.learning_rate = 0.0000001
         if self.mode == "Simulation": 
             pass #Add code by Thaising
         if self.mode == "FPGA"      : 
