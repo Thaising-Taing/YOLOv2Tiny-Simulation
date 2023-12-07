@@ -1402,9 +1402,11 @@ class App(customtkinter.CTk):
 
             out = Out[8]
             # print('\n\nFwd Out', out.dtype, out[out != 0], '\n\n')
-
-            return out, cache, Out
-            # pass #Add code by Wathna
+            
+            self.out_pytorch, self.cache_pytorch = out, cache
+            
+            # return out, cache, Out
+            
         if self.mode == "Python"    : 
             if self.batchnorm:
                 for bn_params in self.bn_params:
@@ -1598,7 +1600,9 @@ class App(customtkinter.CTk):
             
             print('\n\nFwd Out', out.dtype, out[out!=0],'\n\n')
             
-            return out, cache, Out
+            self.out_python, self.cache_python = out, cache
+            
+            # return out, cache, Out
         if self.mode == "Simulation": # Add Code By Thaising
             Weight_Tensor = self.Weight_Dec
             Gamma_Tensor = self.Gamma_Dec
@@ -1727,12 +1731,12 @@ class App(customtkinter.CTk):
             target_variable = [v for v in target_data]
 
             box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
-            _loss = box_loss + iou_loss + class_loss
+            loss = box_loss + iou_loss + class_loss
             
-            print(f"\nLoss = {_loss}\n")
+            print(f"\nLoss = {loss}\n")
             out = scores
             out.retain_grad()
-            _loss.backward(retain_graph=True)
+            loss.backward(retain_graph=True)
             dout = out.grad.detach()
             # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
             # dout = pickle.load(dout)
@@ -1752,7 +1756,8 @@ class App(customtkinter.CTk):
             # if self.convert_to_fp16 and self.convert_loss_grad:
             #   dout = convert_to_16(self, dout)
             #   loss = convert_to_16(self, loss)
-            return _loss, dout
+            self.loss_pytorch, self.dout_pytorch = loss, dout
+            # return loss, dout
         
         if self.mode == "Python"    :
             print('Calculating the loss and its gradients for python model.')
@@ -1778,19 +1783,20 @@ class App(customtkinter.CTk):
             target_variable = [v for v in target_data]
 
             box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
-            _loss = box_loss + iou_loss + class_loss
+            loss = box_loss + iou_loss + class_loss
             
-            print(f"\nLoss = {_loss}\n")
+            print(f"\nLoss = {loss}\n")
             out = scores
             out.retain_grad()
-            _loss.backward(retain_graph=True)
+            loss.backward(retain_graph=True)
             dout = out.grad.detach()
             # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
             # dout = pickle.load(dout)
             # print('\n\n',dout.dtype, dout[dout!=0])
             print(f'\n\nLoss Gradients\n\t{dout.dtype}\n\t{dout[dout!=0][:10]}')
-            
-            return _loss, dout
+
+            self.loss_python, self.dout_python = loss, dout            
+            # return loss, dout
         
         if self.mode == "Simulation": # Add By Thaising
                 
@@ -1819,6 +1825,9 @@ class App(customtkinter.CTk):
     def Backward(self):
 
         if self.mode == "Pytorch"   :
+            
+            dout, cache = self.dout_pytorch, self.cache_pytorch
+            
             grads = {}
             dOut = {}
             self.save_txt = False
@@ -1908,13 +1917,17 @@ class App(customtkinter.CTk):
                 phase=self.phase,
             )
 
-            return dOut, grads
+            self.dOut_pytorch, self.grads_pytorch = dOut, grads
+            # return dOut, grads
+        
+        
         if self.mode == "Python"    :
             grads = {}
             dOut={}
             self.save_hex = False
             self.save_txt = False
             self.phase ='Backwards'
+            dout, cache = self.dout_python, self.cache_python
 
             dOut[8], grads['W8'], grads['b8']                     = Python_ConvB.backward(                dout,  
                                                                                                         cache['8'], 
@@ -2098,8 +2111,9 @@ class App(customtkinter.CTk):
             #   for _key in grads.keys():
             #     save_file(f'Outputs/Python/Backward/grads_Layer_{_key}.txt', grads[_key])
                 
-                
-            return  dOut, grads
+            self.dOut_python, self.grads_python = dOut, grads
+            # return  dOut, grads
+            
         if self.mode == "Simulation": # Add By Thaising
             Loss_Gradient, cache = self.Loss_Gradient, self.cache
             Input_Grad_Layer8, Weight_Gradient_Layer8, Bias_Grad  = Torch_FastConvWB.backward(Loss_Gradient, cache['8'])
