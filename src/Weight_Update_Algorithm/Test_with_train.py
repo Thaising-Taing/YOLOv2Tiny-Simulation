@@ -8,6 +8,7 @@ import torch
 from torch.autograd import Variable
 from pathlib import Path
 from PIL import Image
+import os
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Dataset.factory import get_imdb
 from Dataset.roidb import RoiDataset

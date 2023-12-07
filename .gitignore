@@ -1,3 +1,23 @@
+#Custom
+Dataset/Dataset/
+src/GiTae/Image_CH0.txt
+src/GiTae/Image_CH1.txt
+src/GiTae/Weight_CH0.txt
+src/GiTae/Weight_CH1.txt
+src/Post_Processing_Scratch/Image_Output/
+src/Post_Processing_Scratch/Input_Data.pickle
+src/Post_Processing_Scratch/Input_Data_Batch8.pickle
+src/Pre_Processing_Scratch/Images/
+src/Pre_Processing_Scratch/Weight_Parameters/
+src/t_cbu/test2/
+Output_FPGA_Simulation/
+data/
+src/Pre_Processing_Scratch/data/pretrained/Input_Data.pickle
+src/Pre_Processing_Scratch/data/pretrained/Input_Data_Batch8.pickle
+src/Pre_Processing_Scratch/data/pretrained/cache/
+src/Pre_Processing_Scratch/data/pretrained/yolov2-tiny-voc.weights
+src/Pre_Processing_Scratch/data/pretrained/yolov2_least_loss.pth
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

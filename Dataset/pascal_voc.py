@@ -260,7 +260,6 @@ class pascal_voc(imdb):
                                        dets[k, 0] + 1, dets[k, 1] + 1,
                                        dets[k, 2] + 1, dets[k, 3] + 1))
 
-
     def _do_python_eval_with_train(self, output_dir='output'):
         annopath = os.path.join(
             self._devkit_path,
@@ -317,3 +316,7 @@ class pascal_voc(imdb):
                 filename = self._get_voc_results_file_template().format(cls)
                 os.remove(filename)
         return map
+
+
+
+        # return os.path.join('Dataset','Dataset','VOCdevkit' + self._year)

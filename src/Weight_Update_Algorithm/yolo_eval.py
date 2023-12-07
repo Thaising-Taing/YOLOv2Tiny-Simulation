@@ -9,11 +9,12 @@ from __future__ import division
 from __future__ import print_function
 
 import torch
-from Pre_Processing_Scratch.config import config as cfg
-from Pre_Processing_Scratch.util.bbox import generate_all_anchors, xywh2xxyy, box_transform_inv, xxyy2xywh
-from Pre_Processing_Scratch.util.bbox import box_ious
+from config import config as cfg
+from util.bbox import generate_all_anchors, xywh2xxyy, box_transform_inv, xxyy2xywh
+from util.bbox import box_ious
 import time
-from Pre_Processing_Scratch.config import config as cfg
+from config import config as cfg
+
 
 
 def yolo_filter_boxes(boxes_pred, conf_pred, classes_pred, confidence_threshold=0.6):

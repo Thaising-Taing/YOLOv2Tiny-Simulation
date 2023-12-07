@@ -16,10 +16,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+import pytorch_lightning as pl
 from pathlib import Path
-
 # from config import config as cfg
-from Post_Processing_Scratch.Calculate_Loss_2Iterations import build_target, yolo_loss
+from Post_Processing_Scratch.Loss import build_target, yolo_loss
+
 
 def Floating2Binary(num, Exponent_Bit, Mantissa_Bit):
     sign = ('1' if num < 0 else '0')
@@ -317,10 +318,7 @@ class  Yolov2(nn.Module):
         self.conv8 = nn.Conv2d(in_channels=1024, out_channels=1024, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn8 = RangeBN(1024)
 
-
         self.conv9 = nn.Sequential(nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1))
-        
-
 
     def forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
         """

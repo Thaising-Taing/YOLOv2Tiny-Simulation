@@ -138,14 +138,9 @@ class Pre_Processing:
         return Total_Image
 
 
-
-
-
-
     def WeightLoader(self):
         global Weight, Bias, Beta, Gamma, Running_Mean, Running_Var
         if self.Mode == "Training":
-            print("\t --> " + " The Weights are processing, Please Wait for a Moment!")
             pytorch_model = DeepConvNet(input_dims=(3, 416, 416),
                                         num_filters=[16, 32, 64, 128, 256, 512, 1024, 1024],
                                         max_pools=[0, 1, 2, 3, 4],
@@ -158,7 +153,6 @@ class Pre_Processing:
             Data_Path = "Dataset/Dataset/pretrained/yolov2-tiny-voc.weights"
             pytorch_model = weightloader.load(pytorch_model, model, Data_Path)
             Weight, Bias, Beta, Gamma, Running_Mean, Running_Var = pytorch_model.Training_Parameters()
-            print("\t --> " + " The Weights are Successfully Converted!")
         return Weight, Bias, Beta, Gamma, Running_Mean, Running_Var
 
     def Weight_Converted_Func(self, Weight_Dec, Bias_Dec, Beta_Dec, Gamma_Dec, Running_Mean_Dec, Running_Var_Dec):
