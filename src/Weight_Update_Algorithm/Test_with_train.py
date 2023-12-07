@@ -17,7 +17,7 @@ from util.visualize import draw_detection_boxes
 import matplotlib.pyplot as plt
 from util.network import WeightLoader
 from torch.utils.data import DataLoader
-from config import config as cfg
+from my_config import config as cfg
 
 
 def prepare_im_data(img):

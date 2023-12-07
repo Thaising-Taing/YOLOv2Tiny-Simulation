@@ -1228,8 +1228,6 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": 
-            # map, max_map, epoch, Loss = self.map, self.max_map, self.epoch, self.Loss
-            model = Yolov2()
             # Check and save the best mAP
             if self.map > self.max_map:
                 self.max_map = self.map
