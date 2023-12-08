@@ -773,7 +773,7 @@ class App(customtkinter.CTk):
                 self.Calculate_Loss()
                 self.Before_Backward()
                 self.Backward()
-                self.Weight_Update() 
+                # self.Weight_Update() 
         #     self.Check_mAP()
         #     self.Save_Pickle()
         # self.Post_Epoch()
