@@ -125,8 +125,8 @@ class Simulation(object):
         # Layer8: ConvWB
         conv_param['pad'] = 0
         Out8, cache['8'] = Torch_FastConvWB.forward(Out7, Weight_Tensor[8], bias, conv_param)
-        Output_Image = Out8
-        self.Output_Image, self.cache = Output_Image, cache 
+        self.Output_Image, self.cache = Out8, cache 
+        self.out = Out8
         # return Output_Image, cache
         
     def Calculate_Loss(self,data):

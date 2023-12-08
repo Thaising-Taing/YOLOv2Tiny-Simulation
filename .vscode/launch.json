@@ -11,7 +11,7 @@
 			"program": "main.py",
 			"console": "integratedTerminal",
 			"justMyCode": false,
-			"sudo": true,
+			// "sudo": true,
 
 		}
 	]

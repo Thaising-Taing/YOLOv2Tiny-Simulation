@@ -444,6 +444,7 @@ class App(customtkinter.CTk):
         self.textbox.insert("0.0", text + "\n\n")
         self.textbox.update_idletasks()
         self.textbox.see("end")
+        print(text)
 
     def Clear_Text(self):
         self.textbox.delete("0.0", tkinter.END)    
@@ -472,7 +473,6 @@ class App(customtkinter.CTk):
         self.right_frame_1.lower(self.cover)
         self.right_frame_2.lower(self.cover)
         self.update()
-        print(f"Pytorch mode selected.")
         self.Show_Text(f"Pytorch mode selected.")
         self.update()
         
@@ -496,7 +496,6 @@ class App(customtkinter.CTk):
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
         self.right_frame_2.lower(self.cover)
-        print(f"Python mode selected.")
         self.Show_Text(f"Python mode selected.")
         self.update()
         
@@ -520,7 +519,6 @@ class App(customtkinter.CTk):
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
         self.right_frame_2.lower(self.cover)
-        print(f"Simulation mode selected.")
         self.Show_Text(f"Simulation mode selected.")
         self.update()
         
@@ -547,7 +545,6 @@ class App(customtkinter.CTk):
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
         self.right_frame_2.lift(self.cover)
-        print(f"FPGA mode selected.")
         self.Show_Text(f"FPGA mode selected.")
         self.update()
         
@@ -582,19 +579,16 @@ class App(customtkinter.CTk):
         self.right_frame_1.lower(self.cover)
         self.right_frame_2.lower(self.cover)
         self.Clear_Text()
-        print(f"Reset.")
         self.Show_Text(f"Reset.")
         self.update()
       
       
     # Select Operations        
     def Load_PCIe_click(self):
-        print("Load PCIe Driver!")
         self.Show_Text(f"Load PCIe Driver.")
         exit_code = subprocess.call(['sudo', "./load_driver.sh"], cwd='./src/t_cbu/test2')
     
     def Load_Data_click(self):
-        print("Load Data to FPGA")
         self.Show_Text(f"Load Data to FPGA.")
 
         self.d = Device("0000:08:00.0")
@@ -732,7 +726,6 @@ class App(customtkinter.CTk):
         print("Write Done!")
 
     def Load_Microcode_click(self):
-        print("Load Microcode to FPGA")
         self.Show_Text(f"Load Microcode to FPGA.")
         
         self.d = Device("0000:08:00.0")
@@ -751,9 +744,14 @@ class App(customtkinter.CTk):
         print("mic write done")    
         
     def Run_Train(self):  
-        print(f"Start Training")
+        self.Train.configure(state="disabled")
+        self.Train.configure(fg_color='green')
+        self.Infer.configure(state="disabled")
+        self.Stop.configure(state="normal")
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        
         self.Show_Text(f"Start Training")
-        print(f'Mode : {self.mode}')
+        self.Show_Text(f"Mode : {self.mode}")
         
         self.parse_args()
         self.Pre_Process()
@@ -763,10 +761,10 @@ class App(customtkinter.CTk):
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.train_data_iter = iter(self.small_dataloader)
+            self.train_data_iter = iter(self.small_train_dataloader)
             self.Adjust_Learning_Rate()
             
-            for step in tqdm(range(self.iters_per_epoch), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch):
+            for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
                 # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
@@ -780,6 +778,7 @@ class App(customtkinter.CTk):
             self.Check_mAP()
         #     self.Save_Pickle()
         self.Post_Epoch()
+        self.Show_Text(f"Training is finished")
 
     def Run_Infer(self):
         self.Train.configure(state="disabled")
@@ -787,14 +786,26 @@ class App(customtkinter.CTk):
         self.Infer.configure(fg_color='green')
         self.Stop.configure(state="normal")
         self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        print(f"Start Inference")
-
         self.Show_Text(f"Start Inference")
+        self.parse_args()
+        self.Pre_Process()
+        self.Create_Output_Dir()
+        self.Load_Weights()
+        self.Load_Dataset()
+
+        self.whole_process_start = time.time()
+        self.train_data_iter = iter(self.small_test_dataloader)
         
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
-        if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : pass      
+        for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
+            # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
+            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+            
+            self.Before_Forward()
+            self.Forward()  
+            self.Visualize()
+              
+        self.Show_Text(f"Inference is finished.")
         
     def Stop_Process(self):
         self.Train.configure(state="normal")
@@ -803,7 +814,6 @@ class App(customtkinter.CTk):
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Stop.configure(state="disabled")
         self.Stop.configure(fg_color='green')
-        print("Stop the process")
         self.Show_Text(f"Stop the process")
         
         
@@ -848,7 +858,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--total_training_set', dest='total_training_set',
                             default=8, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
-                            default=10, type=int)
+                            default=16, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
                             default=8, type=int)
         parser.add_argument('--nw', dest='num_workers',
@@ -928,18 +938,31 @@ class App(customtkinter.CTk):
         [ self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec ] = data
 
     def Load_Dataset(self):
-        self.imdb_name = 'voc_2007_trainval+voc_2012_trainval'
-        self.train_dataset = self.get_dataset(self.imdb_name)
+        self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
+        self.train_dataset = self.get_dataset(self.imdb_train_name)
         # Whole Training Dataset 
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         # Small Training Dataset
-        self.small_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
+        self.small_train_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
         # print("Sub Training Dataset: " + str(len(small_dataset)))
         self.s = time.time()
-        self.small_dataloader = DataLoader(self.small_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.small_train_dataloader = DataLoader(self.small_train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch = int(len(self.small_dataset) / self.args.batch_size)
+        self.iters_per_epoch_train = int(len(self.small_train_dataset) / self.args.batch_size)
+        # -------------------------------------- Test Dataset -----------------------------------------------------
+        self.imdb_test_name = 'voc_2007_test'
+        self.test_dataset = self.get_dataset(self.imdb_test_name)
+        # Whole Training Dataset 
+        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        # Small Training Dataset
+        self.small_test_dataset = torch.utils.data.Subset(self.test_dataloader, range(0, self.args.total_inference_set))
+        # print("Sub Training Dataset: " + str(len(small_dataset)))
+        self.s = time.time()
+        self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.e = time.time()
+        print("Data Loader : ",self.e-self.s)
+        self.iters_per_epoch_test  = int(len(self.small_test_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # learning_rate = 0.001
@@ -1040,10 +1063,17 @@ class App(customtkinter.CTk):
         self.whole_process_end = time.time()
         self.whole_process_time = self.whole_process_end - self.whole_process_start
         self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
-        print(f"Epoch: {self.epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
         self.Show_Text(self.output_text)
-        print(f"Epoch: {self.epoch}/{self.args.max_epochs}--Loss: {self.Loss}")
-        
+    
+    def Visualize(self):
+        if self.mode == "Pytorch"   : out = self.Pytorch.out
+        if self.mode == "Python"    : out = self.Python.out
+        if self.mode == "Simulation": out = self.Sim.out
+        if self.mode == "FPGA"      : out = self.FPGA.out
+        self.Show_Text(f"Infer - {self.mode} - {out.shape}")
+        a=1
+        b=2
+        pass
         
 if __name__ == "__main__":
     app = App()
