@@ -66,10 +66,19 @@ class FPGA(object):
         print("Write Weight Time : ",e-s)
 
         s = time.time()
-        self.YOLOv2TinyFPGA.Write_Image()
+        self.YOLOv2TinyFPGA.Write_Image(self)
         e = time.time()
         print("Write Image Time : ",e-s)
-
+      
+         
+    def Forward(self, data):
+        self.gt_boxes       = data.gt_boxes  
+        self.gt_classes     = data.gt_classes
+        self.num_boxes      = data.num_obj 
+        self.num_obj        = data.num_obj 
+        self.image          = data.im_data
+        self.im_data        = data.im_data
+        
         self.d = Device("0000:08:00.0")
         self.bar = self.d.bar[0]
         self.bar.write(0x0, 0x00000011) # yolo start
@@ -83,16 +92,12 @@ class FPGA(object):
         self.bar.write(0x14, 0x00000001) # axi rd en
         self.bar.write(0x14, 0x00000000) # axi rd en low
         
-        
-         
-    def Forward(self, data):
-        
         print("Start NPU")
         s = time.time()
         self.YOLOv2TinyFPGA.Forward(data)
         e = time.time()
         print("Forward Process Time : ",e-s)
-        self.change_color_red()
+        # self.change_color_red()
         # return Bias_Grad
         
     def Calculate_Loss(self,data):
@@ -104,7 +109,8 @@ class FPGA(object):
 
     def Backward(self,data):
         s = time.time()
-        self.gWeight, self.gBias, self.gBeta, self.gGamma = self.YOLOv2TinyFPGA.Backward()
+        print("Backward Start")
+        self.gWeight, self.gBias, self.gBeta, self.gGamma = self.YOLOv2TinyFPGA.Backward(data,self.Loss_Gradient)
         e = time.time()
         print("Backward Process Time : ",e-s)
-        self.change_color_red()
+        # self.change_color_red()

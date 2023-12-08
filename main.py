@@ -739,8 +739,8 @@ class App(customtkinter.CTk):
         self.bar = self.d.bar[0]
         #self.textbox.insert("0.0", "CTkTextbox\n\n" )
 
-        microcode = Microcode("src/GiTae/Forward.txt") 
-        #microcode = Microcode("src/GiTae/MICROCODE.txt")
+        # microcode = Microcode("src/GiTae/Forward.txt") 
+        microcode = Microcode("src/GiTae/MICROCODE.txt")
         
 
         for i in range (0, len(microcode)):
@@ -834,7 +834,7 @@ class App(customtkinter.CTk):
         with open(path, 'rb') as handle:
             b = pickle.load(handle)
         return b
-        
+    
     def parse_args(self):
         """
         Parse input arguments
@@ -846,7 +846,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=16, type=int)
+                            default=8, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=10, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -859,7 +859,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
-                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            default="/home/msis/training/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',

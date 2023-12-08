@@ -9,11 +9,11 @@ from __future__ import division
 from __future__ import print_function
 
 import torch
-from config import config as cfg
+from my_config import config as cfg
 from util.bbox import generate_all_anchors, xywh2xxyy, box_transform_inv, xxyy2xywh
 from util.bbox import box_ious
 import time
-from config import config as cfg
+from my_config import config as cfg
 
 
 
