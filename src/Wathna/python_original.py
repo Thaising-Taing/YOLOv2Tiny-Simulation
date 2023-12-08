@@ -78,6 +78,8 @@ class DeepConvNet(object):
     self.num_filters = num_filters
     self.save_pickle = False
     self.save_output = False
+    self.save_txt = False
+    self.save_hex = False
   
     if device == 'cuda':
       device = 'cuda:0'

@@ -451,14 +451,14 @@ def data_32_to_16(data):
 
 class YOLOv2_Tiny_FPGA(object):
 
-    def __init__(self, Weight_Dec, Bias_Dec, Beta_Dec, Gamma_Dec, Running_Mean_Dec, Running_Var_Dec, Image, app_instance):
+    def __init__(self, Weight_Dec, Bias_Dec, Beta_Dec, Gamma_Dec, Running_Mean_Dec, Running_Var_Dec, app_instance):
         self.Weight_Dec = Weight_Dec
         self.Bias_Dec = Bias_Dec
         self.Beta_Dec = Beta_Dec
         self.Gamma_Dec = Gamma_Dec
         self.Running_Mean_Dec = Running_Mean_Dec
         self.Running_Var_Dec = Running_Var_Dec
-        self.Image = Image
+        self.Image = []
         self.app_instance = app_instance    
         self.custom_model = Yolov2()
         self.custom_optimizer = optim.SGD(self.custom_model.parameters(), lr=0.001, momentum=0.001, weight_decay=0.001)
