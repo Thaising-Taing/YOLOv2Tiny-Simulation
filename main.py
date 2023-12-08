@@ -768,7 +768,9 @@ class App(customtkinter.CTk):
             
             for step in tqdm(range(self.iters_per_epoch), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch):
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_Default_Data()
+                # self.Save_Data(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_Data("Dataset/Dataset/default_data.pickle")
+                
                 self.Before_Forward()
                 self.Forward()
                 self.Calculate_Loss()
@@ -824,13 +826,12 @@ class App(customtkinter.CTk):
         
         
     # Training Helper Functions
-    def Save_Default_Data(self):
-        a = next(self.train_data_iter)
-        with open('Dataset/Dataset/default_data.pickle', 'wb') as handle:
-            pickle.dump(a, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    def Save_Data(self, data, path):
+        with open(path, 'wb') as handle:
+            pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
-    def Load_Default_Data(self):
-        with open('Dataset/Dataset/default_data.pickle', 'rb') as handle:
+    def Load_Data(self, path):
+        with open(path, 'rb') as handle:
             b = pickle.load(handle)
         return b
         
