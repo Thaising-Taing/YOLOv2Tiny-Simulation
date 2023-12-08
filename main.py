@@ -1731,12 +1731,12 @@ class App(customtkinter.CTk):
             target_variable = [v for v in target_data]
 
             box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
-            loss = box_loss + iou_loss + class_loss
+            _loss = box_loss + iou_loss + class_loss
             
-            print(f"\nLoss = {loss}\n")
+            print(f"\nLoss = {_loss}\n")
             out = scores
             out.retain_grad()
-            loss.backward(retain_graph=True)
+            _loss.backward(retain_graph=True)
             dout = out.grad.detach()
             # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
             # dout = pickle.load(dout)
@@ -1756,7 +1756,7 @@ class App(customtkinter.CTk):
             # if self.convert_to_fp16 and self.convert_loss_grad:
             #   dout = convert_to_16(self, dout)
             #   loss = convert_to_16(self, loss)
-            self.loss_pytorch, self.dout_pytorch = loss, dout
+            self.loss_pytorch, self.dout_pytorch = _loss, dout
             # return loss, dout
         
         if self.mode == "Python"    :
@@ -1783,19 +1783,19 @@ class App(customtkinter.CTk):
             target_variable = [v for v in target_data]
 
             box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
-            loss = box_loss + iou_loss + class_loss
+            _loss = box_loss + iou_loss + class_loss
             
-            print(f"\nLoss = {loss}\n")
+            print(f"\nLoss = {_loss}\n")
             out = scores
             out.retain_grad()
-            loss.backward(retain_graph=True)
+            _loss.backward(retain_graph=True)
             dout = out.grad.detach()
             # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
             # dout = pickle.load(dout)
             # print('\n\n',dout.dtype, dout[dout!=0])
             print(f'\n\nLoss Gradients\n\t{dout.dtype}\n\t{dout[dout!=0][:10]}')
 
-            self.loss_python, self.dout_python = loss, dout            
+            self.loss_python, self.dout_python = _loss, dout            
             # return loss, dout
         
         if self.mode == "Simulation": # Add By Thaising
