@@ -739,8 +739,8 @@ class App(customtkinter.CTk):
         self.bar = self.d.bar[0]
         #self.textbox.insert("0.0", "CTkTextbox\n\n" )
 
-        microcode = Microcode("src/GiTae/Forward.txt") 
-        #microcode = Microcode("src/GiTae/MICROCODE.txt")
+        # microcode = Microcode("src/GiTae/Forward.txt") 
+        microcode = Microcode("src/GiTae/MICROCODE.txt")
         
 
         for i in range (0, len(microcode)):
@@ -768,9 +768,7 @@ class App(customtkinter.CTk):
             
             for step in tqdm(range(self.iters_per_epoch), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch):
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-                # self.Save_Data(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_Data("Dataset/Dataset/default_data.pickle")
-                
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_Default_Data()
                 self.Before_Forward()
                 self.Forward()
                 self.Calculate_Loss()
@@ -826,12 +824,13 @@ class App(customtkinter.CTk):
         
         
     # Training Helper Functions
-    def Save_Data(self, data, path):
-        with open(path, 'wb') as handle:
-            pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    def Save_Default_Data(self):
+        a = next(self.train_data_iter)
+        with open('Dataset/Dataset/default_data.pickle', 'wb') as handle:
+            pickle.dump(a, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
-    def Load_Data(self, path):
-        with open(path, 'rb') as handle:
+    def Load_Default_Data(self):
+        with open('Dataset/Dataset/default_data.pickle', 'rb') as handle:
             b = pickle.load(handle)
         return b
         
@@ -846,7 +845,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=16, type=int)
+                            default=8, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=10, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -859,7 +858,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
-                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            default="/home/msis/training/yolov2/src/Pre_Processing_Scratch/data/pretrained/yolov2_best_map.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',

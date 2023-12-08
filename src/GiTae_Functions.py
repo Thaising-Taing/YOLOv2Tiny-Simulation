@@ -3009,6 +3009,8 @@ class YOLOv2_Tiny_FPGA(object):
         # print(Loss)
         #print(Loss_Gradient)
         
+        resume()
+        
         output_file1 = "loss.txt"
         with open(output_file1, mode="a") as output_file_1:
             output_file_1.write(str(Loss) + "\n")
@@ -6840,36 +6842,36 @@ class YOLOv2_Tiny_FPGA(object):
                                     Brain_Floating_Point =   data.Brain_Floating_Point,
                                     Exponent_Bits        =   data.Exponent_Bits,
                                     Mantissa_Bits        =   data.Mantissa_Bits)    
-        if data.Image_Converted:
-            s = time.time()
-            image = PreProcessing.Image_Converted_Func(self.Image)
-            Image1 = Fmap_Hardware_ReOrdering_Layer0(16, image[0])
-            Image2 = Fmap_Hardware_ReOrdering_Layer0(16, image[1])
-            Image3 = Fmap_Hardware_ReOrdering_Layer0(16, image[2])
-            Image4 = Fmap_Hardware_ReOrdering_Layer0(16, image[3])
-            Image5 = Fmap_Hardware_ReOrdering_Layer0(16, image[4])
-            Image6 = Fmap_Hardware_ReOrdering_Layer0(16, image[5])
-            Image7 = Fmap_Hardware_ReOrdering_Layer0(16, image[6])
-            Image8 = Fmap_Hardware_ReOrdering_Layer0(16, image[7])
-            e = time.time()
-            print("Fmap Ordering : ",e-s)
-            
-            Images_CH0 = Image1[0] + Image2[0] + Image3[0] + Image4[0] + Image5[0] + Image6[0] + Image7[0] + Image8[0]
-            Images_CH1 = Image1[1] + Image2[1] + Image3[1] + Image4[1] + Image5[1] + Image6[1] + Image7[1] + Image8[1]
-                
-            # Break 256To32 and Flip the Data: 
-            s = time.time()
-            Images_CH0 = data_256_32(Images_CH0)
-            Images_CH1 = data_256_32(Images_CH1)
-            e = time.time()
-            print("256bit to 32 bit Convert : ",e-s)
+
+        s = time.time()
+        image = PreProcessing.Image_Converted_Func(data.im_data)
+        Image1 = Fmap_Hardware_ReOrdering_Layer0(16, image[0])
+        Image2 = Fmap_Hardware_ReOrdering_Layer0(16, image[1])
+        Image3 = Fmap_Hardware_ReOrdering_Layer0(16, image[2])
+        Image4 = Fmap_Hardware_ReOrdering_Layer0(16, image[3])
+        Image5 = Fmap_Hardware_ReOrdering_Layer0(16, image[4])
+        Image6 = Fmap_Hardware_ReOrdering_Layer0(16, image[5])
+        Image7 = Fmap_Hardware_ReOrdering_Layer0(16, image[6])
+        Image8 = Fmap_Hardware_ReOrdering_Layer0(16, image[7])
+        e = time.time()
+        print("Fmap Ordering : ",e-s)
         
-            # Write Images into DDR: 
-            s = time.time()
-            Write_DDR(Images_CH0, Wr_Address=0x82400000)
-            Write_DDR(Images_CH1, Wr_Address=0x92400000)  
-            e = time.time()
-            print("Write Image : ",e-s)
+        Images_CH0 = Image1[0] + Image2[0] + Image3[0] + Image4[0] + Image5[0] + Image6[0] + Image7[0] + Image8[0]
+        Images_CH1 = Image1[1] + Image2[1] + Image3[1] + Image4[1] + Image5[1] + Image6[1] + Image7[1] + Image8[1]
+            
+        # Break 256To32 and Flip the Data: 
+        s = time.time()
+        Images_CH0 = data_256_32(Images_CH0)
+        Images_CH1 = data_256_32(Images_CH1)
+        e = time.time()
+        print("256bit to 32 bit Convert : ",e-s)
+    
+        # Write Images into DDR: 
+        s = time.time()
+        Write_DDR(Images_CH0, Wr_Address=0x82400000)
+        Write_DDR(Images_CH1, Wr_Address=0x92400000)  
+        e = time.time()
+        print("Write Image : ",e-s)
 
 
     def Write_Image_Test(self):
