@@ -773,7 +773,7 @@ class App(customtkinter.CTk):
                 self.Calculate_Loss()
                 self.Before_Backward()
                 self.Backward()
-                # self.Weight_Update() 
+                self.Weight_Update() 
         #     self.Check_mAP()
         #     self.Save_Pickle()
         # self.Post_Epoch()
@@ -814,13 +814,13 @@ class App(customtkinter.CTk):
             self.bar.write(0x0, 0x00000011) # yolo start
             self.bar.write(0x0, 0x00000010) # yolo start low
 
-        self.bar.write(0x8, 0x00000011) # rd addr
-        self.bar.write(0x0, 0x00000014) # rd en
-        self.bar.write(0x0, 0x00000010) # rd en low
+            self.bar.write(0x8, 0x00000011) # rd addr
+            self.bar.write(0x0, 0x00000014) # rd en
+            self.bar.write(0x0, 0x00000010) # rd en low
 
-        self.bar.write(0x18, 0x00008001) # axi addr
-        self.bar.write(0x14, 0x00000001) # axi rd en
-        self.bar.write(0x14, 0x00000000) # axi rd en low
+            self.bar.write(0x18, 0x00008001) # axi addr
+            self.bar.write(0x14, 0x00000001) # axi rd en
+            self.bar.write(0x14, 0x00000000) # axi rd en low
         
         
     # Training Helper Functions
@@ -889,7 +889,6 @@ class App(customtkinter.CTk):
                                             Brain_Floating_Point =   self.Brain_Floating_Point,
                                             Exponent_Bits        =   self.Exponent_Bits,
                                             Mantissa_Bits        =   self.Mantissa_Bits)
-                    
         self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
         
         # Initialize Pre-Trained Weight
@@ -905,14 +904,14 @@ class App(customtkinter.CTk):
                                     optim=optim)
         
         # Loading Weight From pth File
-        self.update_weights(self.Shoaib.load_weights())
+        loaded_weights = self.Shoaib.load_weights()
+        
+        if self.mode == "Pytorch":      self.Pytorch.load_weights(loaded_weights)
+        if self.mode == "Python":       self.Python.load_weights(loaded_weights)
+        if self.mode == "Simulation":   self.update_weights(loaded_weights)
+        if self.mode == "FPGA":         self.update_weights(loaded_weights)
         e = time.time()
         print("WeightLoader : ",e-s)
-        
-        if self.mode == "Pytorch": pass #self.Pytorch.modtorch_model.load(self.args.pretrained, self.Pytorch.modtorch_model.dtype, self.Pytorch.modtorch_model.device)
-        if self.mode == "Python": pass #self.Python.python_model.load(self.args.pretrained, self.Pytorch.modtorch_model.dtype, self.Pytorch.modtorch_model.device)
-        if self.mode == "Simulation" or self.mode == "FPGA": pass
-        
 
     def update_weights(self, data):
         [ self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec ] = data
@@ -975,18 +974,25 @@ class App(customtkinter.CTk):
 
 
     def Weight_Update(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
-        # if self.mode == "Simulation": # Add By Thaising
-        #     [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], self.custom_model = \
-        #     self.Shoaib.update_weights_FPGA(
-        #         Inputs  = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], 
-        #         gInputs = [self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient ])
-        # if self.mode == "FPGA"      : 
-        #     [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], self.custom_model = \
-        #     self.Shoaib.update_weights_FPGA(
-        #         Inputs  = [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], 
-        #         gInputs = [self.Weight_Gradient,  self.Bias_Grad,  self.Gamma_Gradient, self.Beta_Gradient ])
+        if self.mode == "Pytorch"   : 
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], self.custom_model = \
+            self.Shoaib.update_weights_Pytorch_Python(self.Pytorch.modtorch_model.params)
+        
+        if self.mode == "Python"    : 
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], self.custom_model = \
+            self.Shoaib.update_weights_Pytorch_Python(self.Python.python_model.params)
+        
+        if self.mode == "Simulation": 
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], self.custom_model = \
+            self.Shoaib.update_weights_FPGA(
+                Inputs  = [self.Sim.Weight_Dec,         self.Sim.Bias_Dec,  self.Sim.Gamma_Dec,         self.Sim.Beta_Dec], 
+                gInputs = [self.Sim.Weight_Gradient,    self.Sim.Bias_Grad, self.Sim.Gamma_Gradient,    self.Sim.Beta_Gradient ])
+            
+        if self.mode == "FPGA"      : 
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec], self.custom_model = \
+            self.Shoaib.update_weights_FPGA(
+                Inputs  = [self.FPGA.Weight_Dec,         self.FPGA.Bias_Dec,  self.FPGA.Gamma_Dec,         self.FPGA.Beta_Dec], 
+                gInputs = [self.FPGA.Weight_Gradient,    self.FPGA.Bias_Grad, self.FPGA.Gamma_Gradient,    self.FPGA.Beta_Gradient ])
 
     def Save_Pickle(self):
         if self.mode == "Pytorch"   : pass

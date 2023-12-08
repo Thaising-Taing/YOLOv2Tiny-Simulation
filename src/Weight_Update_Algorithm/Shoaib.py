@@ -543,6 +543,32 @@ class Shoaib_Code(object):
         Outputs = self.get_weight_values_FPGA(Inputs)
         return Outputs, self.custom_model
 
+    def update_weights_Pytorch_Python(self, Inputs=[], gInputs=[]):
+        """
+        Update the weights of a custom model using the provided gradients and optimizer.
+
+        Args:
+            w  (Tensor): The weights of the model.
+            gw (Tensor): The gradients of the weights.
+            b  (Tensor): The biases of the model.
+            gb (Tensor): The gradients of the biases.
+            custom_model (nn.Module): The custom model to update.
+            custom_optimizer (Optimizer): The optimizer to use for updating the weights.
+
+        Returns:
+            Dict[str, Tensor]: The updated state dictionary of the custom model.
+        """
+        self.custom_optimizer.zero_grad()
+        
+        # Update weight values
+        self.custom_model = self.set_weight_values_FPGA(Inputs, gInputs)
+
+        # Perform optimization step
+        self.custom_optimizer.step()
+
+        # Get the updated state dictionary of the custom model
+        Outputs = self.get_weight_values_FPGA(Inputs)
+        return Outputs, self.custom_model
 
     def load_weights(self):
         """
