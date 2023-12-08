@@ -16,7 +16,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-import pytorch_lightning as pl
+#import pytorch_lightning as pl
 from pathlib import Path
 # from config import config as cfg
 from Post_Processing_Scratch.Loss import build_target, yolo_loss
