@@ -962,6 +962,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"      : self.FPGA.Forward(self)
     
     def Calculate_Loss(self):
+
         if self.mode == "Pytorch"   : self.Pytorch.Calculate_Loss(self)
         if self.mode == "Python"    : self.Python.Calculate_Loss(self)
         if self.mode == "Simulation": self.Sim.Calculate_Loss(self)
