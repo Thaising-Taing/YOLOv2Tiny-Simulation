@@ -94,13 +94,15 @@ class FPGA(object):
         
         print("Start NPU")
         s = time.time()
-        self.YOLOv2TinyFPGA.Forward(data)
+        self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward(data)
+        print(self.Output_Layer8.shape)
         e = time.time()
         print("Forward Process Time : ",e-s)
         # self.change_color_red()
         # return Bias_Grad
         
     def Calculate_Loss(self,data):
+                           
         self.Loss, self.Loss_Gradient = self.YOLOv2TinyFPGA.Post_Processing(data, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
     
     def Before_Backward(self,data):

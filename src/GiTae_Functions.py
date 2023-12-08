@@ -474,7 +474,7 @@ class YOLOv2_Tiny_FPGA(object):
         check_irq_layer0()
         # self.app_instance.change_color(self.app_instance.L1_IRQ_canvas, self.app_instance.L1_IRQ, "green")
         global OutImage_1st_Layer0, OutImage_1st_Layer1, OutImage_1st_Layer2, OutImage_1st_Layer3, OutImage_1st_Layer4,\
-        OutImage_1st_Layer5, OutImage_1st_Layer5, OutImage_1st_Layer7, OutImage_1st_Layer8, Bias_Grad
+        OutImage_1st_Layer5, OutImage_1st_Layer5, OutImage_1st_Layer7, OutImage_1st_Layer8, Output_Layer8, Bias_Grad
         # Layer 0
         # Read DDR & Conver Format # 512MB
         layer0_start = time.time()
@@ -2778,10 +2778,6 @@ class YOLOv2_Tiny_FPGA(object):
         #################################################
         #                Layer 8 Start                  #
         #################################################
-    
-    # Modified By Thaising
-    def Post_Processing(self, data, gt_boxes, gt_classes, num_boxes):
-        # check Layer8 IRQ
         check_irq_otherlayer()
         # self.app_instance .change_color(self.app_instance.L9_IRQ_canvas, self.app_instance.L9_IRQ, "green")
         layer8_start = time.time()
@@ -2864,6 +2860,25 @@ class YOLOv2_Tiny_FPGA(object):
         #print("ch1 image 8 : ", len(Layer8_1st_Iter_Image8_CH1))
         e = time.time()
         print("Read DDR & 32bit to 16bit : ",e-s)
+
+        Output_Image1 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image1_CH0_256, Layer8_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image2 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image2_CH0_256, Layer8_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image3 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image3_CH0_256, Layer8_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image4 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image4_CH0_256, Layer8_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image5 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image5_CH0_256, Layer8_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image6 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image6_CH0_256, Layer8_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image7 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image7_CH0_256, Layer8_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image8 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image8_CH0_256, Layer8_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Layer8 = Output_Image1 + Output_Image2 + Output_Image3 + Output_Image4 + \
+                        Output_Image5 + Output_Image6 + Output_Image7 + Output_Image8
+
+        Float_OutputImage = [np.float32(x) for x in Output_Layer8]
+        Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
+        return Output_Layer8
+    
+    # Modified By Thaising
+    def Post_Processing(self, data, gt_boxes, gt_classes, num_boxes):
+        # check Layer8 IRQ
 
         '''
         test_out = '1st_iter_result/Layer8_1st_Iter_Image1_CH0.txt'
@@ -2985,22 +3000,22 @@ class YOLOv2_Tiny_FPGA(object):
                     Brain_Floating_Point=data.Brain_Floating_Point,
                     Exponent_Bits=Exponent_Bits,
                     Mantissa_Bits=Mantissa_Bits,
-                    OutImage1_Data_CH0=Layer8_1st_Iter_Image1_CH0_256,
-                    OutImage1_Data_CH1=Layer8_1st_Iter_Image1_CH1_256,
-                    OutImage2_Data_CH0=Layer8_1st_Iter_Image2_CH0_256,
-                    OutImage2_Data_CH1=Layer8_1st_Iter_Image2_CH1_256,
-                    OutImage3_Data_CH0=Layer8_1st_Iter_Image3_CH0_256,
-                    OutImage3_Data_CH1=Layer8_1st_Iter_Image3_CH1_256,
-                    OutImage4_Data_CH0=Layer8_1st_Iter_Image4_CH0_256,
-                    OutImage4_Data_CH1=Layer8_1st_Iter_Image4_CH1_256,
-                    OutImage5_Data_CH0=Layer8_1st_Iter_Image5_CH0_256,
-                    OutImage5_Data_CH1=Layer8_1st_Iter_Image5_CH1_256,
-                    OutImage6_Data_CH0=Layer8_1st_Iter_Image6_CH0_256,
-                    OutImage6_Data_CH1=Layer8_1st_Iter_Image6_CH1_256,
-                    OutImage7_Data_CH0=Layer8_1st_Iter_Image7_CH0_256,
-                    OutImage7_Data_CH1=Layer8_1st_Iter_Image7_CH1_256,
-                    OutImage8_Data_CH0=Layer8_1st_Iter_Image8_CH0_256,
-                    OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
+                    Output_Layer8=Output_Layer8,
+                    # OutImage1_Data_CH1=Layer8_1st_Iter_Image1_CH1_256,
+                    # OutImage2_Data_CH0=Layer8_1st_Iter_Image2_CH0_256,
+                    # OutImage2_Data_CH1=Layer8_1st_Iter_Image2_CH1_256,
+                    # OutImage3_Data_CH0=Layer8_1st_Iter_Image3_CH0_256,
+                    # OutImage3_Data_CH1=Layer8_1st_Iter_Image3_CH1_256,
+                    # OutImage4_Data_CH0=Layer8_1st_Iter_Image4_CH0_256,
+                    # OutImage4_Data_CH1=Layer8_1st_Iter_Image4_CH1_256,
+                    # OutImage5_Data_CH0=Layer8_1st_Iter_Image5_CH0_256,
+                    # OutImage5_Data_CH1=Layer8_1st_Iter_Image5_CH1_256,
+                    # OutImage6_Data_CH0=Layer8_1st_Iter_Image6_CH0_256,
+                    # OutImage6_Data_CH1=Layer8_1st_Iter_Image6_CH1_256,
+                    # OutImage7_Data_CH0=Layer8_1st_Iter_Image7_CH0_256,
+                    # OutImage7_Data_CH1=Layer8_1st_Iter_Image7_CH1_256,
+                    # OutImage8_Data_CH0=Layer8_1st_Iter_Image8_CH0_256,
+                    # OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
                     )
         s = time.time()
         Loss, Loss_Gradient = PostProcessing.PostProcessing(gt_boxes, gt_classes, num_boxes)
