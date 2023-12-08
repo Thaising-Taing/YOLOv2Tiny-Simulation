@@ -36,6 +36,12 @@ class Simulation(object):
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
         
+        self.Weight           = data.Weight_Dec
+        self.Bias             = data.Bias_Dec
+        self.Gamma            = data.Gamma_Dec
+        self.Beta             = data.Beta_Dec
+        self.Running_Mean_Dec = data.Running_Mean_Dec
+        self.Running_Var_Dec  = data.Running_Var_Dec
         
         im_data             = data.im_data
         Weight_Tensor       = data.Weight_Dec
@@ -140,16 +146,18 @@ class Simulation(object):
         Input_Grad_Layer0, Weight_Gradient_Layer0, Gamma_Gradient_Layer0, Beta_Gradient_Layer0  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer1, cache['0'])
         
         # Gradient Value for Weight Update
-        self.Weight_Gradient = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 
+        self.gWeight = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 
                         Weight_Gradient_Layer4, Weight_Gradient_Layer5, Weight_Gradient_Layer6, Weight_Gradient_Layer7, 
                         Weight_Gradient_Layer8]
         
-        self.Beta_Gradient = [Beta_Gradient_Layer0, Beta_Gradient_Layer1, Beta_Gradient_Layer2, Beta_Gradient_Layer3, 
-                        Beta_Gradient_Layer4, Beta_Gradient_Layer5,Beta_Gradient_Layer6, Beta_Gradient_Layer7]
+        self.gBias  = Bias_Grad
         
-        self.Gamma_Gradient = [Gamma_Gradient_Layer0, Gamma_Gradient_Layer1, Gamma_Gradient_Layer2, Gamma_Gradient_Layer3, 
+        self.gGamma = [Gamma_Gradient_Layer0, Gamma_Gradient_Layer1, Gamma_Gradient_Layer2, Gamma_Gradient_Layer3, 
                         Gamma_Gradient_Layer4, Gamma_Gradient_Layer5, Gamma_Gradient_Layer6, Gamma_Gradient_Layer7]
         
-        self.Bias_Grad = Bias_Grad
+        self.gBeta  = [Beta_Gradient_Layer0, Beta_Gradient_Layer1, Beta_Gradient_Layer2, Beta_Gradient_Layer3, 
+                        Beta_Gradient_Layer4, Beta_Gradient_Layer5,Beta_Gradient_Layer6, Beta_Gradient_Layer7]
+        
+        
         
         # return Weight_Gradient, Bias_Grad, Gamma_Gradient, Beta_Gradient
