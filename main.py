@@ -834,7 +834,7 @@ class App(customtkinter.CTk):
         with open(path, 'rb') as handle:
             b = pickle.load(handle)
         return b
-        
+    
     def parse_args(self):
         """
         Parse input arguments
