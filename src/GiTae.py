@@ -42,13 +42,21 @@ class FPGA(object):
                         self.Running_Var_Dec,
                         self) 
 
-    def Before_Forward(self,data):
+    def Before_Forward(self,data):        
         self.gt_boxes       = data.gt_boxes  
         self.gt_classes     = data.gt_classes
         self.num_boxes      = data.num_obj 
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
         self.im_data        = data.im_data
+        
+        self.Weight           = data.Weight_Dec
+        self.Bias             = data.Bias_Dec
+        self.Gamma            = data.Gamma_Dec
+        self.Beta             = data.Beta_Dec
+        self.Running_Mean_Dec = data.Running_Mean_Dec
+        self.Running_Var_Dec  = data.Running_Var_Dec
+        
         # Code by GiTae
         self.Image_1_start = time.time() 
     
@@ -78,12 +86,6 @@ class FPGA(object):
         
          
     def Forward(self, data):
-        self.gt_boxes       = data.gt_boxes  
-        self.gt_classes     = data.gt_classes
-        self.num_boxes      = data.num_obj 
-        self.num_obj        = data.num_obj 
-        self.image          = data.im_data
-        self.im_data        = data.im_data
         
         print("Start NPU")
         s = time.time()
@@ -102,7 +104,7 @@ class FPGA(object):
 
     def Backward(self,data):
         s = time.time()
-        self.YOLOv2TinyFPGA.Backward()
+        self.gWeight, self.gBias, self.gBeta, self.gGamma = self.YOLOv2TinyFPGA.Backward()
         e = time.time()
         print("Backward Process Time : ",e-s)
         self.change_color_red()

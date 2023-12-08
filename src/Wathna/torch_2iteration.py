@@ -2337,8 +2337,8 @@ class Torch_SpatialBatchNorm(object):
             dL_dxi[idx[0], idx[1], idx[2], idx[3]] -= grad_output[idx[0], idx[1], idx[2], idx[3]] #dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
         #dL_dxi_max = dL_dxi + dL_dxmax
         #dL_dxi_min = dL_dxi + dL_dxmin
-        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
+        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=False)
+        dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=False)
         #for idx in max_index:
         #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
         #for idx in min_index:
