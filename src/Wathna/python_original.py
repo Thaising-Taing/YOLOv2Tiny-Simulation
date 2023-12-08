@@ -80,6 +80,7 @@ class DeepConvNet(object):
     self.save_output = False
     self.save_txt = False
     self.save_hex = False
+    self.device = device
   
     if device == 'cuda':
       device = 'cuda:0'

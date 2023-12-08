@@ -884,33 +884,34 @@ class App(customtkinter.CTk):
             os.makedirs(self.args.output_dir)
 
     def Load_Weights(self):
-        if self.mode == "Pytorch": self.Pytorch.modtorch_model.load(self.args.pretrained, self.Pytorch.modtorch_model.dtype, self.Pytorch.modtorch_model.device)
-        if self.mode == "Python": self.Python.python_model.load(self.args.pretrained, self.Pytorch.modtorch_model.dtype, self.Pytorch.modtorch_model.device)
-        if self.mode == "Simulation" or self.mode == "FPGA":
-            s = time.time()
-            self.PreProcessing = Pre_Processing(Mode =   self.Mode,
-                                                Brain_Floating_Point =   self.Brain_Floating_Point,
-                                                Exponent_Bits        =   self.Exponent_Bits,
-                                                Mantissa_Bits        =   self.Mantissa_Bits)
-                        
-            self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
-            
-            # Initialize Pre-Trained Weight
-            self.Shoaib = Shoaib_Code(  Weight_Dec=self.Weight_Dec, 
-                                        Bias_Dec=self.Bias_Dec, 
-                                        Beta_Dec=self.Beta_Dec, 
-                                        Gamma_Dec=self.Gamma_Dec,
-                                        Running_Mean_Dec=self.Running_Mean_Dec, 
-                                        Running_Var_Dec=self.Running_Var_Dec,
-                                        args=self.args,
-                                        pth_weights_path=self.args.pretrained,
-                                        model=Yolov2,
-                                        optim=optim)
-            
-            # Loading Weight From pth File
-            self.update_weights(self.Shoaib.load_weights())
-            e = time.time()
-            print("WeightLoader : ",e-s)
+        s = time.time()
+        self.PreProcessing = Pre_Processing(Mode =   self.Mode,
+                                            Brain_Floating_Point =   self.Brain_Floating_Point,
+                                            Exponent_Bits        =   self.Exponent_Bits,
+                                            Mantissa_Bits        =   self.Mantissa_Bits)
+                    
+        self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
+        
+        # Initialize Pre-Trained Weight
+        self.Shoaib = Shoaib_Code(  Weight_Dec=self.Weight_Dec, 
+                                    Bias_Dec=self.Bias_Dec, 
+                                    Beta_Dec=self.Beta_Dec, 
+                                    Gamma_Dec=self.Gamma_Dec,
+                                    Running_Mean_Dec=self.Running_Mean_Dec, 
+                                    Running_Var_Dec=self.Running_Var_Dec,
+                                    args=self.args,
+                                    pth_weights_path=self.args.pretrained,
+                                    model=Yolov2,
+                                    optim=optim)
+        
+        # Loading Weight From pth File
+        self.update_weights(self.Shoaib.load_weights())
+        e = time.time()
+        print("WeightLoader : ",e-s)
+        
+        if self.mode == "Pytorch": pass #self.Pytorch.modtorch_model.load(self.args.pretrained, self.Pytorch.modtorch_model.dtype, self.Pytorch.modtorch_model.device)
+        if self.mode == "Python": pass #self.Python.python_model.load(self.args.pretrained, self.Pytorch.modtorch_model.dtype, self.Pytorch.modtorch_model.device)
+        if self.mode == "Simulation" or self.mode == "FPGA": pass
         
 
     def update_weights(self, data):
