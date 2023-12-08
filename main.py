@@ -767,7 +767,8 @@ class App(customtkinter.CTk):
             self.Adjust_Learning_Rate()
             
             for step in tqdm(range(self.iters_per_epoch), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch):
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_Default_Data()
                 self.Before_Forward()
                 self.Forward()
                 self.Calculate_Loss()
@@ -792,7 +793,6 @@ class App(customtkinter.CTk):
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
         if self.mode == "FPGA"      : pass      
-
         
     def Stop_Process(self):
         self.Train.configure(state="normal")
@@ -824,6 +824,16 @@ class App(customtkinter.CTk):
         
         
     # Training Helper Functions
+    def Save_Default_Data(self):
+        a = next(self.train_data_iter)
+        with open('Dataset/Dataset/default_data.pickle', 'wb') as handle:
+            pickle.dump(a, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            
+    def Load_Default_Data(self):
+        with open('Dataset/Dataset/default_data.pickle', 'rb') as handle:
+            b = pickle.load(handle)
+        return b
+        
     def parse_args(self):
         """
         Parse input arguments
