@@ -11,9 +11,6 @@ import subprocess
 import tqdm
 import warnings
 warnings.filterwarnings("ignore")
-
-from tkinter.constants import DISABLED, NORMAL 
-
 import os
 import sys
 sys.path.append("../")
@@ -31,11 +28,8 @@ sys.path.append("/home/msis/Desktop/pcie_python/GUI")
 # from  XdmaAccess import XdmaAccess
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
-from Post_Processing_Scratch.Post_Processing_2Iterations import Post_Processing
 import time
-from tabulate import tabulate
 import os.path 
-import matplotlib.pyplot as plt
 from Dataset.roidb import RoiDataset, detection_collate
 from Dataset.factory import get_imdb
 from torch.utils.data import DataLoader
@@ -853,6 +847,8 @@ class App(customtkinter.CTk):
                             default=True, type=bool)
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
+        parser.add_argument('--pretrained', dest='pretrained',
+                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
@@ -888,35 +884,34 @@ class App(customtkinter.CTk):
             os.makedirs(self.args.output_dir)
 
     def Load_Weights(self):
-        s = time.time()
-        self.PreProcessing = Pre_Processing(Mode =   self.Mode,
-                                Brain_Floating_Point =   self.Brain_Floating_Point,
-                                Exponent_Bits        =   self.Exponent_Bits,
-                                Mantissa_Bits        =   self.Mantissa_Bits)
+        if self.mode == "Pytorch": self.Pytorch.modtorch_model.load(self.args.pretrained, self.Pytorch.modtorch_model.dtype, self.Pytorch.modtorch_model.device)
+        if self.mode == "Python": self.Python.python_model.load(self.args.pretrained, self.Pytorch.modtorch_model.dtype, self.Pytorch.modtorch_model.device)
+        if self.mode == "Simulation" or self.mode == "FPGA":
+            s = time.time()
+            self.PreProcessing = Pre_Processing(Mode =   self.Mode,
+                                                Brain_Floating_Point =   self.Brain_Floating_Point,
+                                                Exponent_Bits        =   self.Exponent_Bits,
+                                                Mantissa_Bits        =   self.Mantissa_Bits)
+                        
+            self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
+            
+            # Initialize Pre-Trained Weight
+            self.Shoaib = Shoaib_Code(  Weight_Dec=self.Weight_Dec, 
+                                        Bias_Dec=self.Bias_Dec, 
+                                        Beta_Dec=self.Beta_Dec, 
+                                        Gamma_Dec=self.Gamma_Dec,
+                                        Running_Mean_Dec=self.Running_Mean_Dec, 
+                                        Running_Var_Dec=self.Running_Var_Dec,
+                                        args=self.args,
+                                        pth_weights_path=self.args.pretrained,
+                                        model=Yolov2,
+                                        optim=optim)
+            
+            # Loading Weight From pth File
+            self.update_weights(self.Shoaib.load_weights())
+            e = time.time()
+            print("WeightLoader : ",e-s)
         
-        self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
-        
-        # Initialize Pre-Trained Weight
-        self.Shoaib = Shoaib_Code(
-            Weight_Dec=self.Weight_Dec, 
-            Bias_Dec=self.Bias_Dec, 
-            Beta_Dec=self.Beta_Dec, 
-            Gamma_Dec=self.Gamma_Dec,
-            Running_Mean_Dec=self.Running_Mean_Dec, 
-            Running_Var_Dec=self.Running_Var_Dec,
-            args=self.args,
-            pth_weights_path="Dataset/Dataset/pretrained/yolov2_best_map.pth",
-            model=Yolov2,
-            optim=optim)
-        
-        # Loading Weight From pth File
-        self.update_weights(self.Shoaib.load_weights())
-        e = time.time()
-        print("WeightLoader : ",e-s)
-        
-        # Make a Torch model as well
-        self.model = Yolov2()
-        self.model.load_state_dict(self.Shoaib.custom_model.state_dict())
 
     def update_weights(self, data):
         [ self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec ] = data
@@ -947,7 +942,6 @@ class App(customtkinter.CTk):
             self.learning_rate = 0.0000001
             
     def Before_Forward(self):
-        # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
         if self.mode == "Pytorch"   : pass
         if self.mode == "Python"    : pass
         if self.mode == "Simulation": pass
@@ -955,14 +949,12 @@ class App(customtkinter.CTk):
 
 
     def Forward(self):
-        # Input = self.im_data
         if self.mode == "Pytorch"   : self.Pytorch.Forward(self)
         if self.mode == "Python"    : self.Python.Forward(self)
         if self.mode == "Simulation": self.Sim.Forward(self)
         if self.mode == "FPGA"      : self.FPGA.Forward(self)
     
     def Calculate_Loss(self):
-
         if self.mode == "Pytorch"   : self.Pytorch.Calculate_Loss(self)
         if self.mode == "Python"    : self.Python.Calculate_Loss(self)
         if self.mode == "Simulation": self.Sim.Calculate_Loss(self)
