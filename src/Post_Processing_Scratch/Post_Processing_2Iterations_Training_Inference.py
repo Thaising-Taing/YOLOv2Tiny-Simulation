@@ -78,27 +78,29 @@ class Post_Processing_Inference:
         with open(output_file, 'wb') as handle:
             pickle.dump(_data, handle, protocol=pickle.HIGHEST_PROTOCOL)  
 
-        print(Output_Image)       
+        Float_OutputImage = [np.float32(x) for x in Output_Image]
+        Output_Image = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8, 125, 13, 13)
+        return Output_Image       
 
-        # Mode is Training
-        if self.Mode == "Training":
-            # Convert Output Image into List of Floating 32 Format
-            Float_OutputImage = [np.float32(x) for x in Output_Image]
-            # Loss Calculation and Loss Gradient Calculation
-            Layer8_Loss, Layer8_Loss_Gradient = loss(Float_OutputImage, gt_boxes=gt_boxes,
-                                                     gt_classes=gt_classes, num_boxes=num_boxes)
-            # Numerical_Loss = Numerical_Loss(Layer8_Loss)
-            return Layer8_Loss, Layer8_Loss_Gradient
+        # # Mode is Training
+        # if self.Mode == "Training":
+        #     # Convert Output Image into List of Floating 32 Format
+        #     Float_OutputImage = [np.float32(x) for x in Output_Image]
+        #     # Loss Calculation and Loss Gradient Calculation
+        #     Layer8_Loss, Layer8_Loss_Gradient = loss(Float_OutputImage, gt_boxes=gt_boxes,
+        #                                              gt_classes=gt_classes, num_boxes=num_boxes)
+        #     # Numerical_Loss = Numerical_Loss(Layer8_Loss)
+        #     return Layer8_Loss, Layer8_Loss_Gradient
             
-        # Mode is Inference   
-        if self.Mode == "Inference":
-            Float_OutputImage = [np.float32(x) for x in Output_Image]
-            output_data = reshape_output(Float_OutputImage)
-            return output_data
-            # Float_OutputImage = [np.float32(x) for x in Output_Image]
-            # target_data, output_data = reshape_output(Float_OutputImage, gt_boxes=gt_boxes,
-            #                                          gt_classes=gt_classes, num_boxes=num_boxes)
-            # return target_data, output_data
+        # # Mode is Inference   
+        # if self.Mode == "Inference":
+        #     Float_OutputImage = [np.float32(x) for x in Output_Image]
+        #     output_data = reshape_output(Float_OutputImage)
+        #     return output_data
+        #     # Float_OutputImage = [np.float32(x) for x in Output_Image]
+        #     # target_data, output_data = reshape_output(Float_OutputImage, gt_boxes=gt_boxes,
+        #     #                                          gt_classes=gt_classes, num_boxes=num_boxes)
+        #     # return target_data, output_data
 
 def reshape_output(out):
     # print('Calculating the loss and its gradients for python model.')

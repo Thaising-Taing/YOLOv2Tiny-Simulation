@@ -474,7 +474,7 @@ class YOLOv2_Tiny_FPGA(object):
         check_irq_layer0()
         # self.app_instance.change_color(self.app_instance.L1_IRQ_canvas, self.app_instance.L1_IRQ, "green")
         global OutImage_1st_Layer0, OutImage_1st_Layer1, OutImage_1st_Layer2, OutImage_1st_Layer3, OutImage_1st_Layer4,\
-        OutImage_1st_Layer5, OutImage_1st_Layer5, OutImage_1st_Layer7, OutImage_1st_Layer8, Bias_Grad
+        OutImage_1st_Layer5, OutImage_1st_Layer5, OutImage_1st_Layer7, OutImage_1st_Layer8, Output_Layer8, Bias_Grad
         # Layer 0
         # Read DDR & Conver Format # 512MB
         layer0_start = time.time()
@@ -483,11 +483,6 @@ class YOLOv2_Tiny_FPGA(object):
         Layer0_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x83E00000, End_Address=0x83ED0000)
         Layer0_1st_Iter_Image1_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image1_CH0) 
         #print("ch0 image 1 : ", len(Layer0_1st_Iter_Image1_CH0)) 
-        test_out = 'Layer0_1st_Iter_Image1_CH0_3.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer0_1st_Iter_Image1_CH0:
-                test_output.write(str(item) + "\n")
-        test_output.close()
 
         Layer0_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x83ED0000, End_Address=0x83FA0000)
         Layer0_1st_Iter_Image2_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image2_CH0)
@@ -553,7 +548,7 @@ class YOLOv2_Tiny_FPGA(object):
         print("Read DDR & 32bit to 16bit Convert :",e-s)
 
         '''
-        test_out = 'Layer0_1st_Iter_Image1_CH0.txt'
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image1_CH0.txt'
         with open(test_out, 'w+') as test_output:
             for item in Layer0_1st_Iter_Image1_CH0:
                 test_output.write(str(item) + "\n")
@@ -681,12 +676,35 @@ class YOLOv2_Tiny_FPGA(object):
                             Output_Image5_Layer0_1st_Iter + Output_Image6_Layer0_1st_Iter + Output_Image7_Layer0_1st_Iter + Output_Image8_Layer0_1st_Iter    
 
         OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
+        
+        test_out = '1st_iter_result/OutImage_1st_Layer0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in OutImage_1st_Layer0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        
+        print(OutImage_1st_Layer0[0][0][0][0:5])
 
         # Mean, Var
         s = time.time()
         Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)    
         e = time.time()
         print("Calculate Mean & Var :",e-s)
+        
+        data_read_mean_var = "result/Mean_1st_Layer0.txt"
+        with open(data_read_mean_var, mode="w") as output_file:  
+            for sublist in Mean_1st_Layer0:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
+        output_file.close() 
+
+        data_read_mean_var = "result/Var_1st_Layer0.txt"
+        with open(data_read_mean_var, mode="w") as output_file:  
+            for sublist in Var_1st_Layer0:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
+        output_file.close()
 
         Beta_Layer0 = self.Beta_Dec[0]
         Gamma_Layer0 = self.Gamma_Dec[0]
@@ -729,7 +747,7 @@ class YOLOv2_Tiny_FPGA(object):
         output_file.close()               
         '''
  
-        '''
+        
         weight_layer0_2nd_ch0 = data_256_32(Weight_2nd_Layer0[0])
         weight_layer0_2nd_ch1 = data_256_32(Weight_2nd_Layer0[1])
         
@@ -745,7 +763,7 @@ class YOLOv2_Tiny_FPGA(object):
             for sublist in weight_layer0_2nd_ch1:
                 cleaned_sublist = [clean_string(item) for item in sublist]
                 output_file.write
-        '''
+        
         s = time.time()
         Write_DDR(data_256_32(Weight_2nd_Layer0[0]), Wr_Address=0x80000000)
         Write_DDR(data_256_32(Weight_2nd_Layer0[1]), Wr_Address=0x90000000)
@@ -796,6 +814,25 @@ class YOLOv2_Tiny_FPGA(object):
         check_irq_otherlayer()        
         # self.app_instance .change_color(self.app_instance.L2_IRQ_canvas, self.app_instance.L2_IRQ, "green") 
         # Layer 1
+        test0 = Read_DDR(Rd_Address=0X84480000, End_Address=0X84550000)
+        test0 = data_32_to_16(test0)
+        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        test1 = Read_DDR(Rd_Address=0X94480000, End_Address=0X94550000)
+        test1 = data_32_to_16(test1)
+        
+        Output_Image1_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(test0, test1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+
+        OutImage_1st_Layer1 = torch.tensor([float(value) for value in Output_Image1_Layer1_1st_Iter], dtype=torch.float32).reshape(1, 16, 208, 208)
+        
+        test_out = 'result/layer0_2nd.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in OutImage_1st_Layer1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        
+        
         layer1_start = time.time()
         s = time.time()
         # Read DDR & Conver Format # 512MB
@@ -996,6 +1033,14 @@ class YOLOv2_Tiny_FPGA(object):
                             Output_Image5_Layer1_1st_Iter + Output_Image6_Layer1_1st_Iter + Output_Image7_Layer1_1st_Iter + Output_Image8_Layer1_1st_Iter    
 
         OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).reshape(8, 32, 208, 208)
+        print(OutImage_1st_Layer1[0][0][0][0:5])
+        
+        test_out = '1st_iter_result/OutImage_1st_Layer1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in OutImage_1st_Layer1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
 
 
         # Mean, Var
@@ -1003,6 +1048,20 @@ class YOLOv2_Tiny_FPGA(object):
         Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
         e = time.time()
         print("Cacluate Mean & Var :",e-s)
+        
+        data_read_mean_var = "result/Mean_1st_Layer1.txt"
+        with open(data_read_mean_var, mode="w") as output_file:  
+            for sublist in Mean_1st_Layer1:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
+        output_file.close() 
+
+        data_read_mean_var = "result/Var_1st_Layer1.txt"
+        with open(data_read_mean_var, mode="w") as output_file:  
+            for sublist in Var_1st_Layer1:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
+        output_file.close()
         
         Beta_Layer1 = self.Beta_Dec[1]
         Gamma_Layer1 = self.Gamma_Dec[1]
@@ -2778,10 +2837,6 @@ class YOLOv2_Tiny_FPGA(object):
         #################################################
         #                Layer 8 Start                  #
         #################################################
-    
-    # Modified By Thaising
-    def Post_Processing(self, data, gt_boxes, gt_classes, num_boxes):
-        # check Layer8 IRQ
         check_irq_otherlayer()
         # self.app_instance .change_color(self.app_instance.L9_IRQ_canvas, self.app_instance.L9_IRQ, "green")
         layer8_start = time.time()
@@ -2864,6 +2919,25 @@ class YOLOv2_Tiny_FPGA(object):
         #print("ch1 image 8 : ", len(Layer8_1st_Iter_Image8_CH1))
         e = time.time()
         print("Read DDR & 32bit to 16bit : ",e-s)
+
+        Output_Image1 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image1_CH0_256, Layer8_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image2 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image2_CH0_256, Layer8_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image3 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image3_CH0_256, Layer8_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image4 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image4_CH0_256, Layer8_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image5 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image5_CH0_256, Layer8_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image6 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image6_CH0_256, Layer8_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image7 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image7_CH0_256, Layer8_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image8 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image8_CH0_256, Layer8_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Layer8 = Output_Image1 + Output_Image2 + Output_Image3 + Output_Image4 + \
+                        Output_Image5 + Output_Image6 + Output_Image7 + Output_Image8
+
+        Float_OutputImage = [np.float32(x) for x in Output_Layer8]
+        Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
+        return Output_Layer8
+    
+    # Modified By Thaising
+    def Post_Processing(self, data, gt_boxes, gt_classes, num_boxes):
+        # check Layer8 IRQ
 
         '''
         test_out = '1st_iter_result/Layer8_1st_Iter_Image1_CH0.txt'
@@ -2985,22 +3059,22 @@ class YOLOv2_Tiny_FPGA(object):
                     Brain_Floating_Point=data.Brain_Floating_Point,
                     Exponent_Bits=Exponent_Bits,
                     Mantissa_Bits=Mantissa_Bits,
-                    OutImage1_Data_CH0=Layer8_1st_Iter_Image1_CH0_256,
-                    OutImage1_Data_CH1=Layer8_1st_Iter_Image1_CH1_256,
-                    OutImage2_Data_CH0=Layer8_1st_Iter_Image2_CH0_256,
-                    OutImage2_Data_CH1=Layer8_1st_Iter_Image2_CH1_256,
-                    OutImage3_Data_CH0=Layer8_1st_Iter_Image3_CH0_256,
-                    OutImage3_Data_CH1=Layer8_1st_Iter_Image3_CH1_256,
-                    OutImage4_Data_CH0=Layer8_1st_Iter_Image4_CH0_256,
-                    OutImage4_Data_CH1=Layer8_1st_Iter_Image4_CH1_256,
-                    OutImage5_Data_CH0=Layer8_1st_Iter_Image5_CH0_256,
-                    OutImage5_Data_CH1=Layer8_1st_Iter_Image5_CH1_256,
-                    OutImage6_Data_CH0=Layer8_1st_Iter_Image6_CH0_256,
-                    OutImage6_Data_CH1=Layer8_1st_Iter_Image6_CH1_256,
-                    OutImage7_Data_CH0=Layer8_1st_Iter_Image7_CH0_256,
-                    OutImage7_Data_CH1=Layer8_1st_Iter_Image7_CH1_256,
-                    OutImage8_Data_CH0=Layer8_1st_Iter_Image8_CH0_256,
-                    OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
+                    Output_Layer8=Output_Layer8,
+                    # OutImage1_Data_CH1=Layer8_1st_Iter_Image1_CH1_256,
+                    # OutImage2_Data_CH0=Layer8_1st_Iter_Image2_CH0_256,
+                    # OutImage2_Data_CH1=Layer8_1st_Iter_Image2_CH1_256,
+                    # OutImage3_Data_CH0=Layer8_1st_Iter_Image3_CH0_256,
+                    # OutImage3_Data_CH1=Layer8_1st_Iter_Image3_CH1_256,
+                    # OutImage4_Data_CH0=Layer8_1st_Iter_Image4_CH0_256,
+                    # OutImage4_Data_CH1=Layer8_1st_Iter_Image4_CH1_256,
+                    # OutImage5_Data_CH0=Layer8_1st_Iter_Image5_CH0_256,
+                    # OutImage5_Data_CH1=Layer8_1st_Iter_Image5_CH1_256,
+                    # OutImage6_Data_CH0=Layer8_1st_Iter_Image6_CH0_256,
+                    # OutImage6_Data_CH1=Layer8_1st_Iter_Image6_CH1_256,
+                    # OutImage7_Data_CH0=Layer8_1st_Iter_Image7_CH0_256,
+                    # OutImage7_Data_CH1=Layer8_1st_Iter_Image7_CH1_256,
+                    # OutImage8_Data_CH0=Layer8_1st_Iter_Image8_CH0_256,
+                    # OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
                     )
         s = time.time()
         Loss, Loss_Gradient = PostProcessing.PostProcessing(gt_boxes, gt_classes, num_boxes)
@@ -6798,40 +6872,39 @@ class YOLOv2_Tiny_FPGA(object):
                                     Exponent_Bits        =   data.Exponent_Bits,
                                     Mantissa_Bits        =   data.Mantissa_Bits)   
             
-        if data.Weight_Converted:
-            data.Weight_Bfloat, data.Bias_Bfloat, data.Beta_Bfloat, data.Gamma_Bfloat, data.Running_Mean_Bfloat, data.Running_Var_Bfloat = PreProcessing.Weight_Converted_Func(\
-                data.Weight_Dec, data.Bias_Dec, data.Beta_Dec, data.Gamma_Dec, data.Running_Mean_Dec, data.Running_Var_Dec)  
-            s = time.time()
-            Weight_1st_Layer0 = New_Weight_Hardware_ReOrdering_Layer0(16,       16,   data.Weight_Bfloat[0], ['0000']*16, ['0000']*16, ['0000']*16, Iteration="1")
-            Weight_1st_Layer1 = New_Weight_Hardware_ReOrdering_OtherLayer(  32, 16,   data.Weight_Bfloat[1], ['0000']*32, ['0000']*32, ['0000']*32, Iteration="1")
-            Weight_1st_Layer2 = New_Weight_Hardware_ReOrdering_OtherLayer ( 64, 32,   data.Weight_Bfloat[2], ['0000']*64, ['0000']*64, ['0000']*64, Iteration="1")
-            Weight_1st_Layer3 = New_Weight_Hardware_ReOrdering_OtherLayer( 128, 64,   data.Weight_Bfloat[3], ['0000']*128, ['0000']*128, ['0000']*128, Iteration="1")
-            Weight_1st_Layer4 = New_Weight_Hardware_ReOrdering_OtherLayer( 256, 128,  data.Weight_Bfloat[4], ['0000']*256, ['0000']*256, ['0000']*256, Iteration="1")
-            Weight_1st_Layer5 = New_Weight_Hardware_ReOrdering_OtherLayer( 512, 256,  data.Weight_Bfloat[5], ['0000']*512, ['0000']*512, ['0000']*512, Iteration="1")
-            Weight_1st_Layer6 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 512,  data.Weight_Bfloat[6], ['0000']*1024, ['0000']*1024, ['0000']*1024, Iteration="1")
-            Weight_1st_Layer7 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 1024, data.Weight_Bfloat[7], ['0000']*1024, ['0000']*1024, ['0000']*1024, Iteration="1")
-            Weight_1st_Layer8 = New_Weight_Hardware_ReOrdering_Layer8(     128, 1024, data.Weight_Bfloat[8], data.Bias_Bfloat)
-            e = time.time()
-            print("Weight Ordering : ",e-s)
-            # List for Each DDR Channels: 
-            Weight_1st_CH0 = Weight_1st_Layer0[0] + Weight_1st_Layer1[0] + Weight_1st_Layer2[0] + Weight_1st_Layer3[0] + Weight_1st_Layer4[0] + \
-                            Weight_1st_Layer5[0] + Weight_1st_Layer6[0] + Weight_1st_Layer7[0] + Weight_1st_Layer8[0]
-            Weight_1st_CH1 = Weight_1st_Layer0[1] + Weight_1st_Layer1[1] + Weight_1st_Layer2[1] + Weight_1st_Layer3[1] + Weight_1st_Layer4[1] + \
-                            Weight_1st_Layer5[1] + Weight_1st_Layer6[1] + Weight_1st_Layer7[1] + Weight_1st_Layer8[1]
-            
-            # Break 256To32 and Flip the Data: 
-            s = time.time()
-            Weight_1st_CH0 = data_256_32(Weight_1st_CH0)
-            Weight_1st_CH1 = data_256_32(Weight_1st_CH1)
-            e = time.time()
-            print("256bit to 32bit Convert :",e-s)
-                            
-            # Write Weights into DDR: 
-            s = time.time()
-            Write_DDR(Weight_1st_CH0, Wr_Address=0x80000000)
-            Write_DDR(Weight_1st_CH1, Wr_Address=0x90000000)    
-            e = time.time()
-            print("Write Weight : ",e-s)
+        data.Weight_Bfloat, data.Bias_Bfloat, data.Beta_Bfloat, data.Gamma_Bfloat, data.Running_Mean_Bfloat, data.Running_Var_Bfloat = PreProcessing.Weight_Converted_Func(\
+            data.Weight_Dec, data.Bias_Dec, data.Beta_Dec, data.Gamma_Dec, data.Running_Mean_Dec, data.Running_Var_Dec)  
+        s = time.time()
+        Weight_1st_Layer0 = New_Weight_Hardware_ReOrdering_Layer0(16,       16,   data.Weight_Bfloat[0], ['0000']*16, ['0000']*16, ['0000']*16, Iteration="1")
+        Weight_1st_Layer1 = New_Weight_Hardware_ReOrdering_OtherLayer(  32, 16,   data.Weight_Bfloat[1], ['0000']*32, ['0000']*32, ['0000']*32, Iteration="1")
+        Weight_1st_Layer2 = New_Weight_Hardware_ReOrdering_OtherLayer ( 64, 32,   data.Weight_Bfloat[2], ['0000']*64, ['0000']*64, ['0000']*64, Iteration="1")
+        Weight_1st_Layer3 = New_Weight_Hardware_ReOrdering_OtherLayer( 128, 64,   data.Weight_Bfloat[3], ['0000']*128, ['0000']*128, ['0000']*128, Iteration="1")
+        Weight_1st_Layer4 = New_Weight_Hardware_ReOrdering_OtherLayer( 256, 128,  data.Weight_Bfloat[4], ['0000']*256, ['0000']*256, ['0000']*256, Iteration="1")
+        Weight_1st_Layer5 = New_Weight_Hardware_ReOrdering_OtherLayer( 512, 256,  data.Weight_Bfloat[5], ['0000']*512, ['0000']*512, ['0000']*512, Iteration="1")
+        Weight_1st_Layer6 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 512,  data.Weight_Bfloat[6], ['0000']*1024, ['0000']*1024, ['0000']*1024, Iteration="1")
+        Weight_1st_Layer7 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 1024, data.Weight_Bfloat[7], ['0000']*1024, ['0000']*1024, ['0000']*1024, Iteration="1")
+        Weight_1st_Layer8 = New_Weight_Hardware_ReOrdering_Layer8(     128, 1024, data.Weight_Bfloat[8], data.Bias_Bfloat)
+        e = time.time()
+        print("Weight Ordering : ",e-s)
+        # List for Each DDR Channels: 
+        Weight_1st_CH0 = Weight_1st_Layer0[0] + Weight_1st_Layer1[0] + Weight_1st_Layer2[0] + Weight_1st_Layer3[0] + Weight_1st_Layer4[0] + \
+                        Weight_1st_Layer5[0] + Weight_1st_Layer6[0] + Weight_1st_Layer7[0] + Weight_1st_Layer8[0]
+        Weight_1st_CH1 = Weight_1st_Layer0[1] + Weight_1st_Layer1[1] + Weight_1st_Layer2[1] + Weight_1st_Layer3[1] + Weight_1st_Layer4[1] + \
+                        Weight_1st_Layer5[1] + Weight_1st_Layer6[1] + Weight_1st_Layer7[1] + Weight_1st_Layer8[1]
+        
+        # Break 256To32 and Flip the Data: 
+        s = time.time()
+        Weight_1st_CH0 = data_256_32(Weight_1st_CH0)
+        Weight_1st_CH1 = data_256_32(Weight_1st_CH1)
+        e = time.time()
+        print("256bit to 32bit Convert :",e-s) 
+                        
+        # Write Weights into DDR: 
+        s = time.time()
+        Write_DDR(Weight_1st_CH0, Wr_Address=0x80000000)
+        Write_DDR(Weight_1st_CH1, Wr_Address=0x90000000)    
+        e = time.time()
+        print("Write Weight : ",e-s)
 
     def Write_Image(self,data):
         # Pre-Processing Class Initialization
@@ -6865,6 +6938,13 @@ class YOLOv2_Tiny_FPGA(object):
         Images_CH1 = data_256_32(Images_CH1)
         e = time.time()
         print("256bit to 32 bit Convert : ",e-s)
+        
+        test_out = 'result/Image.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in data.im_data:
+                test_output.write(str(item) + "\n")
+        test_output.close()    
+        
     
         # Write Images into DDR: 
         s = time.time()
