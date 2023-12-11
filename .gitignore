@@ -11,12 +11,14 @@ src/Pre_Processing_Scratch/Images/
 src/Pre_Processing_Scratch/Weight_Parameters/
 src/t_cbu/test2/
 Output_FPGA_Simulation/
+Output/
 data/
 src/Pre_Processing_Scratch/data/pretrained/Input_Data.pickle
 src/Pre_Processing_Scratch/data/pretrained/Input_Data_Batch8.pickle
 src/Pre_Processing_Scratch/data/pretrained/cache/
 src/Pre_Processing_Scratch/data/pretrained/yolov2-tiny-voc.weights
 src/Pre_Processing_Scratch/data/pretrained/yolov2_least_loss.pth
+*pickle
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

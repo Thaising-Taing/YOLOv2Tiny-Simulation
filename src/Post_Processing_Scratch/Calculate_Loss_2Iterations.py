@@ -296,8 +296,8 @@ def loss(out, gt_boxes=None, gt_classes=None, num_boxes=None):
     # print('Calculating the loss and its gradients for python model.')
     out = torch.tensor(out, requires_grad=True)
     
-    # Additional Condition: 
-    out = out[0:(8*125*(13**2))]
+    # # Additional Condition: 
+    # out = out[0:(8*125*(13**2))]
 
     out = out.reshape(8, 125, 13, 13)
     print(out[0][0][0][0:5])

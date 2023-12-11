@@ -1,0 +1,1 @@
+cmd_/home/msis/Desktop/pcie_python/t_cbu/xdma/xdma.ko := ld -r  -m elf_x86_64 -z noexecstack   --build-id=sha1  -T scripts/module.lds -o /home/msis/Desktop/pcie_python/t_cbu/xdma/xdma.ko /home/msis/Desktop/pcie_python/t_cbu/xdma/xdma.o /home/msis/Desktop/pcie_python/t_cbu/xdma/xdma.mod.o;  true

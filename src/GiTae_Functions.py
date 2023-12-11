@@ -2932,6 +2932,7 @@ class YOLOv2_Tiny_FPGA(object):
                         Output_Image5 + Output_Image6 + Output_Image7 + Output_Image8
 
         Float_OutputImage = [np.float32(x) for x in Output_Layer8]
+        Float_OutputImage = Float_OutputImage[0:(8*125*(13**2))]
         Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
         return Output_Layer8
     
