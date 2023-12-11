@@ -1,6 +1,7 @@
 import torch
 from torch import optim
 import pdb
+from copy import deepcopy
 import tkinter
 import tkinter.messagebox
 import customtkinter
@@ -440,8 +441,11 @@ class App(customtkinter.CTk):
         self.change_color(self.L9_IRQ_canvas, self.L9_IRQ, "red")    
         self.update()  
 
-    def Show_Text(self, text):
-        self.textbox.insert("0.0", text + "\n\n")
+    def Show_Text(self, text, end=[]):
+        if not end==[]:
+            self.textbox.insert("0.0", text + "\n")
+        else:
+            self.textbox.insert("0.0", text + "\n\n")
         self.textbox.update_idletasks()
         self.textbox.see("end")
         print(text)
@@ -758,6 +762,7 @@ class App(customtkinter.CTk):
         self.Create_Output_Dir()
         self.Load_Weights()
         self.Load_Dataset()
+        self.Check_mAP()
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
@@ -801,10 +806,14 @@ class App(customtkinter.CTk):
             # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
+            self.batch = step
             self.Before_Forward()
             self.Forward()  
             self.Visualize()
+            
               
+        self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
+        self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
         self.Show_Text(f"Inference is finished.")
         
     def Stop_Process(self):
@@ -874,6 +883,8 @@ class App(customtkinter.CTk):
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
                             default=True, type=bool)
+        parser.add_argument('--vis', dest='vis',
+                            default=False, type=bool)
 
         self.args = parser.parse_args()
          
@@ -890,6 +901,15 @@ class App(customtkinter.CTk):
     def Pre_Process(self):
         # To keep a record of weights with best mAP  
         self.max_map, self.best_map_score, self.best_map_epoch, self.best_map_loss = 0, -1, -1, -1
+        
+        self.classes  = ('aeroplane', 'bicycle', 'bird', 'boat',
+                         'bottle', 'bus', 'car', 'cat', 'chair',
+                         'cow', 'diningtable', 'dog', 'horse',
+                         'motorbike', 'person', 'pottedplant',
+                         'sheep', 'sofa', 'train', 'tvmonitor')
+        
+        self.count = dict()
+        self.count['detections'], self.count['no_detections'] = 0, 0
         
         if self.mode == "Pytorch"   : self.Pytorch  = Pytorch(self)
         if self.mode == "Python"    : self.Python   = Python(self)
@@ -1014,6 +1034,7 @@ class App(customtkinter.CTk):
         new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
+        _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
         
         if self.mode == "Pytorch"   : self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"    : self.Pytorch.load_weights(new_weights)
@@ -1066,15 +1087,66 @@ class App(customtkinter.CTk):
         self.Show_Text(self.output_text)
     
     def Visualize(self):
-        if self.mode == "Pytorch"   : out = self.Pytorch.out
-        if self.mode == "Python"    : out = self.Python.out
-        if self.mode == "Simulation": out = self.Sim.out
-        if self.mode == "FPGA"      : out = self.FPGA.out
-        self.Show_Text(f"Infer - {self.mode} - {out.shape}")
-        a=1
-        b=2
-        pass
+        if self.mode == "Pytorch"   : _data = self.Pytorch
+        if self.mode == "Python"    : _data = self.Python
+        if self.mode == "Simulation": _data = self.Sim
+        if self.mode == "FPGA"      : _data = self.FPGA
         
+        out_batch = _data.out
+        
+        self.Show_Text(f"Infer - {self.mode} - {out_batch.shape}")
+        
+        for i, (img,out) in enumerate(zip(_data.image,out_batch)):
+            _img = img.cpu().detach().numpy().astype(np.uint8)
+            _img = np.transpose(_img, (1,2,0))
+            
+            yolo_output = self.reshape_outputs(out)
+            yolo_output = [item[0].data for item in yolo_output]
+                
+            im_info = dict()
+            im_info['height'], im_info['width'], _  = _img.shape
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            
+            if len(detections) > 0:
+                det_boxes = detections[:, :5].cpu().numpy()
+                det_classes = detections[:, -1].long().cpu().numpy()
+                
+                temp_image_path = 'Output/temp.jpg'
+                plt.imsave(temp_image_path, _img)
+                img = Image.open(temp_image_path)
+                im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=self.classes)
+                        
+                self.count['detections']+=1
+                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- {len(detections)} Detections", end='')
+                
+                # plt.figure('Input Image')
+                # plt.imshow(_img)
+                plt.figure(f'Output Image - Batch {self.batch} - Image {i+1}')
+                plt.imshow(im2show)
+                plt.show(block=True)
+                
+            else:
+                self.count['no_detections']+=1
+                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- No Detections", end='')
+
+    def reshape_outputs(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
+        
+        out = torch.tensor(out, requires_grad=True)
+        out = torch.unsqueeze(out , 0)
+        
+        scores = out
+        bsize, _, h, w = out.shape
+        out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)
+
+        xy_pred = torch.sigmoid(out[:, :, 0:2])
+        conf_pred = torch.sigmoid(out[:, :, 4:5])
+        hw_pred = torch.exp(out[:, :, 2:4])
+        class_score = out[:, :, 5:]
+        class_pred = F.softmax(class_score, dim=-1)
+        delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
+        
+        return delta_pred, conf_pred, class_pred   
+
 if __name__ == "__main__":
     app = App()
     app.mainloop()

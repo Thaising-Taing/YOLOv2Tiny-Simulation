@@ -51,6 +51,8 @@ def prepare_im_data(img):
 def test_for_train(temp_path, model, args):
     args.dataset = "voc07test"
     args.conf_thresh = 0.001
+    if args.vis:
+        args.conf_thresh = 0.5
     args.nms_thresh = 0.45
     if args.use_small_dataset: args.data_limit = 80
     
@@ -119,6 +121,17 @@ def test_for_train(temp_path, model, args):
                             cls_det[:, :4] = detections[inds, :4]
                             cls_det[:, 4] = detections[inds, 4] * detections[inds, 5]
                             all_boxes[cls][img_id] = cls_det.cpu().numpy()
+
+                if args.vis:
+                    img = Image.open(val_imdb.image_path_at(img_id))
+                    if len(detections) == 0:
+                        continue
+                    det_boxes = detections[:, :5].cpu().numpy()
+                    det_classes = detections[:, -1].long().cpu().numpy()
+                    im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=val_imdb.classes)
+                    plt.figure()
+                    plt.imshow(im2show)
+                    plt.show()
 
 
     with open(det_file, 'wb') as f:
