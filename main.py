@@ -8,6 +8,9 @@ import customtkinter
 from PIL import Image, ImageTk
 from pypcie import Device
 from ast import literal_eval
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use("TkAgg")
 import subprocess
 import tqdm
 import warnings
@@ -587,6 +590,9 @@ class App(customtkinter.CTk):
         self.update()
       
       
+      
+      
+      
     # Select Operations        
     def Load_PCIe_click(self):
         self.Show_Text(f"Load PCIe Driver.")
@@ -774,11 +780,11 @@ class App(customtkinter.CTk):
                 # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
                 
-                self.Before_Forward()
-                self.Forward()
+                self.Before_Forward() ######################### - Individual Functions
+                self.Forward() ################################ - Individual Functions
                 self.Calculate_Loss()
-                self.Before_Backward()
-                self.Backward()
+                self.Before_Backward() ######################## - Individual Functions
+                self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
             self.Check_mAP()
         #     self.Save_Pickle()
@@ -807,10 +813,40 @@ class App(customtkinter.CTk):
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
-            self.Before_Forward()
-            self.Forward()  
+            self.Before_Forward() ######################### - Individual Functions
+            self.Forward() ################################ - Individual Functions
             self.Visualize()
+            # self.Visualize_All()
+              
+        self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
+        self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
+        self.Show_Text(f"Inference is finished.")
+        
+    def Run_Validation(self):
+        self.Train.configure(state="disabled")
+        self.Infer.configure(state="disabled")
+        self.Infer.configure(fg_color='green')
+        self.Stop.configure(state="normal")
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Show_Text(f"Start validation")
+        self.parse_args()
+        self.Pre_Process()
+        self.Create_Output_Dir()
+        self.Load_Weights()
+        self.Load_Dataset()
+
+        self.whole_process_start = time.time()
+        self.train_data_iter = iter(self.small_test_dataloader)
+        
+        for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
+            # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
+            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
+            self.batch = step
+            self.Before_Forward() ######################### - Individual Functions
+            self.Forward() ################################ - Individual Functions
+            self.Validate()
               
         self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
         self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
@@ -842,6 +878,9 @@ class App(customtkinter.CTk):
             self.bar.write(0x18, 0x00008001) # axi addr
             self.bar.write(0x14, 0x00000001) # axi rd en
             self.bar.write(0x14, 0x00000000) # axi rd en low
+        
+        
+        
         
         
     # Training Helper Functions
@@ -1092,6 +1131,12 @@ class App(customtkinter.CTk):
         if self.mode == "Simulation": _data = self.Sim
         if self.mode == "FPGA"      : _data = self.FPGA
         
+        if self.mode == "Pytorch"   : self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
+        if self.mode == "Python"    : self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
+        if self.mode == "Simulation": self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
+        if self.mode == "FPGA"      : self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
+        
+        
         out_batch = _data.out
         
         self.Show_Text(f"Infer - {self.mode} - {out_batch.shape}")
@@ -1100,11 +1145,12 @@ class App(customtkinter.CTk):
             _img = img.cpu().detach().numpy().astype(np.uint8)
             _img = np.transpose(_img, (1,2,0))
             
+            im_info = dict()
+            im_info['height'], im_info['width'], _  = _img.shape
+            
             yolo_output = self.reshape_outputs(out)
             yolo_output = [item[0].data for item in yolo_output]
                 
-            im_info = dict()
-            im_info['height'], im_info['width'], _  = _img.shape
             detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
             
             if len(detections) > 0:
@@ -1124,6 +1170,103 @@ class App(customtkinter.CTk):
                 plt.figure(f'Output Image - Batch {self.batch} - Image {i+1}')
                 plt.imshow(im2show)
                 plt.show(block=True)
+                
+            else:
+                self.count['no_detections']+=1
+                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- No Detections", end='')
+
+    def Visualize_All(self):
+        if self.mode == "Pytorch"   : _data = self.Pytorch
+        if self.mode == "Python"    : _data = self.Python
+        if self.mode == "Simulation": _data = self.Sim
+        if self.mode == "FPGA"      : _data = self.FPGA
+        
+        out_batch_torch  = self.Load_File("output_of_forward_Torch.pickle")
+        
+        out_batch_sim    = self.Load_File("output_of_forward_sim.pickle")
+        
+        out_batch_fpga   = self.Load_File("output_of_forward_FPGA.pickle")
+        
+        
+        for i, (img,outTorch, outSim, outFPGA) in enumerate(zip(_data.image, out_batch_torch, out_batch_sim, out_batch_fpga)):
+            _img = img.cpu().detach().numpy().astype(np.uint8)
+            _img = np.transpose(_img, (1,2,0))
+            
+            im_info = dict()
+            im_info['height'], im_info['width'], _  = _img.shape
+            
+            yolo_output_torch = self.reshape_outputs(outTorch)
+            yolo_output_torch = [item[0].data for item in yolo_output_torch]
+            
+            yolo_output_sim = self.reshape_outputs(outSim)
+            yolo_output_sim = [item[0].data for item in yolo_output_sim]
+            
+            yolo_output_fpga = self.reshape_outputs(outFPGA)
+            yolo_output_fpga = [item[0].data for item in yolo_output_fpga]
+            
+            detections_Torch = yolo_eval(yolo_output_torch, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            detections_Sim   = yolo_eval(yolo_output_sim, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            detections_FPGA  = yolo_eval(yolo_output_fpga, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            
+            if len(detections_Torch) > 0 or len(detections_Sim) > 0 or len(detections_FPGA) > 0:
+                temp_image_path = 'Output/temp.jpg'
+                plt.imsave(temp_image_path, _img)
+                imgTorch = Image.open(temp_image_path)
+                imgSim   = Image.open(temp_image_path)
+                imgFPGA  = Image.open(temp_image_path)
+                
+                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- Showing Detections", end='')
+                
+                # Create Figure
+                # plt.axis('off')
+                fig = plt.figure(f'Output Image')
+
+                # Create a subplot
+                ax1 = fig.add_subplot(1, 3, 1)
+                ax1.axis('off')
+                if len(detections_Torch) > 0:
+                    det_boxes_Torch = detections_Torch[:, :5].cpu().numpy()
+                    det_classes_Torch = detections_Torch[:, -1].long().cpu().numpy()
+                    im2show_Torch = draw_detection_boxes(imgTorch, det_boxes_Torch, det_classes_Torch, class_names=self.classes)
+                    # Display the images on the subplots
+                    ax1.imshow(im2show_Torch, cmap='gray')
+                else:
+                    ax1.imshow(imgTorch, cmap='gray')
+                ax1.set_title('PyTorch')
+
+                # Create a subplot
+                ax2 = fig.add_subplot(1, 3, 2)
+                if len(detections_Sim) > 0:
+                    det_boxes_Sim = detections_Sim[:, :5].cpu().numpy()
+                    det_classes_Sim = detections_Sim[:, -1].long().cpu().numpy()
+                    im2show_Sim = draw_detection_boxes(imgSim, det_boxes_Sim, det_classes_Sim, class_names=self.classes)
+                    # Display the images on the subplots
+                    ax2.imshow(im2show_Sim, cmap='gray')
+                else:
+                    ax2.imshow(imgSim, cmap='gray')
+                ax2.set_title('Simulation (PyTorch)')
+                ax2.axis('off')
+                    
+                # Create a subplot
+                ax3 = fig.add_subplot(1, 3, 3)
+                if len(detections_FPGA) > 0:
+                    det_boxes_FPGA = detections_FPGA[:, :5].cpu().numpy()
+                    det_classes_FPGA = detections_FPGA[:, -1].long().cpu().numpy()
+                    im2show_FPGA = draw_detection_boxes(imgFPGA, det_boxes_FPGA, det_classes_FPGA, class_names=self.classes)
+                    # Display the images on the subplots
+                    ax3.imshow(im2show_FPGA, cmap='gray')
+                else:
+                    ax3.imshow(imgFPGA, cmap='gray')
+                ax3.set_title('FPGA')
+                ax3.axis('off')
+
+                # Adjust the spacing between subplots
+                plt.tight_layout()
+                
+                # Show the figure
+                plt.show(block=False)
+                while not plt.waitforbuttonpress(2):
+                    pass
                 
             else:
                 self.count['no_detections']+=1
