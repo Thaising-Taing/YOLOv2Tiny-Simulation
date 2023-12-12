@@ -1,4 +1,5 @@
 #Custom
+*.txt
 Dataset/Dataset/
 src/GiTae/Image_CH0.txt
 src/GiTae/Image_CH1.txt
