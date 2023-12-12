@@ -13,7 +13,9 @@ src/Pre_Processing_Scratch/Weight_Parameters/
 src/t_cbu/test2/
 Output_FPGA_Simulation/
 Output/
+Output*
 data/
+Output_Pickle_Sim/
 src/Pre_Processing_Scratch/data/pretrained/Input_Data.pickle
 src/Pre_Processing_Scratch/data/pretrained/Input_Data_Batch8.pickle
 src/Pre_Processing_Scratch/data/pretrained/cache/
