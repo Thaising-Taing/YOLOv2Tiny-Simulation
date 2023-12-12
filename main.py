@@ -45,9 +45,10 @@ from Weight_Update_Algorithm.yolov2_tiny import *
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
-from Wathna_pytorch import Pytorch
-from Wathna_python import Python
-from Thaising import Simulation
+from Wathna_pytorch import Pytorch 
+from Wathna_python import Python # one iteration
+# from Thaising_PyTorch import Simulation
+from Thaising_Python import Simulation
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
