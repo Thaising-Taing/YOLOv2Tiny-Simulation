@@ -821,7 +821,7 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
         self.Show_Text(f"Inference is finished.")
         
-    # def Run_Validation(self):
+    def Run_Validation(self):
         self.Train.configure(state="disabled")
         self.Infer.configure(state="disabled")
         self.Infer.configure(fg_color='green')
