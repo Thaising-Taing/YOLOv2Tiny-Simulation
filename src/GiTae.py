@@ -31,7 +31,6 @@ class FPGA(object):
         
     
         # Code by GiTae 
-        
         self.Weight_Dec, self.Bias_Dec, self.Beta_Dec, self.Gamma_Dec, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
         self.YOLOv2TinyFPGA = YOLOv2_Tiny_FPGA(\
                         self.Weight_Dec, 

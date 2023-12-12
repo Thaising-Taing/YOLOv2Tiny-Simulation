@@ -1,12 +1,16 @@
 import torch
 from torch import optim
 import pdb
+from copy import deepcopy
 import tkinter
 import tkinter.messagebox
 import customtkinter
 from PIL import Image, ImageTk
 from pypcie import Device
 from ast import literal_eval
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use("TkAgg")
 import subprocess
 import tqdm
 import warnings
@@ -440,8 +444,11 @@ class App(customtkinter.CTk):
         self.change_color(self.L9_IRQ_canvas, self.L9_IRQ, "red")    
         self.update()  
 
-    def Show_Text(self, text):
-        self.textbox.insert("0.0", text + "\n\n")
+    def Show_Text(self, text, end=[]):
+        if not end==[]:
+            self.textbox.insert("0.0", text + "\n")
+        else:
+            self.textbox.insert("0.0", text + "\n\n")
         self.textbox.update_idletasks()
         self.textbox.see("end")
         print(text)
@@ -581,6 +588,9 @@ class App(customtkinter.CTk):
         self.Clear_Text()
         self.Show_Text(f"Reset.")
         self.update()
+      
+      
+      
       
       
     # Select Operations        
@@ -761,19 +771,19 @@ class App(customtkinter.CTk):
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.train_data_iter = iter(self.small_train_dataloader)
+            self.data_iter = iter(self.small_train_dataloader)
             self.Adjust_Learning_Rate()
             
             for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-                # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+                # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
                 
-                self.Before_Forward()
-                self.Forward()
+                self.Before_Forward() ######################### - Individual Functions
+                self.Forward() ################################ - Individual Functions
                 self.Calculate_Loss()
-                self.Before_Backward()
-                self.Backward()
+                self.Before_Backward() ######################## - Individual Functions
+                self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
             self.Check_mAP()
         #     self.Save_Pickle()
@@ -794,18 +804,64 @@ class App(customtkinter.CTk):
         self.Load_Dataset()
 
         self.whole_process_start = time.time()
-        self.train_data_iter = iter(self.small_test_dataloader)
+        self.data_iter = iter(self.small_test_dataloader)
         
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-            # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
+            # self.im_data, self.gt_boxes, gt_classes, self.num_obj = next(self.data_iter)
+            # self.Save_File(next(self.self.data_iter), "Dataset/Dataset/default_data.pickle")
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
-            self.Before_Forward()
-            self.Forward()  
+            self.batch = step
+            self.Before_Forward() ######################### - Individual Functions
+            self.Forward() ################################ - Individual Functions
             self.Visualize()
+            # self.Visualize_All()
               
+        self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
+        self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
         self.Show_Text(f"Inference is finished.")
+        
+    def Run_Validation(self):
+        self.Train.configure(state="disabled")
+        self.Infer.configure(state="disabled")
+        self.Infer.configure(fg_color='green')
+        self.Stop.configure(state="normal")
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Show_Text(f"Start validation")
+        self.parse_args()
+        self.Pre_Process()
+        self.Create_Output_Dir()
+        self.Load_Weights()
+        self.Load_Dataset()
+        
+        # For validation
+        self.img_id = -1
+        self.val_imdb = get_imdb("voc_2007_test")
+        self.all_boxes = [[[] for _ in range(len(self.val_imdb.image_index))] for _ in range(self.val_imdb.num_classes)]
+
+        self.whole_process_start = time.time()
+        self.data_iter = iter(self.small_test_dataloader)
+        for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
+            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+            # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+            
+            self.batch = step
+            self.Before_Forward() ######################### - Individual Functions
+            self.Forward() ################################ - Individual Functions
+            self.Validate()
+        
+        
+        with open(os.path.join(self.args.output_dir, 'detections.pkl'), 'wb') as f:
+            pickle.dump(self.all_boxes, f, pickle.HIGHEST_PROTOCOL)
+
+        # map = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
+        map = self.val_imdb.evaluate_detections_with_train(self.all_boxes, output_dir=self.args.output_dir)
+        # return map   
+        
+        # self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
+        # self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
+        # self.Show_Text(f"Inference is finished.")
         
     def Stop_Process(self):
         self.Train.configure(state="normal")
@@ -833,6 +889,9 @@ class App(customtkinter.CTk):
             self.bar.write(0x18, 0x00008001) # axi addr
             self.bar.write(0x14, 0x00000001) # axi rd en
             self.bar.write(0x14, 0x00000000) # axi rd en low
+        
+        
+        
         
         
     # Training Helper Functions
@@ -874,6 +933,8 @@ class App(customtkinter.CTk):
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
                             default=True, type=bool)
+        parser.add_argument('--vis', dest='vis',
+                            default=False, type=bool)
 
         self.args = parser.parse_args()
          
@@ -890,6 +951,15 @@ class App(customtkinter.CTk):
     def Pre_Process(self):
         # To keep a record of weights with best mAP  
         self.max_map, self.best_map_score, self.best_map_epoch, self.best_map_loss = 0, -1, -1, -1
+        
+        self.classes  = ('aeroplane', 'bicycle', 'bird', 'boat',
+                         'bottle', 'bus', 'car', 'cat', 'chair',
+                         'cow', 'diningtable', 'dog', 'horse',
+                         'motorbike', 'person', 'pottedplant',
+                         'sheep', 'sofa', 'train', 'tvmonitor')
+        
+        self.count = dict()
+        self.count['detections'], self.count['no_detections'] = 0, 0
         
         if self.mode == "Pytorch"   : self.Pytorch  = Pytorch(self)
         if self.mode == "Python"    : self.Python   = Python(self)
@@ -1014,6 +1084,7 @@ class App(customtkinter.CTk):
         new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
+        _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
         
         if self.mode == "Pytorch"   : self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"    : self.Pytorch.load_weights(new_weights)
@@ -1066,15 +1137,203 @@ class App(customtkinter.CTk):
         self.Show_Text(self.output_text)
     
     def Visualize(self):
-        if self.mode == "Pytorch"   : out = self.Pytorch.out
-        if self.mode == "Python"    : out = self.Python.out
-        if self.mode == "Simulation": out = self.Sim.out
-        if self.mode == "FPGA"      : out = self.FPGA.out
-        self.Show_Text(f"Infer - {self.mode} - {out.shape}")
-        a=1
-        b=2
-        pass
+        if self.mode == "Pytorch"   : _data = self.Pytorch
+        if self.mode == "Python"    : _data = self.Python
+        if self.mode == "Simulation": _data = self.Sim
+        if self.mode == "FPGA"      : _data = self.FPGA
         
+        if self.mode == "Pytorch"   : self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
+        if self.mode == "Python"    : self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
+        if self.mode == "Simulation": self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
+        if self.mode == "FPGA"      : self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
+        
+        
+        out_batch = _data.out
+        
+        self.Show_Text(f"Infer - {self.mode} - {out_batch.shape}")
+        
+        for i, (img,out) in enumerate(zip(_data.image,out_batch)):
+            _img = img.cpu().detach().numpy().astype(np.uint8)
+            _img = np.transpose(_img, (1,2,0))
+            
+            im_info = dict()
+            im_info['height'], im_info['width'], _  = _img.shape
+            
+            yolo_output = self.reshape_outputs(out)
+            yolo_output = [item[0].data for item in yolo_output]
+                
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            
+            if len(detections) > 0:
+                det_boxes = detections[:, :5].cpu().numpy()
+                det_classes = detections[:, -1].long().cpu().numpy()
+                
+                temp_image_path = 'Output/temp.jpg'
+                plt.imsave(temp_image_path, _img)
+                img = Image.open(temp_image_path)
+                im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=self.classes)
+                        
+                self.count['detections']+=1
+                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- {len(detections)} Detections", end='')
+                
+                # plt.figure('Input Image')
+                # plt.imshow(_img)
+                plt.figure(f'Output Image - Batch {self.batch} - Image {i+1}')
+                plt.imshow(im2show)
+                plt.show(block=True)
+                
+            else:
+                self.count['no_detections']+=1
+                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- No Detections", end='')
+
+    def Visualize_All(self):
+        if self.mode == "Pytorch"   : _data = self.Pytorch
+        if self.mode == "Python"    : _data = self.Python
+        if self.mode == "Simulation": _data = self.Sim
+        if self.mode == "FPGA"      : _data = self.FPGA
+        
+        out_batch_torch  = self.Load_File("output_of_forward_Torch.pickle")
+        
+        out_batch_sim    = self.Load_File("output_of_forward_sim.pickle")
+        
+        out_batch_fpga   = self.Load_File("output_of_forward_FPGA.pickle")
+        
+        
+        for i, (img,outTorch, outSim, outFPGA) in enumerate(zip(_data.image, out_batch_torch, out_batch_sim, out_batch_fpga)):
+            _img = img.cpu().detach().numpy().astype(np.uint8)
+            _img = np.transpose(_img, (1,2,0))
+            
+            im_info = dict()
+            im_info['height'], im_info['width'], _  = _img.shape
+            
+            yolo_output_torch = self.reshape_outputs(outTorch)
+            yolo_output_torch = [item[0].data for item in yolo_output_torch]
+            
+            yolo_output_sim = self.reshape_outputs(outSim)
+            yolo_output_sim = [item[0].data for item in yolo_output_sim]
+            
+            yolo_output_fpga = self.reshape_outputs(outFPGA)
+            yolo_output_fpga = [item[0].data for item in yolo_output_fpga]
+            
+            detections_Torch = yolo_eval(yolo_output_torch, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            detections_Sim   = yolo_eval(yolo_output_sim, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            detections_FPGA  = yolo_eval(yolo_output_fpga, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            
+            if len(detections_Torch) > 0 or len(detections_Sim) > 0 or len(detections_FPGA) > 0:
+                temp_image_path = 'Output/temp.jpg'
+                plt.imsave(temp_image_path, _img)
+                imgTorch = Image.open(temp_image_path)
+                imgSim   = Image.open(temp_image_path)
+                imgFPGA  = Image.open(temp_image_path)
+                
+                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- Showing Detections", end='')
+                
+                # Create Figure
+                # plt.axis('off')
+                fig = plt.figure(f'Output Image')
+
+                # Create a subplot
+                ax1 = fig.add_subplot(1, 3, 1)
+                ax1.axis('off')
+                if len(detections_Torch) > 0:
+                    det_boxes_Torch = detections_Torch[:, :5].cpu().numpy()
+                    det_classes_Torch = detections_Torch[:, -1].long().cpu().numpy()
+                    im2show_Torch = draw_detection_boxes(imgTorch, det_boxes_Torch, det_classes_Torch, class_names=self.classes)
+                    # Display the images on the subplots
+                    ax1.imshow(im2show_Torch, cmap='gray')
+                else:
+                    ax1.imshow(imgTorch, cmap='gray')
+                ax1.set_title('PyTorch')
+
+                # Create a subplot
+                ax2 = fig.add_subplot(1, 3, 2)
+                if len(detections_Sim) > 0:
+                    det_boxes_Sim = detections_Sim[:, :5].cpu().numpy()
+                    det_classes_Sim = detections_Sim[:, -1].long().cpu().numpy()
+                    im2show_Sim = draw_detection_boxes(imgSim, det_boxes_Sim, det_classes_Sim, class_names=self.classes)
+                    # Display the images on the subplots
+                    ax2.imshow(im2show_Sim, cmap='gray')
+                else:
+                    ax2.imshow(imgSim, cmap='gray')
+                ax2.set_title('Simulation (PyTorch)')
+                ax2.axis('off')
+                    
+                # Create a subplot
+                ax3 = fig.add_subplot(1, 3, 3)
+                if len(detections_FPGA) > 0:
+                    det_boxes_FPGA = detections_FPGA[:, :5].cpu().numpy()
+                    det_classes_FPGA = detections_FPGA[:, -1].long().cpu().numpy()
+                    im2show_FPGA = draw_detection_boxes(imgFPGA, det_boxes_FPGA, det_classes_FPGA, class_names=self.classes)
+                    # Display the images on the subplots
+                    ax3.imshow(im2show_FPGA, cmap='gray')
+                else:
+                    ax3.imshow(imgFPGA, cmap='gray')
+                ax3.set_title('FPGA')
+                ax3.axis('off')
+
+                # Adjust the spacing between subplots
+                plt.tight_layout()
+                
+                # Show the figure
+                plt.show(block=False)
+                while not plt.waitforbuttonpress(2):
+                    pass
+                
+            else:
+                self.count['no_detections']+=1
+                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- No Detections", end='')
+
+    def reshape_outputs(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
+        
+        out = torch.tensor(out, requires_grad=True)
+        out = torch.unsqueeze(out , 0)
+        
+        scores = out
+        bsize, _, h, w = out.shape
+        out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)
+
+        xy_pred = torch.sigmoid(out[:, :, 0:2])
+        conf_pred = torch.sigmoid(out[:, :, 4:5])
+        hw_pred = torch.exp(out[:, :, 2:4])
+        class_score = out[:, :, 5:]
+        class_pred = F.softmax(class_score, dim=-1)
+        delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
+        
+        return delta_pred, conf_pred, class_pred   
+
+    def Validate(self):
+        if self.mode == "Pytorch"   : _data = self.Pytorch
+        if self.mode == "Python"    : _data = self.Python
+        if self.mode == "Simulation": _data = self.Sim
+        if self.mode == "FPGA"      : _data = self.FPGA
+        
+        out_batch = _data.out
+        
+        self.Show_Text(f"Validate - {self.mode} - {self.batch} - {out_batch.shape}")
+        
+        for i, (img,out) in enumerate(zip(_data.image,out_batch)):
+            self.img_id += 1
+            _img = img.cpu().detach().numpy().astype(np.uint8)
+            _img = np.transpose(_img, (1,2,0))
+            
+            im_info = dict()
+            im_info['height'], im_info['width'], _  = _img.shape
+            
+            yolo_output = self.reshape_outputs(out)
+            yolo_output = [item[0].data for item in yolo_output]
+                
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            
+            if len(detections) > 0:
+                for cls in range(len(self.classes)):
+                    inds = torch.nonzero(detections[:, -1] == cls).view(-1)
+                    if inds.numel() > 0:
+                        cls_det = torch.zeros((inds.numel(), 5))
+                        cls_det[:, :4] = detections[inds, :4]
+                        cls_det[:, 4] = detections[inds, 4] * detections[inds, 5]
+                        self.all_boxes[cls][self.img_id] = cls_det.cpu().numpy()
+                    
+
 if __name__ == "__main__":
     app = App()
     app.mainloop()
