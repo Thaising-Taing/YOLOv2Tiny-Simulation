@@ -49,6 +49,75 @@ from GiTae_Functions import *
 
 MAX_LINE_LENGTH = 1000
 
+def save_txt(fname, data, module=[], layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    # print(f"Type of data: {type(data)}")
+    if save_txt or save_hex:
+        if type(data) is dict:
+            for _key in data.keys():
+                _fname = fname + f'_{_key}'
+                save_file(_fname, data[_key])
+
+        else:
+            if module == [] and layer_no == []:
+                Out_Path = f'Outputs_Torch/{os.path.split(fname)[0]}'
+                fname = os.path.split(fname)[1]
+            else:
+                Out_Path = f'Outputs_Torch/By_Layer/'
+                if layer_no != []: Out_Path += f'Layer{layer_no}/'
+                if module != []: Out_Path += f'{module}/'
+                if phase != []: Out_Path += f'{phase}/'
+                fname = fname
+
+            if save_txt: filename = os.path.join(Out_Path, fname + '.txt')
+            # if save_hex: hexname = os.path.join(Out_Path, fname + '_hex.txt')
+
+            Path(Out_Path).mkdir(parents=True, exist_ok=True)
+
+            if torch.is_tensor(data):
+                try:
+                    data = data.detach()
+                except:
+                    pass
+                data = data.numpy()
+
+            if save_txt: outfile = open(filename, mode='w')
+            if save_txt: outfile.write(f'{data.shape}\n')
+
+            # if save_hex: hexfile = open(hexname, mode='w')
+            # if save_hex: hexfile.write(f'{data.shape}\n')
+
+            if len(data.shape) == 0:
+                if save_txt: outfile.write(f'{data}\n')
+                # if save_hex: hexfile.write(f'{data}\n')
+                pass
+            elif len(data.shape) == 1:
+                for x in data:
+                    if save_txt: outfile.write(f'{x}\n')
+                    # if save_hex: hexfile.write(f'{convert_to_hex(x)}\n')
+                    pass
+            else:
+                w, x, y, z = data.shape
+                # if w != 0:
+                #     Out_Path += f'img{w+1}'
+                for _i in range(w):
+                    for _j in range(x):
+                        for _k in range(y):
+                            for _l in range(z):
+                                _value = data[_i, _j, _k, _l]
+                                if save_txt: outfile.write(f'{_value}\n')
+                                # if save_hex: hexfile.write(f'{convert_to_hex(_value)}\n')
+                                pass
+
+            # if save_hex: hexfile.close()
+            if save_txt: outfile.close()
+
+            if save_txt: print(f'\t\t--> Saved {filename}')
+            # if save_hex: print(f'\t\t--> Saved {hexname}')
+
+def Save_File(data, path):
+    with open(path, 'wb') as handle:
+        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)   
+
 def Debug_With_Slave():
     d = Device("0000:08:00.0")
     bar = d.bar[0]
@@ -149,7 +218,7 @@ def clean_string(text):
     if isinstance(text, str):
         return text.replace('[', '').replace(']', '').replace("'", '')
     return text
-
+'''
 def backward_LightNorm(grad_output, cache):
     X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
     B, C, H, W = X.shape        
@@ -188,6 +257,40 @@ def backward_LightNorm(grad_output, cache):
 
 
     return dL_dgamma, dL_dbeta, avg_pc, backward_const
+'''
+
+def backward_LightNorm(grad_output, cache):
+    X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
+    B, C, H, W = X.shape
+    dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
+    
+    # Compute dL_dvar
+    dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True)
+    
+    # Compute dL_dxmax_mean and dL_dxmin_mean
+    dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+    dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+    
+    # Compute dL_dxmax and dL_dxmin
+    dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
+    dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
+    
+    # Compute dL_dgamma and dL_dbeta
+    dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
+    dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+    dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+
+    # Average per channel
+    avg_pc = (dL_dxi_hat * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B * H * W)
+    dL_dxi_ = avg_pc + dL_dxi_hat
+    
+    # Backward coefficient
+    backward_const = scale
+    
+    # Final output calculation
+    dL_dxi = dL_dxi_ * backward_const
+
+    return dL_dgamma, dL_dbeta, avg_pc, backward_const   
 
 def split_location(mask_location): 
     relu_mask = torch.zeros_like(mask_location)
@@ -677,6 +780,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
         
+        '''
         test_out = '1st_iter_result/OutImage_1st_Layer0.txt'
         with open(test_out, 'w+') as test_output:
             for item in OutImage_1st_Layer0:
@@ -684,14 +788,16 @@ class YOLOv2_Tiny_FPGA(object):
                 test_output.write(line + '\n')   
         test_output.close()
         
+        Save_File(OutImage_1st_Layer0, "result/OutImage_1st_Layer0")
+        
         print(OutImage_1st_Layer0[0][0][0][0:5])
-
+        '''
         # Mean, Var
         s = time.time()
         Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)    
         e = time.time()
         print("Calculate Mean & Var :",e-s)
-        
+        '''
         data_read_mean_var = "result/Mean_1st_Layer0.txt"
         with open(data_read_mean_var, mode="w") as output_file:  
             for sublist in Mean_1st_Layer0:
@@ -705,9 +811,13 @@ class YOLOv2_Tiny_FPGA(object):
                 cleaned_sublist = [clean_string(item) for item in sublist]
                 output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
         output_file.close()
-
-        Beta_Layer0 = self.Beta_Dec[0]
-        Gamma_Layer0 = self.Gamma_Dec[0]
+        '''
+        Beta_Layer0 = data.Beta_Dec[0]
+        Gamma_Layer0 = data.Gamma_Dec[0]
+        
+        print("Beta_Layer0 : ", Beta_Layer0)
+        print("Beta_Bfloat : ", data.Beta_Bfloat[0])
+        print("Weight Reodering :",e-s)
 
         # layer0 Caches: 
         layer0_cache = BN(OutImage_1st_Layer0, Gamma_Layer0, Beta_Layer0)
@@ -722,8 +832,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_2nd_Layer0 = New_Weight_Hardware_ReOrdering_Layer0(16, 16, data.Weight_Bfloat[0], Mean_1st_Layer0, Var_1st_Layer0, data.Beta_Bfloat[0], Iteration="2")
         #print("Weight_2nd_Layer0 : ", Weight_2nd_Layer0)
         e = time.time()
-        print("Weight Reodering :",e-s)
-
+ 
         '''
         data_read_mean_var = "result/Mean_1st_Layer0.txt"
         with open(data_read_mean_var, mode="w") as output_file:  
@@ -814,6 +923,7 @@ class YOLOv2_Tiny_FPGA(object):
         check_irq_otherlayer()        
         # self.app_instance .change_color(self.app_instance.L2_IRQ_canvas, self.app_instance.L2_IRQ, "green") 
         # Layer 1
+        
         test0 = Read_DDR(Rd_Address=0X84480000, End_Address=0X84550000)
         test0 = data_32_to_16(test0)
         #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
@@ -821,16 +931,18 @@ class YOLOv2_Tiny_FPGA(object):
         test1 = Read_DDR(Rd_Address=0X94480000, End_Address=0X94550000)
         test1 = data_32_to_16(test1)
         
-        Output_Image1_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(test0, test1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        iter_result_2nd = Read_OutFmap_Bfloat2Dec(test0, test1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
 
-        OutImage_1st_Layer1 = torch.tensor([float(value) for value in Output_Image1_Layer1_1st_Iter], dtype=torch.float32).reshape(1, 16, 208, 208)
+        iter_result_2nd = torch.tensor([float(value) for value in iter_result_2nd], dtype=torch.float32).reshape(1, 16, 208, 208)
         
         test_out = 'result/layer0_2nd.txt'
         with open(test_out, 'w+') as test_output:
-            for item in OutImage_1st_Layer1:
+            for item in iter_result_2nd:
                 line = str(item) 
                 test_output.write(line + '\n')   
         test_output.close()
+        
+        Save_File(iter_result_2nd, "result/iter_result_2nd")
         
         
         layer1_start = time.time()
@@ -1063,8 +1175,8 @@ class YOLOv2_Tiny_FPGA(object):
                 output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
         output_file.close()
         
-        Beta_Layer1 = self.Beta_Dec[1]
-        Gamma_Layer1 = self.Gamma_Dec[1]
+        Beta_Layer1 = data.Beta_Dec[1]
+        Gamma_Layer1 = data.Gamma_Dec[1]
 
         layer1_cache = BN(OutImage_1st_Layer1, Gamma_Layer1, Beta_Layer1)
 
@@ -1338,8 +1450,8 @@ class YOLOv2_Tiny_FPGA(object):
         e = time.time()
         print("Calcuulate Mean & Var :",e-s)
 
-        Beta_Layer2 = self.Beta_Dec[2]
-        Gamma_Layer2 = self.Gamma_Dec[2]
+        Beta_Layer2 = data.Beta_Dec[2]
+        Gamma_Layer2 = data.Gamma_Dec[2]
 
         layer2_cache = BN(OutImage_1st_Layer2, Gamma_Layer2, Beta_Layer2)
 
@@ -1622,8 +1734,8 @@ class YOLOv2_Tiny_FPGA(object):
         Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
 
 
-        Beta_Layer3 = self.Beta_Dec[3]
-        Gamma_Layer3 = self.Gamma_Dec[3]
+        Beta_Layer3 = data.Beta_Dec[3]
+        Gamma_Layer3 = data.Gamma_Dec[3]
 
         layer3_cache = BN(OutImage_1st_Layer3, Gamma_Layer3, Beta_Layer3)
 
@@ -1907,8 +2019,8 @@ class YOLOv2_Tiny_FPGA(object):
         e = time.time()
         print("Calculate Mean & Var : ",e-s)
 
-        Beta_Layer4 = self.Beta_Dec[4]
-        Gamma_Layer4 = self.Gamma_Dec[4]
+        Beta_Layer4 = data.Beta_Dec[4]
+        Gamma_Layer4 = data.Gamma_Dec[4]
 
         layer4_cache = BN(OutImage_1st_Layer4, Gamma_Layer4, Beta_Layer4)
 
@@ -2192,8 +2304,8 @@ class YOLOv2_Tiny_FPGA(object):
         e = time.time()
         print("Calculate Mean & Var : ",e-s)
 
-        Beta_Layer5 = self.Beta_Dec[5]
-        Gamma_Layer5 = self.Gamma_Dec[5]
+        Beta_Layer5 = data.Beta_Dec[5]
+        Gamma_Layer5 = data.Gamma_Dec[5]
 
         layer5_cache = BN(OutImage_1st_Layer5, Gamma_Layer5, Beta_Layer5)
 
@@ -2475,8 +2587,8 @@ class YOLOv2_Tiny_FPGA(object):
         # Mean, Var
         Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
         
-        Beta_Layer6 = self.Beta_Dec[6]
-        Gamma_Layer6 = self.Gamma_Dec[6]
+        Beta_Layer6 = data.Beta_Dec[6]
+        Gamma_Layer6 = data.Gamma_Dec[6]
 
         layer6_cache = BN(OutImage_1st_Layer6, Gamma_Layer6, Beta_Layer6)
 
@@ -2760,8 +2872,8 @@ class YOLOv2_Tiny_FPGA(object):
         e = time.time()
         print("Calculate Mean & Var Time : ",e-s)
 
-        Beta_Layer7 = self.Beta_Dec[7]
-        Gamma_Layer7 = self.Gamma_Dec[7]
+        Beta_Layer7 = data.Beta_Dec[7]
+        Gamma_Layer7 = data.Gamma_Dec[7]
 
         layer7_cache = BN(OutImage_1st_Layer7, Gamma_Layer7, Beta_Layer7)
 
@@ -6887,6 +6999,11 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_1st_Layer8 = New_Weight_Hardware_ReOrdering_Layer8(     128, 1024, data.Weight_Bfloat[8], data.Bias_Bfloat)
         e = time.time()
         print("Weight Ordering : ",e-s)
+        
+        Save_File(data.Weight_Dec[0], "result/Weight_0")
+        
+        Save_File(data.Weight_Dec[8], "result/Weight_8")
+        
         # List for Each DDR Channels: 
         Weight_1st_CH0 = Weight_1st_Layer0[0] + Weight_1st_Layer1[0] + Weight_1st_Layer2[0] + Weight_1st_Layer3[0] + Weight_1st_Layer4[0] + \
                         Weight_1st_Layer5[0] + Weight_1st_Layer6[0] + Weight_1st_Layer7[0] + Weight_1st_Layer8[0]
@@ -6939,20 +7056,137 @@ class YOLOv2_Tiny_FPGA(object):
         Images_CH1 = data_256_32(Images_CH1)
         e = time.time()
         print("256bit to 32 bit Convert : ",e-s)
-        
-        test_out = 'result/Image.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in data.im_data:
-                test_output.write(str(item) + "\n")
-        test_output.close()    
-        
-    
+       
         # Write Images into DDR: 
         s = time.time()
         Write_DDR(Images_CH0, Wr_Address=0x82400000)
         Write_DDR(Images_CH1, Wr_Address=0x92400000)  
         e = time.time()
         print("Write Image : ",e-s)
+        
+        '''
+        Im0_ch0 = Read_DDR(Rd_Address=0x82400000, End_Address=0X82740000)
+        Im0_ch0 = data_32_to_16(Im0_ch0)
+        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im0_ch1 = Read_DDR(Rd_Address=0x92400000, End_Address=0X92740000)
+        Im0_ch1 = data_32_to_16(Im0_ch1)
+        
+        Image0 = Read_OutFmap_Bfloat2Dec(Im0_ch0, Im0_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+        # print(len(Image0))
+
+        # Image0 = torch.tensor([float(value) for value in Image0], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im1_ch0 = Read_DDR(Rd_Address=0X82740000, End_Address=0X82A80000)
+        Im1_ch0 = data_32_to_16(Im1_ch0)
+        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im1_ch1 = Read_DDR(Rd_Address=0x92740000, End_Address=0X92A80000)
+        Im1_ch1 = data_32_to_16(Im1_ch1)
+        
+        Image1 = Read_OutFmap_Bfloat2Dec(Im1_ch0, Im1_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image1 = torch.tensor([float(value) for value in Image1], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im2_ch0 = Read_DDR(Rd_Address=0X82A80000, End_Address=0X82DC0000)
+        Im2_ch0 = data_32_to_16(Im2_ch0)
+        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im2_ch1 = Read_DDR(Rd_Address=0X92A80000, End_Address=0X92DC0000)
+        Im2_ch1 = data_32_to_16(Im2_ch1)
+        
+        Image2 = Read_OutFmap_Bfloat2Dec(Im2_ch0, Im2_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image2 = torch.tensor([float(value) for value in Image2], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im3_ch0 = Read_DDR(Rd_Address=0X82DC0000, End_Address=0X83100000)
+        Im3_ch0 = data_32_to_16(Im3_ch0)
+        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im3_ch1 = Read_DDR(Rd_Address=0X92DC0000, End_Address=0X93100000)
+        Im3_ch1 = data_32_to_16(Im3_ch1)
+        
+        Image3 = Read_OutFmap_Bfloat2Dec(Im3_ch0, Im3_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image3 = torch.tensor([float(value) for value in Image3], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im4_ch0 = Read_DDR(Rd_Address=0X83100000, End_Address=0X83440000)
+        Im4_ch0 = data_32_to_16(Im4_ch0)
+        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im4_ch1 = Read_DDR(Rd_Address=0X93100000, End_Address=0X93440000)
+        Im4_ch1 = data_32_to_16(Im4_ch1)
+        
+        Image4 = Read_OutFmap_Bfloat2Dec(Im4_ch0, Im4_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image4 = torch.tensor([float(value) for value in Image4], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im5_ch0 = Read_DDR(Rd_Address=0X83440000, End_Address=0X83780000)
+        Im5_ch0 = data_32_to_16(Im5_ch0)
+        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im5_ch1 = Read_DDR(Rd_Address=0X93440000, End_Address=0X93780000)
+        Im5_ch1 = data_32_to_16(Im5_ch1)
+        
+        Image5 = Read_OutFmap_Bfloat2Dec(Im5_ch0, Im5_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image5 = torch.tensor([float(value) for value in Image5], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im6_ch0 = Read_DDR(Rd_Address=0X83780000, End_Address=0X83AC0000)
+        Im6_ch0 = data_32_to_16(Im6_ch0)
+        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im6_ch1 = Read_DDR(Rd_Address=0X93780000, End_Address=0X93AC0000)
+        Im6_ch1 = data_32_to_16(Im6_ch1)
+        
+        Image6 = Read_OutFmap_Bfloat2Dec(Im6_ch0, Im6_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image6 = torch.tensor([float(value) for value in Image6], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im7_ch0 = Read_DDR(Rd_Address=0X83AC0000, End_Address=0X83E00000)
+        Im7_ch0 = data_32_to_16(Im7_ch0)
+        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im7_ch1 = Read_DDR(Rd_Address=0X93AC0000, End_Address=0X93E00000)
+        Im7_ch1 = data_32_to_16(Im7_ch1)
+        
+        Image7 = Read_OutFmap_Bfloat2Dec(Im7_ch0, Im7_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        # Image = Image0 + Image1 + Image2 + Image3 + Image4 + Image5 + Image6 + Image7
+        Image0 = Image0[0:3*1*416*416]
+        Image1 = Image1[0:3*1*416*416]
+        Image2 = Image2[0:3*1*416*416]
+        Image3 = Image3[0:3*1*416*416]
+        Image4 = Image4[0:3*1*416*416]
+        Image5 = Image5[0:3*1*416*416]
+        Image6 = Image6[0:3*1*416*416]
+        Image7 = Image7[0:3*1*416*416]
+        
+        
+        Image0 = torch.tensor([float(value) for value in Image0], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image1 = torch.tensor([float(value) for value in Image1], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image2 = torch.tensor([float(value) for value in Image2], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image3 = torch.tensor([float(value) for value in Image3], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image4 = torch.tensor([float(value) for value in Image4], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image5 = torch.tensor([float(value) for value in Image5], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image6 = torch.tensor([float(value) for value in Image6], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).reshape(1, 3, 416, 416)
+        
+        
+        Save_File(Image0, "result/Image0")
+        Save_File(Image1, "result/Image1")
+        Save_File(Image2, "result/Image2")
+        Save_File(Image3, "result/Image3")
+        Save_File(Image4, "result/Image4")
+        Save_File(Image5, "result/Image5")
+        Save_File(Image6, "result/Image6")
+        Save_File(Image7, "result/Image7")
+        '''
+        # save_txt("Input_Image", Image, module="Conv", layer_no=0, save_txt=True, phase="Forward")
+        
+        
 
 
     def Write_Image_Test(self):

@@ -910,7 +910,7 @@ class App(customtkinter.CTk):
                                             Brain_Floating_Point =   self.Brain_Floating_Point,
                                             Exponent_Bits        =   self.Exponent_Bits,
                                             Mantissa_Bits        =   self.Mantissa_Bits)
-        self.Weight, self.Bias, self.Beta, self.Gamma, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
+        self.Weight, self.Bias, self.Gamma, self.Beta, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
         
         # Initialize Pre-Trained Weight
         self.Shoaib = Shoaib_Code(  Weight_Dec=self.Weight, 

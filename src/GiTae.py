@@ -6,6 +6,10 @@ from Pre_Processing_Scratch.Neural_Network_Operations_LightNorm import *
 from Pre_Processing_Scratch.Pre_Processing import *
 
 from GiTae_Functions import *
+
+def Save_File(data, path):
+    with open(path, 'wb') as handle:
+        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)    
     
 class FPGA(object):
     
@@ -95,7 +99,7 @@ class FPGA(object):
         print("Start NPU")
         s = time.time()
         self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward(data)
-        print(self.Output_Layer8.shape)
+        # Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
         e = time.time()
         print("Forward Process Time : ",e-s)
         # self.change_color_red()
@@ -117,3 +121,6 @@ class FPGA(object):
         e = time.time()
         print("Backward Process Time : ",e-s)
         # self.change_color_red()
+        
+
+    

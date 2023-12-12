@@ -153,7 +153,7 @@ class Pre_Processing:
             Data_Path = "Dataset/Dataset/pretrained/yolov2-tiny-voc.weights"
             pytorch_model = weightloader.load(pytorch_model, model, Data_Path)
             Weight, Bias, Beta, Gamma, Running_Mean, Running_Var = pytorch_model.Training_Parameters()
-        return Weight, Bias, Beta, Gamma, Running_Mean, Running_Var
+        return Weight, Bias, Gamma, Beta, Running_Mean, Running_Var
 
     def Weight_Converted_Func(self, Weight_Dec, Bias_Dec, Beta_Dec, Gamma_Dec, Running_Mean_Dec, Running_Var_Dec):
         # Mode is Training
