@@ -48,7 +48,7 @@ from GiTae_Functions import *
 
 MAX_LINE_LENGTH = 1000
 DEBUG = False
-DEBUG2 = True
+DEBUG2 = False
 
 def save_txt(fname, data, module=[], layer_no=[], save_txt=False, save_hex=False, phase=[]):
     # if DEBUG: print(f"Type of data: {type(data)}")
@@ -569,10 +569,7 @@ class YOLOv2_Tiny_FPGA(object):
         self.PreProcessing = app_instance.PreProcessing  
                 
     def Forward(self,data):
-        global layer0_cache, layer1_cache, layer2_cache, layer3_cache, layer4_cache, layer5_cache, layer6_cache, layer7_cache
-        
-             
-        
+        global layer0_cache, layer1_cache, layer2_cache, layer3_cache, layer4_cache, layer5_cache, layer6_cache, layer7_cache     
         start = time.time()
         #################################################
         #                Layer 0 Start                  #
@@ -784,44 +781,22 @@ class YOLOv2_Tiny_FPGA(object):
 
         OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
         
-        '''
-        test_out = '1st_iter_result/OutImage_1st_Layer0.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in OutImage_1st_Layer0:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-        
-        Save_File(OutImage_1st_Layer0, "result/OutImage_1st_Layer0")
+        if DEBUG2 : Save_File(OutImage_1st_Layer0, "result/Output_1st_iter_layer0")
         
         if DEBUG: print(OutImage_1st_Layer0[0][0][0][0:5])
-        '''
+        
         # Mean, Var
         s = time.time()
         Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)    
         e = time.time()
         if DEBUG: print("Calculate Mean & Var :",e-s)
-        '''
-        data_read_mean_var = "result/Mean_1st_Layer0.txt"
-        with open(data_read_mean_var, mode="w") as output_file:  
-            for sublist in Mean_1st_Layer0:
-                cleaned_sublist = [clean_string(item) for item in sublist]
-                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
-        output_file.close() 
 
-        data_read_mean_var = "result/Var_1st_Layer0.txt"
-        with open(data_read_mean_var, mode="w") as output_file:  
-            for sublist in Var_1st_Layer0:
-                cleaned_sublist = [clean_string(item) for item in sublist]
-                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
-        output_file.close()
-        '''
         Beta_Layer0 = data.Beta_Dec[0]
         Gamma_Layer0 = data.Gamma_Dec[0]
-        
-        if DEBUG: print("Beta_Layer0 : ", Beta_Layer0)
-        if DEBUG: print("Beta_Bfloat : ", data.Beta_Bfloat[0])
-        if DEBUG: print("Weight Reodering :",e-s)
+
+        if DEBUG2 : Save_File(data.Beta_Dec[0], "result/Beta_Layer0_Before")  
+        if DEBUG2 : Save_File(data.Gamma_Dec[0], "result/Gamma_Layer0_Before")    
+        if DEBUG2 : Save_File(data.Weight_Dec[0], "result/weight_Layer0_Before")        
 
         # layer0 Caches: 
         layer0_cache = BN(OutImage_1st_Layer0, Gamma_Layer0, Beta_Layer0)
@@ -860,7 +835,7 @@ class YOLOv2_Tiny_FPGA(object):
         output_file.close()               
         '''
  
-        
+        '''
         weight_layer0_2nd_ch0 = data_256_32(Weight_2nd_Layer0[0])
         weight_layer0_2nd_ch1 = data_256_32(Weight_2nd_Layer0[1])
         
@@ -876,7 +851,7 @@ class YOLOv2_Tiny_FPGA(object):
             for sublist in weight_layer0_2nd_ch1:
                 cleaned_sublist = [clean_string(item) for item in sublist]
                 output_file.write
-        
+        '''
         s = time.time()
         Write_DDR(data_256_32(Weight_2nd_Layer0[0]), Wr_Address=0x80000000)
         Write_DDR(data_256_32(Weight_2nd_Layer0[1]), Wr_Address=0x90000000)
@@ -946,7 +921,7 @@ class YOLOv2_Tiny_FPGA(object):
                 test_output.write(line + '\n')   
         test_output.close()
         
-        Save_File(iter_result_2nd, "result/iter_result_2nd")
+        if DEBUG2 : Save_File(iter_result_2nd, "result/iter_result_2nd")
         
         
         layer1_start = time.time()
@@ -3046,13 +3021,15 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Image8 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image8_CH0_256, Layer8_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits)
         Output_Layer8 = Output_Image1 + Output_Image2 + Output_Image3 + Output_Image4 + \
                         Output_Image5 + Output_Image6 + Output_Image7 + Output_Image8
+                        
+        if DEBUG2 : Save_File(Output_Layer8, "result/Output_last_layer")                
 
         Float_OutputImage = [np.float32(x) for x in Output_Layer8]
         Float_OutputImage = Float_OutputImage[0:(8*125*(13**2))]
         Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
         return Output_Layer8
-    
-    # Modified By Thaising
+
+
     def Post_Processing(self, data, gt_boxes, gt_classes, num_boxes):
         # check Layer8 IRQ
 
@@ -3200,8 +3177,6 @@ class YOLOv2_Tiny_FPGA(object):
         # if DEBUG: print(Loss)
         #if DEBUG: print(Loss_Gradient)
         
-        resume()
-        
         output_file1 = "loss.txt"
         with open(output_file1, mode="a") as output_file_1:
             output_file_1.write(str(Loss) + "\n")
@@ -3305,41 +3280,8 @@ class YOLOv2_Tiny_FPGA(object):
         
         return Output_Layer8
 
-
-    # Modified By Thaising
     def Pre_Processing_Backward(self, data, Loss_Gradient):     
-                
-            # if DEBUG: print(f"Loss Calculation Time: {(Loss_Calculation_Time):.2f} s\n")
-        '''
-        if data.Mode == "Inference":
-            PostProcessing = Post_Processing_Inference(Mode="Inference",
-                        Brain_Floating_Point=data.Brain_Floating_Point,
-                        Exponent_Bits=Exponent_Bits,
-                        Mantissa_Bits=Mantissa_Bits,
-                        OutImage1_Data_CH0=Layer8_1st_Iter_Image1_CH0_256,
-                        OutImage1_Data_CH1=Layer8_1st_Iter_Image1_CH1_256,
-                        OutImage2_Data_CH0=Layer8_1st_Iter_Image2_CH0_256,
-                        OutImage2_Data_CH1=Layer8_1st_Iter_Image2_CH1_256,
-                        OutImage3_Data_CH0=Layer8_1st_Iter_Image3_CH0_256,
-                        OutImage3_Data_CH1=Layer8_1st_Iter_Image3_CH1_256,
-                        OutImage4_Data_CH0=Layer8_1st_Iter_Image4_CH0_256,
-                        OutImage4_Data_CH1=Layer8_1st_Iter_Image4_CH1_256,
-                        OutImage5_Data_CH0=Layer8_1st_Iter_Image5_CH0_256,
-                        OutImage5_Data_CH1=Layer8_1st_Iter_Image5_CH1_256,
-                        OutImage6_Data_CH0=Layer8_1st_Iter_Image6_CH0_256,
-                        OutImage6_Data_CH1=Layer8_1st_Iter_Image6_CH1_256,
-                        OutImage7_Data_CH0=Layer8_1st_Iter_Image7_CH0_256,
-                        OutImage7_Data_CH1=Layer8_1st_Iter_Image7_CH1_256,
-                        OutImage8_Data_CH0=Layer8_1st_Iter_Image8_CH0_256,
-                        OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
-                        )
-            Loss, _ = PostProcessing.PostProcessing_Inference()
-            if DEBUG: print(Loss)
-            if DEBUG: print("\n")
-        '''    
-
-
-        # if YOLOv2_Hardware_Backward:
+        
         # Weight_Backward_Layer8 for Soft2Hardware
         # if epoch == 0:
         layer8_start = time.time()
@@ -3460,86 +3402,88 @@ class YOLOv2_Tiny_FPGA(object):
         # self.app_instance .change_color(self.app_instance.L9_IRQ_canvas, self.app_instance.L9_IRQ, "green")
         # Read Gradient of Output After ReLU Backward: 
         Output_Grad1_Layer8_CH0 = Read_DDR(Rd_Address=0x86E58000,  End_Address=0x86E8C000)
-        Output_Grad1_Layer8_CH0 = data_32_to_16(Output_Grad1_Layer8_CH0)
+        Output_Grad1_Layer8_CH0_16 = data_32_to_16(Output_Grad1_Layer8_CH0)
         #if DEBUG: print("Read Output_Grad1_Layer8_CH0")
 
         Output_Grad1_Layer8_CH1 = Read_DDR(Rd_Address=0x96E58000,  End_Address=0x96E8C000)
-        Output_Grad1_Layer8_CH1 = data_32_to_16(Output_Grad1_Layer8_CH1)
+        Output_Grad1_Layer8_CH1_16 = data_32_to_16(Output_Grad1_Layer8_CH1)
         #if DEBUG: print("Read Output_Grad1_Layer8_CH1")
         
         Output_Grad2_Layer8_CH0 = Read_DDR(Rd_Address=0x86E8C000,  End_Address=0x86EC0000)
-        Output_Grad2_Layer8_CH0 = data_32_to_16(Output_Grad2_Layer8_CH0)
+        Output_Grad2_Layer8_CH0_16 = data_32_to_16(Output_Grad2_Layer8_CH0)
         #if DEBUG: print("Read Output_Grad2_Layer8_CH0")
 
         Output_Grad2_Layer8_CH1 = Read_DDR(Rd_Address=0x96E8C000,  End_Address=0x96EC0000)
-        Output_Grad2_Layer8_CH1 = data_32_to_16(Output_Grad2_Layer8_CH1)
+        Output_Grad2_Layer8_CH1_16 = data_32_to_16(Output_Grad2_Layer8_CH1)
         #if DEBUG: print("Read Output_Grad2_Layer8_CH1")
 
         Output_Grad3_Layer8_CH0 = Read_DDR(Rd_Address=0x86EC0000,  End_Address=0x86EF4000)
-        Output_Grad3_Layer8_CH0 = data_32_to_16(Output_Grad3_Layer8_CH0)
+        Output_Grad3_Layer8_CH0_16 = data_32_to_16(Output_Grad3_Layer8_CH0)
         #if DEBUG: print("Read Output_Grad3_Layer8_CH0")
 
         Output_Grad3_Layer8_CH1 = Read_DDR(Rd_Address=0x96EC0000,  End_Address=0x96EF4000)
-        Output_Grad3_Layer8_CH1 = data_32_to_16(Output_Grad3_Layer8_CH1)
+        Output_Grad3_Layer8_CH1_16 = data_32_to_16(Output_Grad3_Layer8_CH1)
         #if DEBUG: print("Read Output_Grad3_Layer8_CH1")
 
         Output_Grad4_Layer8_CH0 = Read_DDR(Rd_Address=0x86EF4000,  End_Address=0x86F28000)
-        Output_Grad4_Layer8_CH0 = data_32_to_16(Output_Grad4_Layer8_CH0)
+        Output_Grad4_Layer8_CH0_16 = data_32_to_16(Output_Grad4_Layer8_CH0)
         #if DEBUG: print("Read Output_Grad4_Layer8_CH0")
 
         Output_Grad4_Layer8_CH1 = Read_DDR(Rd_Address=0x96EF4000,  End_Address=0x96F28000)
-        Output_Grad4_Layer8_CH1 = data_32_to_16(Output_Grad4_Layer8_CH1)
+        Output_Grad4_Layer8_CH1_16 = data_32_to_16(Output_Grad4_Layer8_CH1)
         #if DEBUG: print("Read Output_Grad4_Layer8_CH1")
 
         Output_Grad5_Layer8_CH0 = Read_DDR(Rd_Address=0x86F28000,  End_Address=0x86F5C000)
-        Output_Grad5_Layer8_CH0 = data_32_to_16(Output_Grad5_Layer8_CH0)
+        Output_Grad5_Layer8_CH0_16 = data_32_to_16(Output_Grad5_Layer8_CH0)
         #if DEBUG: print("Read Output_Grad5_Layer8_CH0")
 
         Output_Grad5_Layer8_CH1 = Read_DDR(Rd_Address=0x96F28000,  End_Address=0x96F5C000)
-        Output_Grad5_Layer8_CH1 = data_32_to_16(Output_Grad5_Layer8_CH1)
+        Output_Grad5_Layer8_CH1_16 = data_32_to_16(Output_Grad5_Layer8_CH1)
         #if DEBUG: print("Read Output_Grad5_Layer8_CH1")
 
         Output_Grad6_Layer8_CH0 = Read_DDR(Rd_Address=0x86F5C000,  End_Address=0x86F90000)
-        Output_Grad6_Layer8_CH0 = data_32_to_16(Output_Grad6_Layer8_CH0)
+        Output_Grad6_Layer8_CH0_16 = data_32_to_16(Output_Grad6_Layer8_CH0)
         #if DEBUG: print("Read Output_Grad6_Layer8_CH0")
 
         Output_Grad6_Layer8_CH1 = Read_DDR(Rd_Address=0x96F5C000,  End_Address=0x96F90000)
-        Output_Grad6_Layer8_CH1 = data_32_to_16(Output_Grad6_Layer8_CH1)
+        Output_Grad6_Layer8_CH1_16 = data_32_to_16(Output_Grad6_Layer8_CH1)
         #if DEBUG: print("Read Output_Grad6_Layer8_CH1")
 
         Output_Grad7_Layer8_CH0 = Read_DDR(Rd_Address=0x86F90000,  End_Address=0x86FC4000)
-        Output_Grad7_Layer8_CH0 = data_32_to_16(Output_Grad7_Layer8_CH0)
+        Output_Grad7_Layer8_CH0_16 = data_32_to_16(Output_Grad7_Layer8_CH0)
         #if DEBUG: print("Read Output_Grad7_Layer8_CH0")
 
         Output_Grad7_Layer8_CH1 = Read_DDR(Rd_Address=0x96F90000,  End_Address=0x96FC4000)
-        Output_Grad7_Layer8_CH1 = data_32_to_16(Output_Grad7_Layer8_CH1)
+        Output_Grad7_Layer8_CH1_16 = data_32_to_16(Output_Grad7_Layer8_CH1)
         #if DEBUG: print("Read Output_Grad7_Layer8_CH1")
 
         Output_Grad8_Layer8_CH0 = Read_DDR(Rd_Address=0x86FC4000,  End_Address=0x86FF8000)
-        Output_Grad8_Layer8_CH0 = data_32_to_16(Output_Grad8_Layer8_CH0)
+        Output_Grad8_Layer8_CH0_16 = data_32_to_16(Output_Grad8_Layer8_CH0)
         #if DEBUG: print("Read Output_Grad8_Layer8_CH0")
 
         Output_Grad8_Layer8_CH1 = Read_DDR(Rd_Address=0x96FC4000,  End_Address=0x96FF8000)
-        Output_Grad8_Layer8_CH1 = data_32_to_16(Output_Grad8_Layer8_CH1)    
+        Output_Grad8_Layer8_CH1_16 = data_32_to_16(Output_Grad8_Layer8_CH1)    
         #if DEBUG: print("Read Output_Grad8_Layer8_CH1")
         e = time.time()
         if DEBUG: print("Read OutG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
-        Output_Grad1_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer8_CH0, Output_Grad1_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad2_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer8_CH0, Output_Grad2_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad3_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer8_CH0, Output_Grad3_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad4_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer8_CH0, Output_Grad4_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad5_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer8_CH0, Output_Grad5_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad6_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer8_CH0, Output_Grad6_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad7_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer8_CH0, Output_Grad7_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad8_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer8_CH0, Output_Grad8_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad1_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer8_CH0_16, Output_Grad1_Layer8_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad2_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer8_CH0_16, Output_Grad2_Layer8_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad3_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer8_CH0_16, Output_Grad3_Layer8_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad4_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer8_CH0_16, Output_Grad4_Layer8_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad5_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer8_CH0_16, Output_Grad5_Layer8_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad6_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer8_CH0_16, Output_Grad6_Layer8_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad7_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer8_CH0_16, Output_Grad7_Layer8_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad8_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer8_CH0_16, Output_Grad8_Layer8_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
         e = time.time()
         if DEBUG: print("Bfloat to Dec : ",e-s)
 
         Output_Grads_Layer8 = Output_Grad1_Layer8 + Output_Grad2_Layer8 + Output_Grad3_Layer8 + Output_Grad4_Layer8 + \
                                 Output_Grad5_Layer8 + Output_Grad6_Layer8 + Output_Grad7_Layer8 + Output_Grad8_Layer8    
         Output_Grad_Layer8 = torch.tensor([float(value) for value in Output_Grads_Layer8], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        
+        if DEBUG2 : Save_File(Output_Grad_Layer8, "result/Out_layer8_Backward")
 
         # BReLu Marking for Layer7
         s = time.time()
@@ -3880,64 +3824,64 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         # Read Gradient of Output After ReLU Backward: 
         Output_Grad1_Layer7_CH0 = Read_DDR(Rd_Address=0x86B18000,  End_Address=0x86B4C000)
-        Output_Grad1_Layer7_CH0 = data_32_to_16(Output_Grad1_Layer7_CH0)
+        Output_Grad1_Layer7_CH0_16 = data_32_to_16(Output_Grad1_Layer7_CH0)
 
         Output_Grad1_Layer7_CH1 = Read_DDR(Rd_Address=0x96B18000,  End_Address=0x96B4C000)
-        Output_Grad1_Layer7_CH1 = data_32_to_16(Output_Grad1_Layer7_CH1)
+        Output_Grad1_Layer7_CH1_16 = data_32_to_16(Output_Grad1_Layer7_CH1)
 
         Output_Grad2_Layer7_CH0 = Read_DDR(Rd_Address=0x86B4C000,  End_Address=0x86B80000)
-        Output_Grad2_Layer7_CH0 = data_32_to_16(Output_Grad2_Layer7_CH0)
+        Output_Grad2_Layer7_CH0_16 = data_32_to_16(Output_Grad2_Layer7_CH0)
 
         Output_Grad2_Layer7_CH1 = Read_DDR(Rd_Address=0x96B4C000,  End_Address=0x96B80000)
-        Output_Grad2_Layer7_CH1 = data_32_to_16(Output_Grad2_Layer7_CH1)
+        Output_Grad2_Layer7_CH1_16 = data_32_to_16(Output_Grad2_Layer7_CH1)
 
         Output_Grad3_Layer7_CH0 = Read_DDR(Rd_Address=0x86B80000,  End_Address=0x86BB4000)
-        Output_Grad3_Layer7_CH0 = data_32_to_16(Output_Grad3_Layer7_CH0)
+        Output_Grad3_Layer7_CH0_16 = data_32_to_16(Output_Grad3_Layer7_CH0)
 
         Output_Grad3_Layer7_CH1 = Read_DDR(Rd_Address=0x96B80000,  End_Address=0x96BB4000)
-        Output_Grad3_Layer7_CH1 = data_32_to_16(Output_Grad3_Layer7_CH1)
+        Output_Grad3_Layer7_CH1_16 = data_32_to_16(Output_Grad3_Layer7_CH1)
 
         Output_Grad4_Layer7_CH0 = Read_DDR(Rd_Address=0x86BB4000,  End_Address=0x86BE8000)
-        Output_Grad4_Layer7_CH0 = data_32_to_16(Output_Grad4_Layer7_CH0)
+        Output_Grad4_Layer7_CH0_16 = data_32_to_16(Output_Grad4_Layer7_CH0)
 
         Output_Grad4_Layer7_CH1 = Read_DDR(Rd_Address=0x96BB4000,  End_Address=0x96BE8000)
-        Output_Grad4_Layer7_CH1 = data_32_to_16(Output_Grad4_Layer7_CH1)
+        Output_Grad4_Layer7_CH1_16 = data_32_to_16(Output_Grad4_Layer7_CH1)
 
         Output_Grad5_Layer7_CH0 = Read_DDR(Rd_Address=0x86BE8000,  End_Address=0x86C1C000)
-        Output_Grad5_Layer7_CH0 = data_32_to_16(Output_Grad5_Layer7_CH0)
+        Output_Grad5_Layer7_CH0_16 = data_32_to_16(Output_Grad5_Layer7_CH0)
 
         Output_Grad5_Layer7_CH1 = Read_DDR(Rd_Address=0x96BE8000,  End_Address=0x96C1C000)
-        Output_Grad5_Layer7_CH1 = data_32_to_16(Output_Grad5_Layer7_CH1)
+        Output_Grad5_Layer7_CH1_16 = data_32_to_16(Output_Grad5_Layer7_CH1)
 
         Output_Grad6_Layer7_CH0 = Read_DDR(Rd_Address=0x86C1C000,  End_Address=0x86C50000)
-        Output_Grad6_Layer7_CH0 = data_32_to_16(Output_Grad6_Layer7_CH0)
+        Output_Grad6_Layer7_CH0_16 = data_32_to_16(Output_Grad6_Layer7_CH0)
 
         Output_Grad6_Layer7_CH1 = Read_DDR(Rd_Address=0x96C1C000,  End_Address=0x96C50000)
-        Output_Grad6_Layer7_CH1 = data_32_to_16(Output_Grad6_Layer7_CH1)
+        Output_Grad6_Layer7_CH1_16 = data_32_to_16(Output_Grad6_Layer7_CH1)
 
         Output_Grad7_Layer7_CH0 = Read_DDR(Rd_Address=0x86C50000,  End_Address=0x86C84000)
-        Output_Grad7_Layer7_CH0 = data_32_to_16(Output_Grad7_Layer7_CH0)
+        Output_Grad7_Layer7_CH0_16 = data_32_to_16(Output_Grad7_Layer7_CH0)
 
         Output_Grad7_Layer7_CH1 = Read_DDR(Rd_Address=0x96C50000,  End_Address=0x96C84000)
-        Output_Grad7_Layer7_CH1 = data_32_to_16(Output_Grad7_Layer7_CH1)
+        Output_Grad7_Layer7_CH1_16 = data_32_to_16(Output_Grad7_Layer7_CH1)
 
         Output_Grad8_Layer7_CH0 = Read_DDR(Rd_Address=0x86C84000,  End_Address=0x86CB8000)
-        Output_Grad8_Layer7_CH0 = data_32_to_16(Output_Grad8_Layer7_CH0)
+        Output_Grad8_Layer7_CH0_16 = data_32_to_16(Output_Grad8_Layer7_CH0)
 
         Output_Grad8_Layer7_CH1 = Read_DDR(Rd_Address=0x96C84000,  End_Address=0x96CB8000)
-        Output_Grad8_Layer7_CH1 = data_32_to_16(Output_Grad8_Layer7_CH1)
+        Output_Grad8_Layer7_CH1_16 = data_32_to_16(Output_Grad8_Layer7_CH1)
         e = time.time()
         if DEBUG: print("Read Output_Gradient Time : ",e-s)
 
         s = time.time()
-        Output_Grad1_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer7_CH0, Output_Grad1_Layer7_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad2_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer7_CH0, Output_Grad2_Layer7_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad3_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer7_CH0, Output_Grad3_Layer7_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad4_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer7_CH0, Output_Grad4_Layer7_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad5_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer7_CH0, Output_Grad5_Layer7_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad6_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer7_CH0, Output_Grad6_Layer7_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad7_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer7_CH0, Output_Grad7_Layer7_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
-        Output_Grad8_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer7_CH0, Output_Grad8_Layer7_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad1_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer7_CH0_16, Output_Grad1_Layer7_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad2_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer7_CH0_16, Output_Grad2_Layer7_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad3_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer7_CH0_16, Output_Grad3_Layer7_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad4_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer7_CH0_16, Output_Grad4_Layer7_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad5_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer7_CH0_16, Output_Grad5_Layer7_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad6_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer7_CH0_16, Output_Grad6_Layer7_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad7_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer7_CH0_16, Output_Grad7_Layer7_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Grad8_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer7_CH0_16, Output_Grad8_Layer7_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
         Output_Grads_Layer7 = Output_Grad1_Layer7 + Output_Grad2_Layer7 + Output_Grad3_Layer7 + Output_Grad4_Layer7 + \
                                 Output_Grad5_Layer7 + Output_Grad6_Layer7 + Output_Grad7_Layer7 + Output_Grad8_Layer7    
         Output_Grad_Layer7 = torch.tensor([float(value) for value in Output_Grads_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
@@ -4280,64 +4224,64 @@ class YOLOv2_Tiny_FPGA(object):
         # self.app_instance .change_color(self.app_instance.L7_IRQ_canvas, self.app_instance.L7_IRQ, "green")
         # Read Gradient of Output After ReLU Backward: 
         Output_Grad1_Layer6_CH0 = Read_DDR(Rd_Address=0x86978000,  End_Address=0x86992000)
-        Output_Grad1_Layer6_CH0 = data_32_to_16(Output_Grad1_Layer6_CH0)
+        Output_Grad1_Layer6_CH0_16 = data_32_to_16(Output_Grad1_Layer6_CH0)
 
         Output_Grad1_Layer6_CH1 = Read_DDR(Rd_Address=0x96978000,  End_Address=0x96992000)
-        Output_Grad1_Layer6_CH1 = data_32_to_16(Output_Grad1_Layer6_CH1)
+        Output_Grad1_Layer6_CH1_16 = data_32_to_16(Output_Grad1_Layer6_CH1)
 
         Output_Grad2_Layer6_CH0 = Read_DDR(Rd_Address=0x86992000,  End_Address=0x869AC000)
-        Output_Grad2_Layer6_CH0 = data_32_to_16(Output_Grad2_Layer6_CH0)
+        Output_Grad2_Layer6_CH0_16 = data_32_to_16(Output_Grad2_Layer6_CH0)
 
         Output_Grad2_Layer6_CH1 = Read_DDR(Rd_Address=0x96992000,  End_Address=0x969AC000)
-        Output_Grad2_Layer6_CH1 = data_32_to_16(Output_Grad2_Layer6_CH1)
+        Output_Grad2_Layer6_CH1_16 = data_32_to_16(Output_Grad2_Layer6_CH1)
 
         Output_Grad3_Layer6_CH0 = Read_DDR(Rd_Address=0x869AC000,  End_Address=0x869C6000)
-        Output_Grad3_Layer6_CH0 = data_32_to_16(Output_Grad3_Layer6_CH0)
+        Output_Grad3_Layer6_CH0_16 = data_32_to_16(Output_Grad3_Layer6_CH0)
 
         Output_Grad3_Layer6_CH1 = Read_DDR(Rd_Address=0x969AC000,  End_Address=0x969C6000)
-        Output_Grad3_Layer6_CH1 = data_32_to_16(Output_Grad3_Layer6_CH1)
+        Output_Grad3_Layer6_CH1_16 = data_32_to_16(Output_Grad3_Layer6_CH1)
 
         Output_Grad4_Layer6_CH0 = Read_DDR(Rd_Address=0x869C6000,  End_Address=0x869E0000)
-        Output_Grad4_Layer6_CH0 = data_32_to_16(Output_Grad4_Layer6_CH0)
+        Output_Grad4_Layer6_CH0_16 = data_32_to_16(Output_Grad4_Layer6_CH0)
 
         Output_Grad4_Layer6_CH1 = Read_DDR(Rd_Address=0x969C6000,  End_Address=0x969E0000)
-        Output_Grad4_Layer6_CH1 = data_32_to_16(Output_Grad4_Layer6_CH1)
+        Output_Grad4_Layer6_CH1_16 = data_32_to_16(Output_Grad4_Layer6_CH1)
 
         Output_Grad5_Layer6_CH0 = Read_DDR(Rd_Address=0x869E0000,  End_Address=0x869FA000)
-        Output_Grad5_Layer6_CH0 = data_32_to_16(Output_Grad5_Layer6_CH0)
+        Output_Grad5_Layer6_CH0_16 = data_32_to_16(Output_Grad5_Layer6_CH0)
 
         Output_Grad5_Layer6_CH1 = Read_DDR(Rd_Address=0x969E0000,  End_Address=0x969FA000)
-        Output_Grad5_Layer6_CH1 = data_32_to_16(Output_Grad5_Layer6_CH1)
+        Output_Grad5_Layer6_CH1_16 = data_32_to_16(Output_Grad5_Layer6_CH1)
 
         Output_Grad6_Layer6_CH0 = Read_DDR(Rd_Address=0x869FA000,  End_Address=0x86A14000)
-        Output_Grad6_Layer6_CH0 = data_32_to_16(Output_Grad6_Layer6_CH0)
+        Output_Grad6_Layer6_CH0_16 = data_32_to_16(Output_Grad6_Layer6_CH0)
 
         Output_Grad6_Layer6_CH1 = Read_DDR(Rd_Address=0x969FA000,  End_Address=0x96A14000)
-        Output_Grad6_Layer6_CH1 = data_32_to_16(Output_Grad6_Layer6_CH1)
+        Output_Grad6_Layer6_CH1_16 = data_32_to_16(Output_Grad6_Layer6_CH1)
 
         Output_Grad7_Layer6_CH0 = Read_DDR(Rd_Address=0x86A14000,  End_Address=0x86A2E000)
-        Output_Grad7_Layer6_CH0 = data_32_to_16(Output_Grad7_Layer6_CH0)
+        Output_Grad7_Layer6_CH0_16 = data_32_to_16(Output_Grad7_Layer6_CH0)
 
         Output_Grad7_Layer6_CH1 = Read_DDR(Rd_Address=0x96A14000,  End_Address=0x96A2E000)
-        Output_Grad7_Layer6_CH1 = data_32_to_16(Output_Grad7_Layer6_CH1)
+        Output_Grad7_Layer6_CH1_16 = data_32_to_16(Output_Grad7_Layer6_CH1)
 
         Output_Grad8_Layer6_CH0 = Read_DDR(Rd_Address=0x86A2E000,  End_Address=0x86A48000)
-        Output_Grad8_Layer6_CH0 = data_32_to_16(Output_Grad8_Layer6_CH0)
+        Output_Grad8_Layer6_CH0_16 = data_32_to_16(Output_Grad8_Layer6_CH0)
 
         Output_Grad8_Layer6_CH1 = Read_DDR(Rd_Address=0x96A2E000,  End_Address=0x96A48000)
-        Output_Grad8_Layer6_CH1 = data_32_to_16(Output_Grad8_Layer6_CH1)
+        Output_Grad8_Layer6_CH1_16 = data_32_to_16(Output_Grad8_Layer6_CH1)
         e = time.time()
         if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
-        Output_Grad1_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer6_CH0, Output_Grad1_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
-        Output_Grad2_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer6_CH0, Output_Grad2_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
-        Output_Grad3_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer6_CH0, Output_Grad3_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
-        Output_Grad4_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer6_CH0, Output_Grad4_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
-        Output_Grad5_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer6_CH0, Output_Grad5_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
-        Output_Grad6_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer6_CH0, Output_Grad6_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
-        Output_Grad7_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer6_CH0, Output_Grad7_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
-        Output_Grad8_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer6_CH0, Output_Grad8_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Grad1_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer6_CH0_16, Output_Grad1_Layer6_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Grad2_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer6_CH0_16, Output_Grad2_Layer6_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Grad3_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer6_CH0_16, Output_Grad3_Layer6_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Grad4_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer6_CH0_16, Output_Grad4_Layer6_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Grad5_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer6_CH0_16, Output_Grad5_Layer6_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Grad6_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer6_CH0_16, Output_Grad6_Layer6_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Grad7_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer6_CH0_16, Output_Grad7_Layer6_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Grad8_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer6_CH0_16, Output_Grad8_Layer6_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
         e = time.time()
         if DEBUG: print("Bfloat to Dec : ",e-s)
         
@@ -4673,81 +4617,81 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         # self.app_instance .change_color(self.app_instance.L6_IRQ_canvas, self.app_instance.L6_IRQ, "green")
         # Read Gradient of Output After ReLU Backward: 
-        Output_Grad1_Layer5_CH0 = Read_DDR(Rd_Address=0x86770000,  End_Address=0x8677D000)
-        Output_Grad1_Layer5_CH0 = data_32_to_16(Output_Grad1_Layer5_CH0)
+        Output_Grad1_Layer5_CH0_ = Read_DDR(Rd_Address=0x86770000,  End_Address=0x8677D000)
+        Output_Grad1_Layer5_CH0_16 = data_32_to_16(Output_Grad1_Layer5_CH0_)
         #if DEBUG: print("Read Output_Grad1_Layer5_CH0")
 
-        Output_Grad1_Layer5_CH1 = Read_DDR(Rd_Address=0x96770000,  End_Address=0x9677D000)
-        Output_Grad1_Layer5_CH1 = data_32_to_16(Output_Grad1_Layer5_CH1)
+        Output_Grad1_Layer5_CH1_ = Read_DDR(Rd_Address=0x96770000,  End_Address=0x9677D000)
+        Output_Grad1_Layer5_CH1_16 = data_32_to_16(Output_Grad1_Layer5_CH1_)
         #if DEBUG: print("Read Output_Grad1_Layer5_CH1")
 
-        Output_Grad2_Layer5_CH0 = Read_DDR(Rd_Address=0x8677D000,  End_Address=0x8678A000)
-        Output_Grad2_Layer5_CH0 = data_32_to_16(Output_Grad2_Layer5_CH0)
+        Output_Grad2_Layer5_CH0_ = Read_DDR(Rd_Address=0x8677D000,  End_Address=0x8678A000)
+        Output_Grad2_Layer5_CH0_16 = data_32_to_16(Output_Grad2_Layer5_CH0_)
         #if DEBUG: print("Read Output_Grad2_Layer5_CH0")
 
-        Output_Grad2_Layer5_CH1 = Read_DDR(Rd_Address=0x9677D000,  End_Address=0x9678A000)
-        Output_Grad2_Layer5_CH1 = data_32_to_16(Output_Grad2_Layer5_CH1)
+        Output_Grad2_Layer5_CH1_ = Read_DDR(Rd_Address=0x9677D000,  End_Address=0x9678A000)
+        Output_Grad2_Layer5_CH1_16 = data_32_to_16(Output_Grad2_Layer5_CH1_)
         #if DEBUG: print("Read Output_Grad2_Layer5_CH1")
 
-        Output_Grad3_Layer5_CH0 = Read_DDR(Rd_Address=0x8678A000,  End_Address=0X86797000)
-        Output_Grad3_Layer5_CH0 = data_32_to_16(Output_Grad3_Layer5_CH0)
+        Output_Grad3_Layer5_CH0_ = Read_DDR(Rd_Address=0x8678A000,  End_Address=0X86797000)
+        Output_Grad3_Layer5_CH0_16 = data_32_to_16(Output_Grad3_Layer5_CH0_)
         #if DEBUG: print("Read Output_Grad3_Layer5_CH0")
 
-        Output_Grad3_Layer5_CH1 = Read_DDR(Rd_Address=0x9678A000,  End_Address=0x96797000)
-        Output_Grad3_Layer5_CH1 = data_32_to_16(Output_Grad3_Layer5_CH1)
+        Output_Grad3_Layer5_CH1_ = Read_DDR(Rd_Address=0x9678A000,  End_Address=0x96797000)
+        Output_Grad3_Layer5_CH1_16 = data_32_to_16(Output_Grad3_Layer5_CH1_)
         #if DEBUG: print("Read Output_Grad3_Layer5_CH1")
 
-        Output_Grad4_Layer5_CH0 = Read_DDR(Rd_Address=0x86797000,  End_Address=0x867A4000)
-        Output_Grad4_Layer5_CH0 = data_32_to_16(Output_Grad4_Layer5_CH0)
+        Output_Grad4_Layer5_CH0_ = Read_DDR(Rd_Address=0x86797000,  End_Address=0x867A4000)
+        Output_Grad4_Layer5_CH0_16 = data_32_to_16(Output_Grad4_Layer5_CH0_)
         #if DEBUG: print("Read Output_Grad4_Layer5_CH0")
 
-        Output_Grad4_Layer5_CH1 = Read_DDR(Rd_Address=0x96797000,  End_Address=0x967A4000)
-        Output_Grad4_Layer5_CH1 = data_32_to_16(Output_Grad4_Layer5_CH1)
+        Output_Grad4_Layer5_CH1_ = Read_DDR(Rd_Address=0x96797000,  End_Address=0x967A4000)
+        Output_Grad4_Layer5_CH1_16 = data_32_to_16(Output_Grad4_Layer5_CH1_)
         #if DEBUG: print("Read Output_Grad4_Layer5_CH1")
 
-        Output_Grad5_Layer5_CH0 = Read_DDR(Rd_Address=0x867A4000,  End_Address=0x867B1000)
-        Output_Grad5_Layer5_CH0 = data_32_to_16(Output_Grad5_Layer5_CH0)
+        Output_Grad5_Layer5_CH0_ = Read_DDR(Rd_Address=0x867A4000,  End_Address=0x867B1000)
+        Output_Grad5_Layer5_CH0_16 = data_32_to_16(Output_Grad5_Layer5_CH0_)
         #if DEBUG: print("Read Output_Grad5_Layer5_CH0")
 
-        Output_Grad5_Layer5_CH1 = Read_DDR(Rd_Address=0x967A4000,  End_Address=0x967B1000)
-        Output_Grad5_Layer5_CH1 = data_32_to_16(Output_Grad5_Layer5_CH1)
+        Output_Grad5_Layer5_CH1_ = Read_DDR(Rd_Address=0x967A4000,  End_Address=0x967B1000)
+        Output_Grad5_Layer5_CH1_16 = data_32_to_16(Output_Grad5_Layer5_CH1_)
         #if DEBUG: print("Read Output_Grad5_Layer5_CH1")
 
-        Output_Grad6_Layer5_CH0 = Read_DDR(Rd_Address=0x867B1000,  End_Address=0x867BE000)
-        Output_Grad6_Layer5_CH0 = data_32_to_16(Output_Grad6_Layer5_CH0)
+        Output_Grad6_Layer5_CH0_ = Read_DDR(Rd_Address=0x867B1000,  End_Address=0x867BE000)
+        Output_Grad6_Layer5_CH0_16 = data_32_to_16(Output_Grad6_Layer5_CH0_)
         #if DEBUG: print("Read Output_Grad6_Layer5_CH0")
 
-        Output_Grad6_Layer5_CH1 = Read_DDR(Rd_Address=0x967B1000,  End_Address=0x967BE000)
-        Output_Grad6_Layer5_CH1 = data_32_to_16(Output_Grad6_Layer5_CH1)
+        Output_Grad6_Layer5_CH1_ = Read_DDR(Rd_Address=0x967B1000,  End_Address=0x967BE000)
+        Output_Grad6_Layer5_CH1_16 = data_32_to_16(Output_Grad6_Layer5_CH1_)
         #if DEBUG: print("Read Output_Grad6_Layer5_CH1")
 
-        Output_Grad7_Layer5_CH0 = Read_DDR(Rd_Address=0x867BE000,  End_Address=0x867CB000)
-        Output_Grad7_Layer5_CH0 = data_32_to_16(Output_Grad7_Layer5_CH0)
+        Output_Grad7_Layer5_CH0_ = Read_DDR(Rd_Address=0x867BE000,  End_Address=0x867CB000)
+        Output_Grad7_Layer5_CH0_16 = data_32_to_16(Output_Grad7_Layer5_CH0_)
         #if DEBUG: print("Read Output_Grad7_Layer5_CH0")
 
-        Output_Grad7_Layer5_CH1 = Read_DDR(Rd_Address=0x967BE000,  End_Address=0x967CB000)
-        Output_Grad7_Layer5_CH1 = data_32_to_16(Output_Grad7_Layer5_CH1)
+        Output_Grad7_Layer5_CH1_ = Read_DDR(Rd_Address=0x967BE000,  End_Address=0x967CB000)
+        Output_Grad7_Layer5_CH1_16 = data_32_to_16(Output_Grad7_Layer5_CH1_)
         #if DEBUG: print("Read Output_Grad7_Layer5_CH1")
 
-        Output_Grad8_Layer5_CH0 = Read_DDR(Rd_Address=0x867CB000,  End_Address=0x867D8000)
-        Output_Grad8_Layer5_CH0 = data_32_to_16(Output_Grad8_Layer5_CH0)
+        Output_Grad8_Layer5_CH0_ = Read_DDR(Rd_Address=0x867CB000,  End_Address=0x867D8000)
+        Output_Grad8_Layer5_CH0_16 = data_32_to_16(Output_Grad8_Layer5_CH0_)
         #if DEBUG: print("Read Output_Grad8_Layer5_CH0")
 
-        Output_Grad8_Layer5_CH1 = Read_DDR(Rd_Address=0x967CB000,  End_Address=0x967D8000)
-        Output_Grad8_Layer5_CH1 = data_32_to_16(Output_Grad8_Layer5_CH1)
+        Output_Grad8_Layer5_CH1_ = Read_DDR(Rd_Address=0x967CB000,  End_Address=0x967D8000)
+        Output_Grad8_Layer5_CH1_16 = data_32_to_16(Output_Grad8_Layer5_CH1_)
         #if DEBUG: print("Read Output_Grad8_Layer5_CH1")
         e = time.time()
         if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
-        Output_Grad1_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer5_CH0, Output_Grad1_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
-        Output_Grad2_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer5_CH0, Output_Grad2_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
-        Output_Grad3_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer5_CH0, Output_Grad3_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
-        Output_Grad4_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer5_CH0, Output_Grad4_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
-        Output_Grad5_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer5_CH0, Output_Grad5_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
-        Output_Grad6_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer5_CH0, Output_Grad6_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
-        Output_Grad7_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer5_CH0, Output_Grad7_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
-        Output_Grad8_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer5_CH0, Output_Grad8_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
+        Output_Grad1_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer5_CH0_16, Output_Grad1_Layer5_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
+        Output_Grad2_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer5_CH0_16, Output_Grad2_Layer5_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
+        Output_Grad3_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer5_CH0_16, Output_Grad3_Layer5_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
+        Output_Grad4_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer5_CH0_16, Output_Grad4_Layer5_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
+        Output_Grad5_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer5_CH0_16, Output_Grad5_Layer5_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
+        Output_Grad6_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer5_CH0_16, Output_Grad6_Layer5_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
+        Output_Grad7_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer5_CH0_16, Output_Grad7_Layer5_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
+        Output_Grad8_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer5_CH0_16, Output_Grad8_Layer5_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
         e = time.time()
         if DEBUG: print("Bfloat to Dec : ",e-s)
         
@@ -5093,81 +5037,81 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         # self.app_instance .change_color(self.app_instance.L5_IRQ_canvas, self.app_instance.L5_IRQ, "green")
         # Read Gradient of Output After ReLU Backward: 
-        Output_Grad1_Layer4_CH0 = Read_DDR(Rd_Address=0x86360000,  End_Address=0x8637A000)
-        Output_Grad1_Layer4_CH0 = data_32_to_16(Output_Grad1_Layer4_CH0)
+        Output_Grad1_Layer4_CH0_ = Read_DDR(Rd_Address=0x86360000,  End_Address=0x8637A000)
+        Output_Grad1_Layer4_CH0_16 = data_32_to_16(Output_Grad1_Layer4_CH0_)
         #if DEBUG: print("Read Output_Grad1_Layer4_CH0")
 
-        Output_Grad1_Layer4_CH1 = Read_DDR(Rd_Address=0x96360000,  End_Address=0x9637A000)
-        Output_Grad1_Layer4_CH1 = data_32_to_16(Output_Grad1_Layer4_CH1)
+        Output_Grad1_Layer4_CH1_ = Read_DDR(Rd_Address=0x96360000,  End_Address=0x9637A000)
+        Output_Grad1_Layer4_CH1_16 = data_32_to_16(Output_Grad1_Layer4_CH1_)
         #if DEBUG: print("Read Output_Grad1_Layer4_CH1")
 
-        Output_Grad2_Layer4_CH0 = Read_DDR(Rd_Address=0x8637A000,  End_Address=0x86394000)
-        Output_Grad2_Layer4_CH0 = data_32_to_16(Output_Grad2_Layer4_CH0)
+        Output_Grad2_Layer4_CH0_ = Read_DDR(Rd_Address=0x8637A000,  End_Address=0x86394000)
+        Output_Grad2_Layer4_CH0_16 = data_32_to_16(Output_Grad2_Layer4_CH0_)
         #if DEBUG: print("Read Output_Grad2_Layer4_CH0")
 
-        Output_Grad2_Layer4_CH1 = Read_DDR(Rd_Address=0x9637A000,  End_Address=0x96394000)
-        Output_Grad2_Layer4_CH1 = data_32_to_16(Output_Grad2_Layer4_CH1)
+        Output_Grad2_Layer4_CH1_ = Read_DDR(Rd_Address=0x9637A000,  End_Address=0x96394000)
+        Output_Grad2_Layer4_CH1_16 = data_32_to_16(Output_Grad2_Layer4_CH1_)
         #if DEBUG: print("Read Output_Grad2_Layer4_CH1")
 
-        Output_Grad3_Layer4_CH0 = Read_DDR(Rd_Address=0x86394000,  End_Address=0x863AE000)
-        Output_Grad3_Layer4_CH0 = data_32_to_16(Output_Grad3_Layer4_CH0)
+        Output_Grad3_Layer4_CH0_ = Read_DDR(Rd_Address=0x86394000,  End_Address=0x863AE000)
+        Output_Grad3_Layer4_CH0_16 = data_32_to_16(Output_Grad3_Layer4_CH0_)
         #if DEBUG: print("Read Output_Grad3_Layer4_CH0")
 
-        Output_Grad3_Layer4_CH1 = Read_DDR(Rd_Address=0x96394000,  End_Address=0x963AE000)
-        Output_Grad3_Layer4_CH1 = data_32_to_16(Output_Grad3_Layer4_CH1)
+        Output_Grad3_Layer4_CH1_ = Read_DDR(Rd_Address=0x96394000,  End_Address=0x963AE000)
+        Output_Grad3_Layer4_CH1_16 = data_32_to_16(Output_Grad3_Layer4_CH1_)
         #if DEBUG: print("Read Output_Grad3_Layer4_CH1")
 
-        Output_Grad4_Layer4_CH0 = Read_DDR(Rd_Address=0x863AE000,  End_Address=0x863C8000)
-        Output_Grad4_Layer4_CH0 = data_32_to_16(Output_Grad4_Layer4_CH0)
+        Output_Grad4_Layer4_CH0_ = Read_DDR(Rd_Address=0x863AE000,  End_Address=0x863C8000)
+        Output_Grad4_Layer4_CH0_16 = data_32_to_16(Output_Grad4_Layer4_CH0_)
         #if DEBUG: print("Read Output_Grad4_Layer4_CH0")
 
-        Output_Grad4_Layer4_CH1 = Read_DDR(Rd_Address=0x963AE000,  End_Address=0x963C8000)
-        Output_Grad4_Layer4_CH1 = data_32_to_16(Output_Grad4_Layer4_CH1)
+        Output_Grad4_Layer4_CH1_ = Read_DDR(Rd_Address=0x963AE000,  End_Address=0x963C8000)
+        Output_Grad4_Layer4_CH1_16 = data_32_to_16(Output_Grad4_Layer4_CH1_)
         #if DEBUG: print("Read Output_Grad4_Layer4_CH1")
 
-        Output_Grad5_Layer4_CH0 = Read_DDR(Rd_Address=0x863C8000,  End_Address=0x863E2000)
-        Output_Grad5_Layer4_CH0 = data_32_to_16(Output_Grad5_Layer4_CH0)
+        Output_Grad5_Layer4_CH0_ = Read_DDR(Rd_Address=0x863C8000,  End_Address=0x863E2000)
+        Output_Grad5_Layer4_CH0_16 = data_32_to_16(Output_Grad5_Layer4_CH0_)
         #if DEBUG: print("Read Output_Grad5_Layer4_CH0")
 
-        Output_Grad5_Layer4_CH1 = Read_DDR(Rd_Address=0x963C8000,  End_Address=0x963E2000)
-        Output_Grad5_Layer4_CH1 = data_32_to_16(Output_Grad5_Layer4_CH1)
+        Output_Grad5_Layer4_CH1_ = Read_DDR(Rd_Address=0x963C8000,  End_Address=0x963E2000)
+        Output_Grad5_Layer4_CH1_16 = data_32_to_16(Output_Grad5_Layer4_CH1_)
         #if DEBUG: print("Read Output_Grad5_Layer4_CH1")
 
-        Output_Grad6_Layer4_CH0 = Read_DDR(Rd_Address=0x863E2000,  End_Address=0x863FC000)
-        Output_Grad6_Layer4_CH0 = data_32_to_16(Output_Grad6_Layer4_CH0)
+        Output_Grad6_Layer4_CH0_ = Read_DDR(Rd_Address=0x863E2000,  End_Address=0x863FC000)
+        Output_Grad6_Layer4_CH0_16 = data_32_to_16(Output_Grad6_Layer4_CH0_)
         #if DEBUG: print("Read Output_Grad6_Layer4_CH0")
 
-        Output_Grad6_Layer4_CH1 = Read_DDR(Rd_Address=0x963E2000,  End_Address=0x963FC000)
-        Output_Grad6_Layer4_CH1 = data_32_to_16(Output_Grad6_Layer4_CH1)
+        Output_Grad6_Layer4_CH1_ = Read_DDR(Rd_Address=0x963E2000,  End_Address=0x963FC000)
+        Output_Grad6_Layer4_CH1_16 = data_32_to_16(Output_Grad6_Layer4_CH1_)
         #if DEBUG: print("Read Output_Grad6_Layer4_CH1")
 
-        Output_Grad7_Layer4_CH0 = Read_DDR(Rd_Address=0x863FC000,  End_Address=0x86416000)
-        Output_Grad7_Layer4_CH0 = data_32_to_16(Output_Grad7_Layer4_CH0)
+        Output_Grad7_Layer4_CH0_ = Read_DDR(Rd_Address=0x863FC000,  End_Address=0x86416000)
+        Output_Grad7_Layer4_CH0_16 = data_32_to_16(Output_Grad7_Layer4_CH0_)
         #if DEBUG: print("Read Output_Grad7_Layer4_CH0")
 
-        Output_Grad7_Layer4_CH1 = Read_DDR(Rd_Address=0x963FC000,  End_Address=0x96416000)
-        Output_Grad7_Layer4_CH1 = data_32_to_16(Output_Grad7_Layer4_CH1)
+        Output_Grad7_Layer4_CH1_ = Read_DDR(Rd_Address=0x963FC000,  End_Address=0x96416000)
+        Output_Grad7_Layer4_CH1_16 = data_32_to_16(Output_Grad7_Layer4_CH1_)
         #if DEBUG: print("Read Output_Grad7_Layer4_CH1")
 
-        Output_Grad8_Layer4_CH0 = Read_DDR(Rd_Address=0x86416000,  End_Address=0x86430000)
-        Output_Grad8_Layer4_CH0 = data_32_to_16(Output_Grad8_Layer4_CH0)
+        Output_Grad8_Layer4_CH0_ = Read_DDR(Rd_Address=0x86416000,  End_Address=0x86430000)
+        Output_Grad8_Layer4_CH0_16 = data_32_to_16(Output_Grad8_Layer4_CH0_)
         #if DEBUG: print("Read Output_Grad8_Layer4_CH0")
 
-        Output_Grad8_Layer4_CH1 = Read_DDR(Rd_Address=0x96416000,  End_Address=0x96430000)
-        Output_Grad8_Layer4_CH1 = data_32_to_16(Output_Grad8_Layer4_CH1)
+        Output_Grad8_Layer4_CH1_ = Read_DDR(Rd_Address=0x96416000,  End_Address=0x96430000)
+        Output_Grad8_Layer4_CH1_16 = data_32_to_16(Output_Grad8_Layer4_CH1_)
         #if DEBUG: print("Read Output_Grad8_Layer4_CH1")
         e = time.time()
         if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
-        Output_Grad1_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer4_CH0, Output_Grad1_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
-        Output_Grad2_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer4_CH0, Output_Grad2_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
-        Output_Grad3_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer4_CH0, Output_Grad3_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
-        Output_Grad4_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer4_CH0, Output_Grad4_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
-        Output_Grad5_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer4_CH0, Output_Grad5_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
-        Output_Grad6_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer4_CH0, Output_Grad6_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
-        Output_Grad7_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer4_CH0, Output_Grad7_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
-        Output_Grad8_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer4_CH0, Output_Grad8_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
+        Output_Grad1_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer4_CH0_16, Output_Grad1_Layer4_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
+        Output_Grad2_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer4_CH0_16, Output_Grad2_Layer4_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
+        Output_Grad3_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer4_CH0_16, Output_Grad3_Layer4_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
+        Output_Grad4_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer4_CH0_16, Output_Grad4_Layer4_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
+        Output_Grad5_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer4_CH0_16, Output_Grad5_Layer4_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
+        Output_Grad6_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer4_CH0_16, Output_Grad6_Layer4_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
+        Output_Grad7_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer4_CH0_16, Output_Grad7_Layer4_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
+        Output_Grad8_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer4_CH0_16, Output_Grad8_Layer4_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
         e = time.time()
         if DEBUG: print("Bflaot to Dec : ",e-s)
         
@@ -5502,65 +5446,65 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         # self.app_instance .change_color(self.app_instance.L4_IRQ_canvas, self.app_instance.L4_IRQ, "green")
         # Read Gradient of Output After ReLU Backward: 
-        Output_Grad1_Layer3_CH0 = Read_DDR(Rd_Address=0x85B40000,  End_Address=0x85B74000)
-        Output_Grad1_Layer3_CH0 = data_32_to_16(Output_Grad1_Layer3_CH0)
+        Output_Grad1_Layer3_CH0_ = Read_DDR(Rd_Address=0x85B40000,  End_Address=0x85B74000)
+        Output_Grad1_Layer3_CH0_16 = data_32_to_16(Output_Grad1_Layer3_CH0_)
 
-        Output_Grad1_Layer3_CH1 = Read_DDR(Rd_Address=0x95B40000,  End_Address=0x95B74000)
-        Output_Grad1_Layer3_CH1 = data_32_to_16(Output_Grad1_Layer3_CH1)
+        Output_Grad1_Layer3_CH1_ = Read_DDR(Rd_Address=0x95B40000,  End_Address=0x95B74000)
+        Output_Grad1_Layer3_CH1_16 = data_32_to_16(Output_Grad1_Layer3_CH1_)
 
-        Output_Grad2_Layer3_CH0 = Read_DDR(Rd_Address=0x85B74000,  End_Address=0x85BA8000)
-        Output_Grad2_Layer3_CH0 = data_32_to_16(Output_Grad2_Layer3_CH0)
+        Output_Grad2_Layer3_CH0_ = Read_DDR(Rd_Address=0x85B74000,  End_Address=0x85BA8000)
+        Output_Grad2_Layer3_CH0_16 = data_32_to_16(Output_Grad2_Layer3_CH0_)
 
-        Output_Grad2_Layer3_CH1 = Read_DDR(Rd_Address=0x95B74000,  End_Address=0x95BA8000)
-        Output_Grad2_Layer3_CH1 = data_32_to_16(Output_Grad2_Layer3_CH1)
+        Output_Grad2_Layer3_CH1_ = Read_DDR(Rd_Address=0x95B74000,  End_Address=0x95BA8000)
+        Output_Grad2_Layer3_CH1_16 = data_32_to_16(Output_Grad2_Layer3_CH1_)
 
-        Output_Grad3_Layer3_CH0 = Read_DDR(Rd_Address=0x85BA8000,  End_Address=0x85BDC000)
-        Output_Grad3_Layer3_CH0 = data_32_to_16(Output_Grad3_Layer3_CH0)
+        Output_Grad3_Layer3_CH0_ = Read_DDR(Rd_Address=0x85BA8000,  End_Address=0x85BDC000)
+        Output_Grad3_Layer3_CH0_16 = data_32_to_16(Output_Grad3_Layer3_CH0_)
 
-        Output_Grad3_Layer3_CH1 = Read_DDR(Rd_Address=0x95BA8000,  End_Address=0x95BDC000)
-        Output_Grad3_Layer3_CH1 = data_32_to_16(Output_Grad3_Layer3_CH1)
+        Output_Grad3_Layer3_CH1_ = Read_DDR(Rd_Address=0x95BA8000,  End_Address=0x95BDC000)
+        Output_Grad3_Layer3_CH1_16 = data_32_to_16(Output_Grad3_Layer3_CH1_)
 
-        Output_Grad4_Layer3_CH0 = Read_DDR(Rd_Address=0x85BDC000,  End_Address=0x85C10000)
-        Output_Grad4_Layer3_CH0 = data_32_to_16(Output_Grad4_Layer3_CH0)
+        Output_Grad4_Layer3_CH0_ = Read_DDR(Rd_Address=0x85BDC000,  End_Address=0x85C10000)
+        Output_Grad4_Layer3_CH0_16 = data_32_to_16(Output_Grad4_Layer3_CH0_)
 
-        Output_Grad4_Layer3_CH1 = Read_DDR(Rd_Address=0x95BDC000,  End_Address=0x95C10000)
-        Output_Grad4_Layer3_CH1 = data_32_to_16(Output_Grad4_Layer3_CH1)
+        Output_Grad4_Layer3_CH1_ = Read_DDR(Rd_Address=0x95BDC000,  End_Address=0x95C10000)
+        Output_Grad4_Layer3_CH1_16 = data_32_to_16(Output_Grad4_Layer3_CH1_)
 
-        Output_Grad5_Layer3_CH0 = Read_DDR(Rd_Address=0x85C10000,  End_Address=0x85C44000)
-        Output_Grad5_Layer3_CH0 = data_32_to_16(Output_Grad5_Layer3_CH0)
+        Output_Grad5_Layer3_CH0_ = Read_DDR(Rd_Address=0x85C10000,  End_Address=0x85C44000)
+        Output_Grad5_Layer3_CH0_16 = data_32_to_16(Output_Grad5_Layer3_CH0_)
 
-        Output_Grad5_Layer3_CH1 = Read_DDR(Rd_Address=0x95C10000,  End_Address=0x95C44000)
-        Output_Grad5_Layer3_CH1 = data_32_to_16(Output_Grad5_Layer3_CH1)
+        Output_Grad5_Layer3_CH1_ = Read_DDR(Rd_Address=0x95C10000,  End_Address=0x95C44000)
+        Output_Grad5_Layer3_CH1_16 = data_32_to_16(Output_Grad5_Layer3_CH1_)
 
-        Output_Grad6_Layer3_CH0 = Read_DDR(Rd_Address=0x85C44000,  End_Address=0x85C78000)
-        Output_Grad6_Layer3_CH0 = data_32_to_16(Output_Grad6_Layer3_CH0)
+        Output_Grad6_Layer3_CH0_ = Read_DDR(Rd_Address=0x85C44000,  End_Address=0x85C78000)
+        Output_Grad6_Layer3_CH0_16 = data_32_to_16(Output_Grad6_Layer3_CH0_)
 
-        Output_Grad6_Layer3_CH1 = Read_DDR(Rd_Address=0x95C44000,  End_Address=0x95C78000)
-        Output_Grad6_Layer3_CH1 = data_32_to_16(Output_Grad6_Layer3_CH1)
+        Output_Grad6_Layer3_CH1_ = Read_DDR(Rd_Address=0x95C44000,  End_Address=0x95C78000)
+        Output_Grad6_Layer3_CH1_16 = data_32_to_16(Output_Grad6_Layer3_CH1_)
 
-        Output_Grad7_Layer3_CH0 = Read_DDR(Rd_Address=0x85C78000,  End_Address=0x85CAC000)
-        Output_Grad7_Layer3_CH0 = data_32_to_16(Output_Grad7_Layer3_CH0)
+        Output_Grad7_Layer3_CH0_ = Read_DDR(Rd_Address=0x85C78000,  End_Address=0x85CAC000)
+        Output_Grad7_Layer3_CH0_16 = data_32_to_16(Output_Grad7_Layer3_CH0_)
 
-        Output_Grad7_Layer3_CH1 = Read_DDR(Rd_Address=0x95C78000,  End_Address=0x95CAC000)
-        Output_Grad7_Layer3_CH1 = data_32_to_16(Output_Grad7_Layer3_CH1)
+        Output_Grad7_Layer3_CH1_ = Read_DDR(Rd_Address=0x95C78000,  End_Address=0x95CAC000)
+        Output_Grad7_Layer3_CH1_16 = data_32_to_16(Output_Grad7_Layer3_CH1_)
 
-        Output_Grad8_Layer3_CH0 = Read_DDR(Rd_Address=0x85CAC000,  End_Address=0x85CE0000)
-        Output_Grad8_Layer3_CH0 = data_32_to_16(Output_Grad8_Layer3_CH0)
+        Output_Grad8_Layer3_CH0_ = Read_DDR(Rd_Address=0x85CAC000,  End_Address=0x85CE0000)
+        Output_Grad8_Layer3_CH0_16 = data_32_to_16(Output_Grad8_Layer3_CH0_)
 
-        Output_Grad8_Layer3_CH1 = Read_DDR(Rd_Address=0x95CAC000,  End_Address=0x95CE0000)
-        Output_Grad8_Layer3_CH1 = data_32_to_16(Output_Grad8_Layer3_CH1)
+        Output_Grad8_Layer3_CH1_ = Read_DDR(Rd_Address=0x95CAC000,  End_Address=0x95CE0000)
+        Output_Grad8_Layer3_CH1_16 = data_32_to_16(Output_Grad8_Layer3_CH1_)
         e = time.time()
         if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
-        Output_Grad1_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer3_CH0, Output_Grad1_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
-        Output_Grad2_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer3_CH0, Output_Grad2_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
-        Output_Grad3_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer3_CH0, Output_Grad3_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
-        Output_Grad4_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer3_CH0, Output_Grad4_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
-        Output_Grad5_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer3_CH0, Output_Grad5_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
-        Output_Grad6_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer3_CH0, Output_Grad6_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
-        Output_Grad7_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer3_CH0, Output_Grad7_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
-        Output_Grad8_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer3_CH0, Output_Grad8_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
+        Output_Grad1_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer3_CH0_16, Output_Grad1_Layer3_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
+        Output_Grad2_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer3_CH0_16, Output_Grad2_Layer3_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
+        Output_Grad3_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer3_CH0_16, Output_Grad3_Layer3_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
+        Output_Grad4_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer3_CH0_16, Output_Grad4_Layer3_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
+        Output_Grad5_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer3_CH0_16, Output_Grad5_Layer3_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
+        Output_Grad6_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer3_CH0_16, Output_Grad6_Layer3_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
+        Output_Grad7_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer3_CH0_16, Output_Grad7_Layer3_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
+        Output_Grad8_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer3_CH0_16, Output_Grad8_Layer3_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
         e = time.time()
         if DEBUG: print("Bflaot to Dec : ",e-s)
         
@@ -5896,64 +5840,64 @@ class YOLOv2_Tiny_FPGA(object):
         # self.app_instance .change_color(self.app_instance.L3_IRQ_canvas, self.app_instance.L3_IRQ, "green")
         # Read Gradient of Output After ReLU Backward: 
         Output_Grad1_Layer2_CH0 = Read_DDR(Rd_Address=0x84B00000,  End_Address=0x84B68000)
-        Output_Grad1_Layer2_CH0 = data_32_to_16(Output_Grad1_Layer2_CH0)
+        Output_Grad1_Layer2_CH0_16 = data_32_to_16(Output_Grad1_Layer2_CH0)
 
         Output_Grad1_Layer2_CH1 = Read_DDR(Rd_Address=0x94B00000,  End_Address=0x94B68000)
-        Output_Grad1_Layer2_CH1 = data_32_to_16(Output_Grad1_Layer2_CH1)
+        Output_Grad1_Layer2_CH1_16 = data_32_to_16(Output_Grad1_Layer2_CH1)
 
         Output_Grad2_Layer2_CH0 = Read_DDR(Rd_Address=0x84B68000,  End_Address=0x84BD0000)
-        Output_Grad2_Layer2_CH0 = data_32_to_16(Output_Grad2_Layer2_CH0)
+        Output_Grad2_Layer2_CH0_16 = data_32_to_16(Output_Grad2_Layer2_CH0)
 
         Output_Grad2_Layer2_CH1 = Read_DDR(Rd_Address=0x94B68000,  End_Address=0x94BD0000)
-        Output_Grad2_Layer2_CH1 = data_32_to_16(Output_Grad2_Layer2_CH1)
+        Output_Grad2_Layer2_CH1_16 = data_32_to_16(Output_Grad2_Layer2_CH1)
 
         Output_Grad3_Layer2_CH0 = Read_DDR(Rd_Address=0x84BD0000,  End_Address=0x84C38000)
-        Output_Grad3_Layer2_CH0 = data_32_to_16(Output_Grad3_Layer2_CH0)
+        Output_Grad3_Layer2_CH0_16 = data_32_to_16(Output_Grad3_Layer2_CH0)
 
         Output_Grad3_Layer2_CH1 = Read_DDR(Rd_Address=0x94BD0000,  End_Address=0x94C38000)
-        Output_Grad3_Layer2_CH1 = data_32_to_16(Output_Grad3_Layer2_CH1)
+        Output_Grad3_Layer2_CH1_16 = data_32_to_16(Output_Grad3_Layer2_CH1)
 
         Output_Grad4_Layer2_CH0 = Read_DDR(Rd_Address=0x84C38000,  End_Address=0x84CA0000)
-        Output_Grad4_Layer2_CH0 = data_32_to_16(Output_Grad4_Layer2_CH0)
+        Output_Grad4_Layer2_CH0_16 = data_32_to_16(Output_Grad4_Layer2_CH0)
 
         Output_Grad4_Layer2_CH1 = Read_DDR(Rd_Address=0x94C38000,  End_Address=0x94CA0000)
-        Output_Grad4_Layer2_CH1 = data_32_to_16(Output_Grad4_Layer2_CH1)
+        Output_Grad4_Layer2_CH1_16 = data_32_to_16(Output_Grad4_Layer2_CH1)
 
         Output_Grad5_Layer2_CH0 = Read_DDR(Rd_Address=0x84CA0000,  End_Address=0x84D08000)
-        Output_Grad5_Layer2_CH0 = data_32_to_16(Output_Grad5_Layer2_CH0)
+        Output_Grad5_Layer2_CH0_16 = data_32_to_16(Output_Grad5_Layer2_CH0)
 
         Output_Grad5_Layer2_CH1 = Read_DDR(Rd_Address=0x94CA0000,  End_Address=0x94D08000)
-        Output_Grad5_Layer2_CH1 = data_32_to_16(Output_Grad5_Layer2_CH1)
+        Output_Grad5_Layer2_CH1_16 = data_32_to_16(Output_Grad5_Layer2_CH1)
 
         Output_Grad6_Layer2_CH0 = Read_DDR(Rd_Address=0x84D08000,  End_Address=0x84D70000)
-        Output_Grad6_Layer2_CH0 = data_32_to_16(Output_Grad6_Layer2_CH0)
+        Output_Grad6_Layer2_CH0_16 = data_32_to_16(Output_Grad6_Layer2_CH0)
 
         Output_Grad6_Layer2_CH1 = Read_DDR(Rd_Address=0x94D08000,  End_Address=0x94D70000)
-        Output_Grad6_Layer2_CH1 = data_32_to_16(Output_Grad6_Layer2_CH1)
+        Output_Grad6_Layer2_CH1_16 = data_32_to_16(Output_Grad6_Layer2_CH1)
 
         Output_Grad7_Layer2_CH0 = Read_DDR(Rd_Address=0x84D70000,  End_Address=0x84DD8000)
-        Output_Grad7_Layer2_CH0 = data_32_to_16(Output_Grad7_Layer2_CH0)
+        Output_Grad7_Layer2_CH0_16 = data_32_to_16(Output_Grad7_Layer2_CH0)
 
         Output_Grad7_Layer2_CH1 = Read_DDR(Rd_Address=0x94D70000,  End_Address=0x94DD8000)
-        Output_Grad7_Layer2_CH1 = data_32_to_16(Output_Grad7_Layer2_CH1)
+        Output_Grad7_Layer2_CH1_16 = data_32_to_16(Output_Grad7_Layer2_CH1)
 
         Output_Grad8_Layer2_CH0 = Read_DDR(Rd_Address=0x84DD8000,  End_Address=0x84E40000)
-        Output_Grad8_Layer2_CH0 = data_32_to_16(Output_Grad8_Layer2_CH0)
+        Output_Grad8_Layer2_CH0_16 = data_32_to_16(Output_Grad8_Layer2_CH0)
 
         Output_Grad8_Layer2_CH1 = Read_DDR(Rd_Address=0x94DD8000,  End_Address=0x94E40000)
-        Output_Grad8_Layer2_CH1 = data_32_to_16(Output_Grad8_Layer2_CH1)
+        Output_Grad8_Layer2_CH1_16 = data_32_to_16(Output_Grad8_Layer2_CH1)
         e = time.time()
         if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
-        Output_Grad1_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer2_CH0, Output_Grad1_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
-        Output_Grad2_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer2_CH0, Output_Grad2_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
-        Output_Grad3_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer2_CH0, Output_Grad3_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
-        Output_Grad4_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer2_CH0, Output_Grad4_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
-        Output_Grad5_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer2_CH0, Output_Grad5_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
-        Output_Grad6_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer2_CH0, Output_Grad6_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
-        Output_Grad7_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer2_CH0, Output_Grad7_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
-        Output_Grad8_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer2_CH0, Output_Grad8_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
+        Output_Grad1_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer2_CH0_16, Output_Grad1_Layer2_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
+        Output_Grad2_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer2_CH0_16, Output_Grad2_Layer2_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
+        Output_Grad3_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer2_CH0_16, Output_Grad3_Layer2_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
+        Output_Grad4_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer2_CH0_16, Output_Grad4_Layer2_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
+        Output_Grad5_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer2_CH0_16, Output_Grad5_Layer2_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
+        Output_Grad6_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer2_CH0_16, Output_Grad6_Layer2_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
+        Output_Grad7_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer2_CH0_16, Output_Grad7_Layer2_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
+        Output_Grad8_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer2_CH0_16, Output_Grad8_Layer2_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
         e = time.time()
         if DEBUG: print("Bfloat to Dec : ",e-s)
         
@@ -6288,70 +6232,72 @@ class YOLOv2_Tiny_FPGA(object):
         # self.app_instance .change_color(self.app_instance.L2_IRQ_canvas, self.app_instance.L2_IRQ, "green")
         # Read Gradient of Output After ReLU Backward: 
         Output_Grad1_Layer1_CH0 = Read_DDR(Rd_Address=0x83E00000,  End_Address=0x83ED0000)
-        Output_Grad1_Layer1_CH0 = data_32_to_16(Output_Grad1_Layer1_CH0)
+        Output_Grad1_Layer1_CH0_16 = data_32_to_16(Output_Grad1_Layer1_CH0)
 
         Output_Grad1_Layer1_CH1 = Read_DDR(Rd_Address=0x93E00000,  End_Address=0x93ED0000)
-        Output_Grad1_Layer1_CH1 = data_32_to_16(Output_Grad1_Layer1_CH1)
+        Output_Grad1_Layer1_CH1_16 = data_32_to_16(Output_Grad1_Layer1_CH1)
 
         Output_Grad2_Layer1_CH0 = Read_DDR(Rd_Address=0x83ED0000,  End_Address=0x83FA0000)
-        Output_Grad2_Layer1_CH0 = data_32_to_16(Output_Grad2_Layer1_CH0)
+        Output_Grad2_Layer1_CH0_16 = data_32_to_16(Output_Grad2_Layer1_CH0)
 
         Output_Grad2_Layer1_CH1 = Read_DDR(Rd_Address=0x93ED0000,  End_Address=0x93FA0000)
-        Output_Grad2_Layer1_CH1 = data_32_to_16(Output_Grad2_Layer1_CH1)
+        Output_Grad2_Layer1_CH1_16 = data_32_to_16(Output_Grad2_Layer1_CH1)
 
         Output_Grad3_Layer1_CH0 = Read_DDR(Rd_Address=0x83FA0000,  End_Address=0x84070000)
-        Output_Grad3_Layer1_CH0 = data_32_to_16(Output_Grad3_Layer1_CH0)
+        Output_Grad3_Layer1_CH0_16 = data_32_to_16(Output_Grad3_Layer1_CH0)
 
         Output_Grad3_Layer1_CH1 = Read_DDR(Rd_Address=0x93FA0000,  End_Address=0x94070000)
-        Output_Grad3_Layer1_CH1 = data_32_to_16(Output_Grad3_Layer1_CH1)
+        Output_Grad3_Layer1_CH1_16 = data_32_to_16(Output_Grad3_Layer1_CH1)
 
         Output_Grad4_Layer1_CH0 = Read_DDR(Rd_Address=0x84070000,  End_Address=0x84140000)
-        Output_Grad4_Layer1_CH0 = data_32_to_16(Output_Grad4_Layer1_CH0)
+        Output_Grad4_Layer1_CH0_16 = data_32_to_16(Output_Grad4_Layer1_CH0)
 
         Output_Grad4_Layer1_CH1 = Read_DDR(Rd_Address=0x94070000,  End_Address=0x94140000)
-        Output_Grad4_Layer1_CH1 = data_32_to_16(Output_Grad4_Layer1_CH1)
+        Output_Grad4_Layer1_CH1_16 = data_32_to_16(Output_Grad4_Layer1_CH1)
 
         Output_Grad5_Layer1_CH0 = Read_DDR(Rd_Address=0x84140000,  End_Address=0x84210000)
-        Output_Grad5_Layer1_CH0 = data_32_to_16(Output_Grad5_Layer1_CH0)
+        Output_Grad5_Layer1_CH0_16 = data_32_to_16(Output_Grad5_Layer1_CH0)
 
         Output_Grad5_Layer1_CH1 = Read_DDR(Rd_Address=0x94140000,  End_Address=0x94210000)
-        Output_Grad5_Layer1_CH1 = data_32_to_16(Output_Grad5_Layer1_CH1)
+        Output_Grad5_Layer1_CH1_16 = data_32_to_16(Output_Grad5_Layer1_CH1)
 
         Output_Grad6_Layer1_CH0 = Read_DDR(Rd_Address=0x84210000,  End_Address=0x842E0000)
-        Output_Grad6_Layer1_CH0 = data_32_to_16(Output_Grad6_Layer1_CH0)
+        Output_Grad6_Layer1_CH0_16 = data_32_to_16(Output_Grad6_Layer1_CH0)
 
         Output_Grad6_Layer1_CH1 = Read_DDR(Rd_Address=0x94210000,  End_Address=0x942E0000)
-        Output_Grad6_Layer1_CH1 = data_32_to_16(Output_Grad6_Layer1_CH1)
+        Output_Grad6_Layer1_CH1_16 = data_32_to_16(Output_Grad6_Layer1_CH1)
 
         Output_Grad7_Layer1_CH0 = Read_DDR(Rd_Address=0x842E0000,  End_Address=0x843B0000)
-        Output_Grad7_Layer1_CH0 = data_32_to_16(Output_Grad7_Layer1_CH0)
+        Output_Grad7_Layer1_CH0_16 = data_32_to_16(Output_Grad7_Layer1_CH0)
 
         Output_Grad7_Layer1_CH1 = Read_DDR(Rd_Address=0x942E0000,  End_Address=0x943B0000)
-        Output_Grad7_Layer1_CH1 = data_32_to_16(Output_Grad7_Layer1_CH1)
+        Output_Grad7_Layer1_CH1_16 = data_32_to_16(Output_Grad7_Layer1_CH1)
 
         Output_Grad8_Layer1_CH0 = Read_DDR(Rd_Address=0x843B0000,  End_Address=0x84480000)
-        Output_Grad8_Layer1_CH0 = data_32_to_16(Output_Grad8_Layer1_CH0)
+        Output_Grad8_Layer1_CH0_16 = data_32_to_16(Output_Grad8_Layer1_CH0)
 
         Output_Grad8_Layer1_CH1 = Read_DDR(Rd_Address=0x943B0000,  End_Address=0x94480000)
-        Output_Grad8_Layer1_CH1 = data_32_to_16(Output_Grad8_Layer1_CH1)
+        Output_Grad8_Layer1_CH1_16 = data_32_to_16(Output_Grad8_Layer1_CH1)
         e = time.time()
         if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
-        Output_Grad1_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer1_CH0, Output_Grad1_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
-        Output_Grad2_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer1_CH0, Output_Grad2_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
-        Output_Grad3_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer1_CH0, Output_Grad3_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
-        Output_Grad4_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer1_CH0, Output_Grad4_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
-        Output_Grad5_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer1_CH0, Output_Grad5_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
-        Output_Grad6_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer1_CH0, Output_Grad6_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
-        Output_Grad7_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer1_CH0, Output_Grad7_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
-        Output_Grad8_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer1_CH0, Output_Grad8_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Grad1_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer1_CH0_16, Output_Grad1_Layer1_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Grad2_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad2_Layer1_CH0_16, Output_Grad2_Layer1_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Grad3_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad3_Layer1_CH0_16, Output_Grad3_Layer1_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Grad4_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad4_Layer1_CH0_16, Output_Grad4_Layer1_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Grad5_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad5_Layer1_CH0_16, Output_Grad5_Layer1_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Grad6_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad6_Layer1_CH0_16, Output_Grad6_Layer1_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Grad7_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer1_CH0_16, Output_Grad7_Layer1_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Grad8_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer1_CH0_16, Output_Grad8_Layer1_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
         e = time.time()
         if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Output_Grads_Layer1 = Output_Grad1_Layer1 + Output_Grad2_Layer1 + Output_Grad3_Layer1 + Output_Grad4_Layer1 + \
                                 Output_Grad5_Layer1 + Output_Grad6_Layer1 + Output_Grad7_Layer1 + Output_Grad8_Layer1    
         Output_Grad_Layer1 = torch.tensor([float(value) for value in Output_Grads_Layer1], dtype=torch.float32).reshape(8, 16, 208, 208)
+        
+        if DEBUG2 : Save_File(Output_Grad_Layer1, "result/Out_layer1_Backward")
 
         # BReLu Marking
         s = time.time()
@@ -6975,8 +6921,8 @@ class YOLOv2_Tiny_FPGA(object):
 
         if DEBUG2: print("Gamma_Gradient  : ", Gamma_Gradient[0])
         
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace
         
         return Weight_Gradient, Bias_Grad, Beta_Gradient, Gamma_Gradient
     
@@ -7015,9 +6961,9 @@ class YOLOv2_Tiny_FPGA(object):
         e = time.time()
         if DEBUG: print("Weight Ordering : ",e-s)
         
-        Save_File(data.Weight_Dec[0], "result/Weight_0")
+        if DEBUG2 : Save_File(data.Weight_Dec[0], "result/Weight_0")
         
-        Save_File(data.Weight_Dec[8], "result/Weight_8")
+        if DEBUG2 : Save_File(data.Weight_Dec[8], "result/Weight_8")
         
         # List for Each DDR Channels: 
         Weight_1st_CH0 = Weight_1st_Layer0[0] + Weight_1st_Layer1[0] + Weight_1st_Layer2[0] + Weight_1st_Layer3[0] + Weight_1st_Layer4[0] + \
@@ -7188,14 +7134,14 @@ class YOLOv2_Tiny_FPGA(object):
         Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).reshape(1, 3, 416, 416)
         
         
-        Save_File(Image0, "result/Image0")
-        Save_File(Image1, "result/Image1")
-        Save_File(Image2, "result/Image2")
-        Save_File(Image3, "result/Image3")
-        Save_File(Image4, "result/Image4")
-        Save_File(Image5, "result/Image5")
-        Save_File(Image6, "result/Image6")
-        Save_File(Image7, "result/Image7")
+        if DEBUG2 : Save_File(Image0, "result/Image0")
+        if DEBUG2 : Save_File(Image1, "result/Image1")
+        if DEBUG2 : Save_File(Image2, "result/Image2")
+        if DEBUG2 : Save_File(Image3, "result/Image3")
+        if DEBUG2 : Save_File(Image4, "result/Image4")
+        if DEBUG2 : Save_File(Image5, "result/Image5")
+        if DEBUG2 : Save_File(Image6, "result/Image6")
+        if DEBUG2 : Save_File(Image7, "result/Image7")
         '''
         # save_txt("Input_Image", Image, module="Conv", layer_no=0, save_txt=True, phase="Forward")
         
