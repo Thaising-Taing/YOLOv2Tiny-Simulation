@@ -28,6 +28,15 @@ class Simulation(object):
                             Exponent_Bits        =   self.Exponent_Bits,
                             Mantissa_Bits        =   self.Mantissa_Bits)
         
+
+    def load_weights(self, values):
+        if len(values)>4:
+            [self.Weight,     self.Bias,     self.Gamma,     self.Beta,     self.Running_Mean    , self.Running_Var    ] = values
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec] = values
+        else:
+            [self.Weight,     self.Bias,     self.Gamma,     self.Beta     ] = values
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec ] = values
+        
     def Forward(self, data):
         
         self.gt_boxes       = data.gt_boxes  
@@ -35,21 +44,22 @@ class Simulation(object):
         self.num_boxes      = data.num_obj 
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
+        self.im_data          = data.im_data
         
-        self.Weight           = data.Weight_Dec
-        self.Bias             = data.Bias_Dec
-        self.Gamma            = data.Gamma_Dec
-        self.Beta             = data.Beta_Dec
-        self.Running_Mean_Dec = data.Running_Mean_Dec
-        self.Running_Var_Dec  = data.Running_Var_Dec
+        # self.Weight           = data.Weight_Dec
+        # self.Bias             = data.Bias_Dec
+        # self.Gamma            = data.Gamma_Dec
+        # self.Beta             = data.Beta_Dec
+        # self.Running_Mean_Dec = data.Running_Mean_Dec
+        # self.Running_Var_Dec  = data.Running_Var_Dec
         
-        im_data             = data.im_data
-        Weight_Tensor       = data.Weight_Dec
-        Gamma_Tensor        = data.Gamma_Dec
-        Beta_Tensor         = data.Beta_Dec
-        bias                = data.Bias_Dec
-        running_mean        = data.Running_Mean_Dec
-        running_var         = data.Running_Var_Dec
+        im_data             = self.im_data
+        Weight_Tensor       = self.Weight_Dec
+        Gamma_Tensor        = self.Gamma_Dec
+        Beta_Tensor         = self.Beta_Dec
+        bias                = self.Bias_Dec
+        running_mean        = self.Running_Mean_Dec
+        running_var         = self.Running_Var_Dec
         filter_size     = 3
         conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
         pool_param_stride2 = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
@@ -94,7 +104,7 @@ class Simulation(object):
         
         mean, var = Cal_mean_var.forward(temp_Out[4])
         
-        Out4, cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], wwwwwww[4],
+        Out4, cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], Beta_Tensor[4],
                                                                 conv_param, running_mean[4], running_var[4],
                                                                 mean, var, self.Mode, pool_param_stride2)
         # Layer5: Conv-BN-ReLU

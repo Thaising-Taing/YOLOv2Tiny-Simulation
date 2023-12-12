@@ -44,10 +44,80 @@ from Detection.Detection import *
 from Weight_Update_Algorithm.weight_update import *
 from Weight_Update_Algorithm.yolov2_tiny import *
 
-
 from GiTae_Functions import *
 
 MAX_LINE_LENGTH = 1000
+DEBUG = False
+DEBUG2 = True
+
+def save_txt(fname, data, module=[], layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    # if DEBUG: print(f"Type of data: {type(data)}")
+    if save_txt or save_hex:
+        if type(data) is dict:
+            for _key in data.keys():
+                _fname = fname + f'_{_key}'
+                save_file(_fname, data[_key])
+
+        else:
+            if module == [] and layer_no == []:
+                Out_Path = f'Outputs_Torch/{os.path.split(fname)[0]}'
+                fname = os.path.split(fname)[1]
+            else:
+                Out_Path = f'Outputs_Torch/By_Layer/'
+                if layer_no != []: Out_Path += f'Layer{layer_no}/'
+                if module != []: Out_Path += f'{module}/'
+                if phase != []: Out_Path += f'{phase}/'
+                fname = fname
+
+            if save_txt: filename = os.path.join(Out_Path, fname + '.txt')
+            # if save_hex: hexname = os.path.join(Out_Path, fname + '_hex.txt')
+
+            Path(Out_Path).mkdir(parents=True, exist_ok=True)
+
+            if torch.is_tensor(data):
+                try:
+                    data = data.detach()
+                except:
+                    pass
+                data = data.numpy()
+
+            if save_txt: outfile = open(filename, mode='w')
+            if save_txt: outfile.write(f'{data.shape}\n')
+
+            # if save_hex: hexfile = open(hexname, mode='w')
+            # if save_hex: hexfile.write(f'{data.shape}\n')
+
+            if len(data.shape) == 0:
+                if save_txt: outfile.write(f'{data}\n')
+                # if save_hex: hexfile.write(f'{data}\n')
+                pass
+            elif len(data.shape) == 1:
+                for x in data:
+                    if save_txt: outfile.write(f'{x}\n')
+                    # if save_hex: hexfile.write(f'{convert_to_hex(x)}\n')
+                    pass
+            else:
+                w, x, y, z = data.shape
+                # if w != 0:
+                #     Out_Path += f'img{w+1}'
+                for _i in range(w):
+                    for _j in range(x):
+                        for _k in range(y):
+                            for _l in range(z):
+                                _value = data[_i, _j, _k, _l]
+                                if save_txt: outfile.write(f'{_value}\n')
+                                # if save_hex: hexfile.write(f'{convert_to_hex(_value)}\n')
+                                pass
+
+            # if save_hex: hexfile.close()
+            if save_txt: outfile.close()
+
+            if DEBUG: print(f'\t\t--> Saved {filename}')
+            # if save_hex: if DEBUG: print(f'\t\t--> Saved {hexname}')
+
+def Save_File(data, path):
+    with open(path, 'wb') as handle:
+        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)   
 
 def Debug_With_Slave():
     d = Device("0000:08:00.0")
@@ -62,7 +132,7 @@ def Debug_With_Slave():
 def Read_DDR(Rd_Address, End_Address):
     device = XdmaAccess(0)
     Read_Data_List = device.read_dma(Rd_Address, ((End_Address-Rd_Address)))
-    # print("Read_Data_List : ", Read_Data_List)
+    # if DEBUG: print("Read_Data_List : ", Read_Data_List)
     device.__close__()
     return Read_Data_List  
 
@@ -149,13 +219,13 @@ def clean_string(text):
     if isinstance(text, str):
         return text.replace('[', '').replace(']', '').replace("'", '')
     return text
-
+'''
 def backward_LightNorm(grad_output, cache):
     X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
     B, C, H, W = X.shape        
     
-    #print('grad_output', grad_output)
-    # print(grad_output.shape)
+    #if DEBUG: print('grad_output', grad_output)
+    # if DEBUG: print(grad_output.shape)
     dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
 
     dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
@@ -188,6 +258,40 @@ def backward_LightNorm(grad_output, cache):
 
 
     return dL_dgamma, dL_dbeta, avg_pc, backward_const
+'''
+
+def backward_LightNorm(grad_output, cache):
+    X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
+    B, C, H, W = X.shape
+    dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
+    
+    # Compute dL_dvar
+    dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True)
+    
+    # Compute dL_dxmax_mean and dL_dxmin_mean
+    dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+    dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+    
+    # Compute dL_dxmax and dL_dxmin
+    dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
+    dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
+    
+    # Compute dL_dgamma and dL_dbeta
+    dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
+    dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+    dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+
+    # Average per channel
+    avg_pc = (dL_dxi_hat * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B * H * W)
+    dL_dxi_ = avg_pc + dL_dxi_hat
+    
+    # Backward coefficient
+    backward_const = scale
+    
+    # Final output calculation
+    dL_dxi = dL_dxi_ * backward_const
+
+    return dL_dgamma, dL_dbeta, avg_pc, backward_const   
 
 def split_location(mask_location): 
     relu_mask = torch.zeros_like(mask_location)
@@ -254,9 +358,9 @@ def backward_MaxPool(dout, x, layer_no=[], save_txt=False, save_hex=False, phase
                     
                     input_tensor = local_x.reshape(-1)
                     
-                    # print("input_tensor",input_tensor)
+                    # if DEBUG: print("input_tensor",input_tensor)
                     
-                    # print("input_tensor", input_tensor.shape, input_tensor)
+                    # if DEBUG: print("input_tensor", input_tensor.shape, input_tensor)
                     local_dw = torch.zeros_like(input_tensor)
 
                     max_index = torch.argmax(input_tensor)
@@ -335,7 +439,7 @@ def check_irq_layer0():
 
                     while ch1 and ch2:
                         if ch1 != ch2:
-                            # print("interrupt1: 1")
+                            # if DEBUG: print("interrupt1: 1")
                             irq_val = 1
                             # self.L1_IRQ_canvas.itemconfig(self.L1_IRQ, fill="green")
                         ch1 = file1.read(1)
@@ -343,7 +447,7 @@ def check_irq_layer0():
 
 
                     # if irq_val != 1:
-                    #     print("layer0 interrupt1: 0")
+                    #     if DEBUG: print("layer0 interrupt1: 0")
 
                     with open(output_file_name_1, "rb") as file1, \
                         open(output_file_name_2, "wb") as file2:
@@ -353,7 +457,7 @@ def check_irq_layer0():
                             file2.write(buffer)
                             buffer = file1.read(MAX_LINE_LENGTH)
 
-                    # print("Done")
+                    # if DEBUG: print("Done")
                     file1.close()
                     file2.close()
         else:  
@@ -367,10 +471,10 @@ def check_irq_layer0():
                             irq_val=1
                             # self.L1_IRQ_canvas.itemconfig(self.L1_IRQ, fill="green")
 
-                        #     print("interrupt: 1")
+                        #     if DEBUG: print("interrupt: 1")
                         # else:
                         #     irq_val=0
-                        #     print("layer0 interrupt0: 0") 
+                        #     if DEBUG: print("layer0 interrupt0: 0") 
 
                 input_file.close()
                 output_file.close()            
@@ -409,14 +513,14 @@ def check_irq_otherlayer():
 
                 while ch1 and ch2:
                     if ch1 != ch2:
-                        # print("interrupt: 1")
+                        # if DEBUG: print("interrupt: 1")
                         irq_val = 1
                         # L1_IRQ_canvas.itemconfig(L1_IRQ, fill="green")
                     ch1 = file1.read(1)
                     ch2 = file2.read(1)
 
                 # if irq_val != 1:
-                #     print("layer1 interrupt: 0")
+                #     if DEBUG: print("layer1 interrupt: 0")
 
                 with open(output_file_name_1, "rb") as file1, \
                     open(output_file_name_2, "wb") as file2:
@@ -426,18 +530,18 @@ def check_irq_otherlayer():
                         file2.write(buffer)
                         buffer = file1.read(MAX_LINE_LENGTH)
 
-                # print("Done")
+                # if DEBUG: print("Done")
                 file1.close()
                 file2.close()
         
-        # print("extract xdma line Done!\n")     
+        # if DEBUG: print("extract xdma line Done!\n")     
 
 def resume():
     d = Device("0000:08:00.0")
     bar = d.bar[0]
 
     # resume    
-    # print("Resume Process")
+    # if DEBUG: print("Resume Process")
     bar.write(0x20, 1)
 
     bar.write(0x20, 0)
@@ -464,8 +568,11 @@ class YOLOv2_Tiny_FPGA(object):
         self.custom_optimizer = optim.SGD(self.custom_model.parameters(), lr=0.001, momentum=0.001, weight_decay=0.001)
         self.PreProcessing = app_instance.PreProcessing  
                 
-    def Forward(self, data):
+    def Forward(self,data):
         global layer0_cache, layer1_cache, layer2_cache, layer3_cache, layer4_cache, layer5_cache, layer6_cache, layer7_cache
+        
+             
+        
         start = time.time()
         #################################################
         #                Layer 0 Start                  #
@@ -482,70 +589,70 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Layer0_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x83E00000, End_Address=0x83ED0000)
         Layer0_1st_Iter_Image1_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image1_CH0) 
-        #print("ch0 image 1 : ", len(Layer0_1st_Iter_Image1_CH0)) 
+        #if DEBUG: print("ch0 image 1 : ", len(Layer0_1st_Iter_Image1_CH0)) 
 
         Layer0_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x83ED0000, End_Address=0x83FA0000)
         Layer0_1st_Iter_Image2_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image2_CH0)
-        #print("ch0 image 2 : ", len(Layer0_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer0_1st_Iter_Image2_CH0))
         
         Layer0_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x83FA0000, End_Address=0x84070000)
         Layer0_1st_Iter_Image3_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image3_CH0)
-        #print("ch0 image 3 : ", len(Layer0_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer0_1st_Iter_Image3_CH0))
 
         Layer0_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x84070000, End_Address=0x84140000)
         Layer0_1st_Iter_Image4_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image4_CH0)
-        #print("ch0 image 4 : ", len(Layer0_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer0_1st_Iter_Image4_CH0))
 
         Layer0_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x84140000, End_Address=0x84210000)
         Layer0_1st_Iter_Image5_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image5_CH0)
-        #print("ch0 image 5 : ", len(Layer0_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer0_1st_Iter_Image5_CH0))
 
         Layer0_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x84210000, End_Address=0x842E0000)
         Layer0_1st_Iter_Image6_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image6_CH0)
-        #print("ch0 image 6 : ", len(Layer0_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer0_1st_Iter_Image6_CH0))
 
         Layer0_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x842E0000, End_Address=0x843B0000)
         Layer0_1st_Iter_Image7_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image7_CH0)
-        #print("ch0 image 7 : ", len(Layer0_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer0_1st_Iter_Image7_CH0))
 
         Layer0_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x843B0000, End_Address=0x84480000)
         Layer0_1st_Iter_Image8_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image8_CH0)
-        #print("ch0 image 8 : ", len(Layer0_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer0_1st_Iter_Image8_CH0))
 
 
         Layer0_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x93E00000, End_Address=0x93ED0000)
         Layer0_1st_Iter_Image1_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image1_CH1)
-        #print("ch1 image 1 : ", len(Layer0_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer0_1st_Iter_Image1_CH1))
 
         Layer0_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x93ED0000, End_Address=0x93FA0000)
         Layer0_1st_Iter_Image2_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image2_CH1)
-        #print("ch1 image 2 : ", len(Layer0_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer0_1st_Iter_Image2_CH1))
 
         Layer0_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x93FA0000, End_Address=0x94070000)
         Layer0_1st_Iter_Image3_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image3_CH1)
-        #print("ch1 image 3 : ", len(Layer0_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer0_1st_Iter_Image3_CH1))
 
         Layer0_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x94070000, End_Address=0x94140000)
         Layer0_1st_Iter_Image4_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image4_CH1)
-        #print("ch1 image 4 : ", len(Layer0_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer0_1st_Iter_Image4_CH1))
 
         Layer0_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x94140000, End_Address=0x94210000)
         Layer0_1st_Iter_Image5_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image5_CH1)
-        #print("ch1 image 5 : ", len(Layer0_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer0_1st_Iter_Image5_CH1))
 
         Layer0_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x94210000, End_Address=0x942E0000)
         Layer0_1st_Iter_Image6_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image6_CH1)
-        #print("ch1 image 6 : ", len(Layer0_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer0_1st_Iter_Image6_CH1))
 
         Layer0_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x942E0000, End_Address=0x943B0000)
         Layer0_1st_Iter_Image7_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image7_CH1)
-        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
 
         Layer0_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x943B0000, End_Address=0x94480000)
         Layer0_1st_Iter_Image8_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image8_CH1)
-        #print("ch1 image 8 : ", len(Layer0_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer0_1st_Iter_Image8_CH1))
         e = time.time()
-        print("Read DDR & 32bit to 16bit Convert :",e-s)
+        if DEBUG: print("Read DDR & 32bit to 16bit Convert :",e-s)
 
         '''
         test_out = '1st_iter_result/Layer0_1st_Iter_Image1_CH0.txt'
@@ -670,13 +777,14 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Image7_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image7_CH0_256, Layer0_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
         Output_Image8_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image8_CH0_256, Layer0_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
 
         OutImages_1st_Layer0 = Output_Image1_Layer0_1st_Iter + Output_Image2_Layer0_1st_Iter + Output_Image3_Layer0_1st_Iter + Output_Image4_Layer0_1st_Iter + \
                             Output_Image5_Layer0_1st_Iter + Output_Image6_Layer0_1st_Iter + Output_Image7_Layer0_1st_Iter + Output_Image8_Layer0_1st_Iter    
 
         OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
         
+        '''
         test_out = '1st_iter_result/OutImage_1st_Layer0.txt'
         with open(test_out, 'w+') as test_output:
             for item in OutImage_1st_Layer0:
@@ -684,14 +792,16 @@ class YOLOv2_Tiny_FPGA(object):
                 test_output.write(line + '\n')   
         test_output.close()
         
-        print(OutImage_1st_Layer0[0][0][0][0:5])
-
+        Save_File(OutImage_1st_Layer0, "result/OutImage_1st_Layer0")
+        
+        if DEBUG: print(OutImage_1st_Layer0[0][0][0][0:5])
+        '''
         # Mean, Var
         s = time.time()
         Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)    
         e = time.time()
-        print("Calculate Mean & Var :",e-s)
-        
+        if DEBUG: print("Calculate Mean & Var :",e-s)
+        '''
         data_read_mean_var = "result/Mean_1st_Layer0.txt"
         with open(data_read_mean_var, mode="w") as output_file:  
             for sublist in Mean_1st_Layer0:
@@ -705,9 +815,13 @@ class YOLOv2_Tiny_FPGA(object):
                 cleaned_sublist = [clean_string(item) for item in sublist]
                 output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
         output_file.close()
-
-        Beta_Layer0 = self.Beta_Dec[0]
-        Gamma_Layer0 = self.Gamma_Dec[0]
+        '''
+        Beta_Layer0 = data.Beta_Dec[0]
+        Gamma_Layer0 = data.Gamma_Dec[0]
+        
+        if DEBUG: print("Beta_Layer0 : ", Beta_Layer0)
+        if DEBUG: print("Beta_Bfloat : ", data.Beta_Bfloat[0])
+        if DEBUG: print("Weight Reodering :",e-s)
 
         # layer0 Caches: 
         layer0_cache = BN(OutImage_1st_Layer0, Gamma_Layer0, Beta_Layer0)
@@ -717,13 +831,12 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer0, Var_1st_Layer0 = Mean_Var_Dec2Bfloat(Mean_1st_Layer0, Var_1st_Layer0, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat :",e-s)
+        if DEBUG: print("Dec to Bfloat :",e-s)
         s= time.time()
         Weight_2nd_Layer0 = New_Weight_Hardware_ReOrdering_Layer0(16, 16, data.Weight_Bfloat[0], Mean_1st_Layer0, Var_1st_Layer0, data.Beta_Bfloat[0], Iteration="2")
-        #print("Weight_2nd_Layer0 : ", Weight_2nd_Layer0)
+        #if DEBUG: print("Weight_2nd_Layer0 : ", Weight_2nd_Layer0)
         e = time.time()
-        print("Weight Reodering :",e-s)
-
+ 
         '''
         data_read_mean_var = "result/Mean_1st_Layer0.txt"
         with open(data_read_mean_var, mode="w") as output_file:  
@@ -768,12 +881,12 @@ class YOLOv2_Tiny_FPGA(object):
         Write_DDR(data_256_32(Weight_2nd_Layer0[0]), Wr_Address=0x80000000)
         Write_DDR(data_256_32(Weight_2nd_Layer0[1]), Wr_Address=0x90000000)
         e = time.time()
-        print("Write DDR & 256bit to 32bit",e-s)
+        if DEBUG: print("Write DDR & 256bit to 32bit",e-s)
         
         resume()
         layer0_end = time.time()
         process = layer0_end - layer0_start
-        print("layer0 process time : ", process)
+        if DEBUG: print("layer0 process time : ", process)
 
         '''
         d = Device("0000:08:00.0")
@@ -814,23 +927,26 @@ class YOLOv2_Tiny_FPGA(object):
         check_irq_otherlayer()        
         # self.app_instance .change_color(self.app_instance.L2_IRQ_canvas, self.app_instance.L2_IRQ, "green") 
         # Layer 1
+        
         test0 = Read_DDR(Rd_Address=0X84480000, End_Address=0X84550000)
         test0 = data_32_to_16(test0)
-        #print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
 
         test1 = Read_DDR(Rd_Address=0X94480000, End_Address=0X94550000)
         test1 = data_32_to_16(test1)
         
-        Output_Image1_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(test0, test1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        iter_result_2nd = Read_OutFmap_Bfloat2Dec(test0, test1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
 
-        OutImage_1st_Layer1 = torch.tensor([float(value) for value in Output_Image1_Layer1_1st_Iter], dtype=torch.float32).reshape(1, 16, 208, 208)
+        iter_result_2nd = torch.tensor([float(value) for value in iter_result_2nd], dtype=torch.float32).reshape(1, 16, 208, 208)
         
         test_out = 'result/layer0_2nd.txt'
         with open(test_out, 'w+') as test_output:
-            for item in OutImage_1st_Layer1:
+            for item in iter_result_2nd:
                 line = str(item) 
                 test_output.write(line + '\n')   
         test_output.close()
+        
+        Save_File(iter_result_2nd, "result/iter_result_2nd")
         
         
         layer1_start = time.time()
@@ -838,70 +954,70 @@ class YOLOv2_Tiny_FPGA(object):
         # Read DDR & Conver Format # 512MB
         Layer1_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x84B00000, End_Address=0x84CA0000)
         Layer1_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image1_CH0))   
-        #print("ch0 image 1 : ", len(Layer1_1st_Iter_Image1_CH0))    
+        #if DEBUG: print("ch0 image 1 : ", len(Layer1_1st_Iter_Image1_CH0))    
         
         Layer1_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x84CA0000, End_Address=0x84E40000)
         Layer1_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image2_CH0))
-        #print("ch0 image 2 : ", len(Layer1_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer1_1st_Iter_Image2_CH0))
         
         Layer1_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x84E40000, End_Address=0x84FE0000)
         Layer1_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image3_CH0))
-        #print("ch0 image 3 : ", len(Layer1_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer1_1st_Iter_Image3_CH0))
 
         Layer1_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x84FE0000, End_Address=0x85180000)
         Layer1_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image4_CH0))
-        #print("ch0 image 4 : ", len(Layer1_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer1_1st_Iter_Image4_CH0))
 
         Layer1_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x85180000, End_Address=0x85320000)
         Layer1_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image5_CH0))
-        #print("ch0 image 5 : ", len(Layer1_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer1_1st_Iter_Image5_CH0))
 
         Layer1_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x85320000, End_Address=0x854C0000)
         Layer1_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image6_CH0))
-        #print("ch0 image 6 : ", len(Layer1_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer1_1st_Iter_Image6_CH0))
 
         Layer1_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x854C0000, End_Address=0x85660000)
         Layer1_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image7_CH0))
-        #print("ch0 image 7 : ", len(Layer1_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer1_1st_Iter_Image7_CH0))
 
         Layer1_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x85660000, End_Address=0x85800000)
         Layer1_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image8_CH0))
-        #print("ch0 image 8 : ", len(Layer1_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer1_1st_Iter_Image8_CH0))
 
 
         Layer1_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x94B00000, End_Address=0x94CA0000)
         Layer1_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image1_CH1))
-        #print("ch1 image 1 : ", len(Layer1_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer1_1st_Iter_Image1_CH1))
 
         Layer1_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x94CA0000, End_Address=0x94E40000)
         Layer1_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image2_CH1))
-        #print("ch1 image 2 : ", len(Layer1_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer1_1st_Iter_Image2_CH1))
 
         Layer1_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x94E40000, End_Address=0x94FE0000)
         Layer1_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image3_CH1))
-        #print("ch1 image 3 : ", len(Layer1_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer1_1st_Iter_Image3_CH1))
 
         Layer1_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x94FE0000, End_Address=0x95180000)
         Layer1_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image4_CH1))
-        #print("ch1 image 4 : ", len(Layer1_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer1_1st_Iter_Image4_CH1))
 
         Layer1_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x95180000, End_Address=0x95320000)
         Layer1_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image5_CH1))
-        #print("ch1 image 5 : ", len(Layer1_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer1_1st_Iter_Image5_CH1))
 
         Layer1_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x95320000, End_Address=0x954C0000)
         Layer1_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image6_CH1))
-        #print("ch1 image 6 : ", len(Layer1_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer1_1st_Iter_Image6_CH1))
 
         Layer1_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x954C0000, End_Address=0x95660000)
         Layer1_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image7_CH1))
-        #print("ch1 image 7 : ", len(Layer1_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer1_1st_Iter_Image7_CH1))
 
         Layer1_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x95660000, End_Address=0x95800000)
         Layer1_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image8_CH1))
-        #print("ch1 image 8 : ", len(Layer1_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer1_1st_Iter_Image8_CH1))
         e = time.time()
-        print("Read DDR & 32bit to 16bit :",e-s)
+        if DEBUG: print("Read DDR & 32bit to 16bit :",e-s)
 
         '''
         test_out = '1st_iter_result/Layer1_1st_Iter_Image1_CH0.txt'
@@ -1027,13 +1143,13 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Image7_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image7_CH0_256, Layer1_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
         Output_Image8_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image8_CH0_256, Layer1_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec :",e-s)
+        if DEBUG: print("Bfloat to Dec :",e-s)
         
         OutImages_1st_Layer1 = Output_Image1_Layer1_1st_Iter + Output_Image2_Layer1_1st_Iter + Output_Image3_Layer1_1st_Iter + Output_Image4_Layer1_1st_Iter + \
                             Output_Image5_Layer1_1st_Iter + Output_Image6_Layer1_1st_Iter + Output_Image7_Layer1_1st_Iter + Output_Image8_Layer1_1st_Iter    
 
         OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).reshape(8, 32, 208, 208)
-        print(OutImage_1st_Layer1[0][0][0][0:5])
+        if DEBUG: print(OutImage_1st_Layer1[0][0][0][0:5])
         
         test_out = '1st_iter_result/OutImage_1st_Layer1.txt'
         with open(test_out, 'w+') as test_output:
@@ -1047,7 +1163,7 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
         e = time.time()
-        print("Cacluate Mean & Var :",e-s)
+        if DEBUG: print("Cacluate Mean & Var :",e-s)
         
         data_read_mean_var = "result/Mean_1st_Layer1.txt"
         with open(data_read_mean_var, mode="w") as output_file:  
@@ -1063,8 +1179,8 @@ class YOLOv2_Tiny_FPGA(object):
                 output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
         output_file.close()
         
-        Beta_Layer1 = self.Beta_Dec[1]
-        Gamma_Layer1 = self.Gamma_Dec[1]
+        Beta_Layer1 = data.Beta_Dec[1]
+        Gamma_Layer1 = data.Gamma_Dec[1]
 
         layer1_cache = BN(OutImage_1st_Layer1, Gamma_Layer1, Beta_Layer1)
 
@@ -1074,22 +1190,22 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer1, Var_1st_Layer1 = Mean_Var_Dec2Bfloat(Mean_1st_Layer1, Var_1st_Layer1, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat :",e-s)
+        if DEBUG: print("Dec to Bfloat :",e-s)
         s = time.time()
         Weight_2nd_Layer1 = New_Weight_Hardware_ReOrdering_OtherLayer(32, 16, data.Weight_Bfloat[1], Mean_1st_Layer1, Var_1st_Layer1, data.Beta_Bfloat[1], Iteration="2")
         e = time.time()
-        print("Weight Reordering :",e-s)
+        if DEBUG: print("Weight Reordering :",e-s)
 
         # Write DDR
         s = time.time()
         Write_DDR(data_256_32(Weight_2nd_Layer1[0]), Wr_Address=0x80000A00)
         Write_DDR(data_256_32(Weight_2nd_Layer1[1]), Wr_Address=0x90000A00)
         e = time.time()
-        print("Write DDR & 256bit to 32 bit :",e-s)
+        if DEBUG: print("Write DDR & 256bit to 32 bit :",e-s)
 
         layer1_end = time.time()
         layer1_process = layer1_end - layer1_start
-        print("Layer1 process time : ", layer1_process)
+        if DEBUG: print("Layer1 process time : ", layer1_process)
 
         resume()
 
@@ -1137,70 +1253,70 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Layer2_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x85B40000, End_Address=0x85C10000)
         Layer2_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image1_CH0))   
-        #print("ch0 image 1 : ", len(Layer2_1st_Iter_Image1_CH0))     
+        #if DEBUG: print("ch0 image 1 : ", len(Layer2_1st_Iter_Image1_CH0))     
 
         Layer2_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x85C10000, End_Address=0x85CE0000)
         Layer2_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image2_CH0))
-        #print("ch0 image 2 : ", len(Layer2_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer2_1st_Iter_Image2_CH0))
         
         Layer2_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x85CE0000, End_Address=0x85DB0000)
         Layer2_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image3_CH0))
-        #print("ch0 image 3 : ", len(Layer2_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer2_1st_Iter_Image3_CH0))
 
         Layer2_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x85DB0000, End_Address=0x85E80000)
         Layer2_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image4_CH0))
-        #print("ch0 image 4 : ", len(Layer2_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer2_1st_Iter_Image4_CH0))
 
         Layer2_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x85E80000, End_Address=0x85F50000)
         Layer2_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image5_CH0))
-        #print("ch0 image 5 : ", len(Layer2_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer2_1st_Iter_Image5_CH0))
 
         Layer2_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x85F50000, End_Address=0x86020000)
         Layer2_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image6_CH0))
-        #print("ch0 image 6 : ", len(Layer2_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer2_1st_Iter_Image6_CH0))
 
         Layer2_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x86020000, End_Address=0x860F0000)
         Layer2_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image7_CH0))
-        #print("ch0 image 7 : ", len(Layer2_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer2_1st_Iter_Image7_CH0))
 
         Layer2_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x860F0000, End_Address=0x861C0000)
         Layer2_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image8_CH0))
-        #print("ch0 image 8 : ", len(Layer2_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer2_1st_Iter_Image8_CH0))
 
 
         Layer2_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x95B40000, End_Address=0x95C10000)
         Layer2_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image1_CH1))
-        #print("ch1 image 1 : ", len(Layer2_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer2_1st_Iter_Image1_CH1))
 
         Layer2_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x95C10000, End_Address=0x95CE0000)
         Layer2_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image2_CH1))
-        #print("ch1 image 2 : ", len(Layer2_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer2_1st_Iter_Image2_CH1))
 
         Layer2_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x95CE0000, End_Address=0x95DB0000)
         Layer2_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image3_CH1))
-        #print("ch1 image 3 : ", len(Layer2_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer2_1st_Iter_Image3_CH1))
 
         Layer2_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x95DB0000, End_Address=0x95E80000)
         Layer2_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image4_CH1))
-        #print("ch1 image 4 : ", len(Layer2_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer2_1st_Iter_Image4_CH1))
 
         Layer2_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x95E80000, End_Address=0x95F50000)
         Layer2_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image5_CH1))
-        #print("ch1 image 5 : ", len(Layer2_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer2_1st_Iter_Image5_CH1))
 
         Layer2_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x95F50000, End_Address=0x96020000)
         Layer2_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image6_CH1))
-        #print("ch1 image 6 : ", len(Layer2_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer2_1st_Iter_Image6_CH1))
 
         Layer2_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x96020000, End_Address=0x960F0000)
         Layer2_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image7_CH1))
-        #print("ch1 image 7 : ", len(Layer2_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer2_1st_Iter_Image7_CH1))
 
         Layer2_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x960F0000, End_Address=0x961C0000)
         Layer2_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image8_CH1))
-        #print("ch1 image 8 : ", len(Layer2_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer2_1st_Iter_Image8_CH1))
         e = time.time()
-        print("Read DDR & 32bit to 16bit :",e-s)
+        if DEBUG: print("Read DDR & 32bit to 16bit :",e-s)
 
         '''
         test_out = '1st_iter_result/Layer2_1st_Iter_Image1_CH0.txt'
@@ -1326,7 +1442,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Image7_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image7_CH0_256, Layer2_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
         Output_Image8_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image8_CH0_256, Layer2_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec :",e-s)
+        if DEBUG: print("Bfloat to Dec :",e-s)
 
         OutImages_1st_Layer2 = Output_Image1_Layer2_1st_Iter + Output_Image2_Layer2_1st_Iter + Output_Image3_Layer2_1st_Iter + Output_Image4_Layer2_1st_Iter + \
                             Output_Image5_Layer2_1st_Iter + Output_Image6_Layer2_1st_Iter + Output_Image7_Layer2_1st_Iter + Output_Image8_Layer2_1st_Iter    
@@ -1336,10 +1452,10 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
         e = time.time()
-        print("Calcuulate Mean & Var :",e-s)
+        if DEBUG: print("Calcuulate Mean & Var :",e-s)
 
-        Beta_Layer2 = self.Beta_Dec[2]
-        Gamma_Layer2 = self.Gamma_Dec[2]
+        Beta_Layer2 = data.Beta_Dec[2]
+        Gamma_Layer2 = data.Gamma_Dec[2]
 
         layer2_cache = BN(OutImage_1st_Layer2, Gamma_Layer2, Beta_Layer2)
 
@@ -1349,11 +1465,11 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer2, Var_1st_Layer2 = Mean_Var_Dec2Bfloat(Mean_1st_Layer2, Var_1st_Layer2, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat :",e-s)
+        if DEBUG: print("Dec to Bfloat :",e-s)
         s = time.time()
         Weight_2nd_Layer2 = New_Weight_Hardware_ReOrdering_OtherLayer(64, 32, data.Weight_Bfloat[2], Mean_1st_Layer2, Var_1st_Layer2, data.Beta_Bfloat[2], Iteration="2")
         e = time.time()
-        print("Weight Reordering :",e-s)
+        if DEBUG: print("Weight Reordering :",e-s)
 
         '''
         data_read_mean_var = "result/layer2_mean_var.txt"
@@ -1369,11 +1485,11 @@ class YOLOv2_Tiny_FPGA(object):
         Write_DDR(data_256_32(Weight_2nd_Layer2[0]), Wr_Address=0x80001E00)
         Write_DDR(data_256_32(Weight_2nd_Layer2[1]), Wr_Address=0x90001E00)
         e = time.time()
-        print("Write DDR & 256bit to 32bit :",e-s)
+        if DEBUG: print("Write DDR & 256bit to 32bit :",e-s)
         
         layer2_end = time.time()
         layer2_process = layer2_end - layer2_start
-        print("Layer2 process time : ", layer2_process)
+        if DEBUG: print("Layer2 process time : ", layer2_process)
 
         resume()
 
@@ -1422,70 +1538,70 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Layer3_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86360000, End_Address=0x863C8000)
         Layer3_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image1_CH0))   
-        #print("ch0 image 1 : ", len(Layer3_1st_Iter_Image1_CH0))     
+        #if DEBUG: print("ch0 image 1 : ", len(Layer3_1st_Iter_Image1_CH0))     
 
         Layer3_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x863C8000, End_Address=0x86430000)
         Layer3_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image2_CH0))
-        #print("ch0 image 2 : ", len(Layer3_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer3_1st_Iter_Image2_CH0))
         
         Layer3_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x86430000, End_Address=0x86498000)
         Layer3_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image3_CH0))
-        #print("ch0 image 3 : ", len(Layer3_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer3_1st_Iter_Image3_CH0))
 
         Layer3_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x86498000, End_Address=0x86500000)
         Layer3_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image4_CH0))
-        #print("ch0 image 4 : ", len(Layer3_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer3_1st_Iter_Image4_CH0))
 
         Layer3_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x86500000, End_Address=0x86568000)
         Layer3_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image5_CH0))
-        #print("ch0 image 5 : ", len(Layer3_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer3_1st_Iter_Image5_CH0))
 
         Layer3_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x86568000, End_Address=0x865D0000)
         Layer3_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image6_CH0))
-        #print("ch0 image 6 : ", len(Layer3_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer3_1st_Iter_Image6_CH0))
 
         Layer3_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x865D0000, End_Address=0x86638000)
         Layer3_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image7_CH0))
-        #print("ch0 image 7 : ", len(Layer3_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer3_1st_Iter_Image7_CH0))
 
         Layer3_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x86638000, End_Address=0x866A0000)
         Layer3_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image8_CH0))
-        #print("ch0 image 8 : ", len(Layer3_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer3_1st_Iter_Image8_CH0))
 
 
         Layer3_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96360000, End_Address=0x963C8000)
         Layer3_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image1_CH1))
-        #print("ch1 image 1 : ", len(Layer3_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer3_1st_Iter_Image1_CH1))
 
         Layer3_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x963C8000, End_Address=0x96430000)
         Layer3_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image2_CH1))
-        #print("ch1 image 2 : ", len(Layer3_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer3_1st_Iter_Image2_CH1))
 
         Layer3_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x96430000, End_Address=0x96498000)
         Layer3_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image3_CH1))
-        #print("ch1 image 3 : ", len(Layer3_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer3_1st_Iter_Image3_CH1))
 
         Layer3_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x96498000, End_Address=0x96500000)
         Layer3_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image4_CH1))
-        #print("ch1 image 4 : ", len(Layer3_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer3_1st_Iter_Image4_CH1))
 
         Layer3_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x96500000, End_Address=0x96568000)
         Layer3_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image5_CH1))
-        #print("ch1 image 5 : ", len(Layer3_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer3_1st_Iter_Image5_CH1))
 
         Layer3_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x96568000, End_Address=0x965D0000)
         Layer3_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image6_CH1))
-        #print("ch1 image 6 : ", len(Layer3_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer3_1st_Iter_Image6_CH1))
 
         Layer3_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x965D0000, End_Address=0x96638000)
         Layer3_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image7_CH1))
-        #print("ch1 image 7 : ", len(Layer3_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer3_1st_Iter_Image7_CH1))
 
         Layer3_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x96638000, End_Address=0x966A0000)
         Layer3_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image8_CH1))
-        #print("ch1 image 8 : ", len(Layer3_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer3_1st_Iter_Image8_CH1))
         e = time.time()
-        print("Read DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
 
         '''
         test_out = '1st_iter_result/Layer3_1st_Iter_Image1_CH0.txt'
@@ -1611,7 +1727,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Image7_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image7_CH0_256, Layer3_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
         Output_Image8_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image8_CH0_256, Layer3_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
 
         OutImages_1st_Layer3 = Output_Image1_Layer3_1st_Iter + Output_Image2_Layer3_1st_Iter + Output_Image3_Layer3_1st_Iter + Output_Image4_Layer3_1st_Iter + \
                             Output_Image5_Layer3_1st_Iter + Output_Image6_Layer3_1st_Iter + Output_Image7_Layer3_1st_Iter + Output_Image8_Layer3_1st_Iter    
@@ -1622,8 +1738,8 @@ class YOLOv2_Tiny_FPGA(object):
         Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
 
 
-        Beta_Layer3 = self.Beta_Dec[3]
-        Gamma_Layer3 = self.Gamma_Dec[3]
+        Beta_Layer3 = data.Beta_Dec[3]
+        Gamma_Layer3 = data.Gamma_Dec[3]
 
         layer3_cache = BN(OutImage_1st_Layer3, Gamma_Layer3, Beta_Layer3)
 
@@ -1632,11 +1748,11 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer3, Var_1st_Layer3 = Mean_Var_Dec2Bfloat(Mean_1st_Layer3, Var_1st_Layer3, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
         s = time.time()
         Weight_2nd_Layer3 = New_Weight_Hardware_ReOrdering_OtherLayer(128, 64, data.Weight_Bfloat[3], Mean_1st_Layer3, Var_1st_Layer3, data.Beta_Bfloat[3], Iteration="2")
         e = time.time()
-        print("Weight Reordering : ",e-s)    
+        if DEBUG: print("Weight Reordering : ",e-s)    
 
         '''
         data_read_mean_var = "result/layer3_mean_var.txt"
@@ -1651,14 +1767,14 @@ class YOLOv2_Tiny_FPGA(object):
         Write_DDR(data_256_32(Weight_2nd_Layer3[0]), Wr_Address=0x80006E00)
         Write_DDR(data_256_32(Weight_2nd_Layer3[1]), Wr_Address=0x90006E00)
         e = time.time()
-        print("Write DDR & 256bit to 32bit : ",e-s)
+        if DEBUG: print("Write DDR & 256bit to 32bit : ",e-s)
 
         layer3_end = time.time()
         layer3_process = layer3_end - layer3_start
-        print("Layer3 process time : ", layer3_process)
+        if DEBUG: print("Layer3 process time : ", layer3_process)
         
         resume()
-        #print(irq_val)
+        #if DEBUG: print(irq_val)
 
         '''
         d = Device("0000:08:00.0")
@@ -1704,70 +1820,70 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Layer4_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86770000, End_Address=0x867A4000)
         Layer4_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image1_CH0))   
-        #print("ch0 image 1 : ", len(Layer4_1st_Iter_Image1_CH0))     
+        #if DEBUG: print("ch0 image 1 : ", len(Layer4_1st_Iter_Image1_CH0))     
 
         Layer4_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x867A4000, End_Address=0x867D8000)
         Layer4_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image2_CH0))
-        #print("ch0 image 2 : ", len(Layer4_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer4_1st_Iter_Image2_CH0))
         
         Layer4_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x867D8000, End_Address=0x8680C000)
         Layer4_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image3_CH0))
-        #print("ch0 image 3 : ", len(Layer4_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer4_1st_Iter_Image3_CH0))
 
         Layer4_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x8680C000, End_Address=0x86840000)
         Layer4_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image4_CH0))
-        #print("ch0 image 4 : ", len(Layer4_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer4_1st_Iter_Image4_CH0))
 
         Layer4_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x86840000, End_Address=0x86874000)
         Layer4_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image5_CH0))
-        #print("ch0 image 5 : ", len(Layer4_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer4_1st_Iter_Image5_CH0))
 
         Layer4_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x86874000, End_Address=0x868A8000)
         Layer4_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image6_CH0))
-        #print("ch0 image 6 : ", len(Layer4_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer4_1st_Iter_Image6_CH0))
 
         Layer4_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x868A8000, End_Address=0x868DC000)
         Layer4_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image7_CH0))
-        #print("ch0 image 7 : ", len(Layer4_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer4_1st_Iter_Image7_CH0))
 
         Layer4_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x868DC000, End_Address=0x86910000)
         Layer4_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image8_CH0))
-        #print("ch0 image 8 : ", len(Layer4_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer4_1st_Iter_Image8_CH0))
 
 
         Layer4_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96770000, End_Address=0x967A4000)
         Layer4_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image1_CH1))
-        #print("ch1 image 1 : ", len(Layer4_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer4_1st_Iter_Image1_CH1))
 
         Layer4_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x967A4000, End_Address=0x967D8000)
         Layer4_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image2_CH1))
-        #print("ch1 image 2 : ", len(Layer4_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer4_1st_Iter_Image2_CH1))
 
         Layer4_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x967D8000, End_Address=0x9680C000)
         Layer4_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image3_CH1))
-        #print("ch1 image 3 : ", len(Layer4_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer4_1st_Iter_Image3_CH1))
 
         Layer4_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x9680C000, End_Address=0x96840000)
         Layer4_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image4_CH1))
-        #print("ch1 image 4 : ", len(Layer4_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer4_1st_Iter_Image4_CH1))
 
         Layer4_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x96840000, End_Address=0x96874000)
         Layer4_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image5_CH1))
-        #print("ch1 image 5 : ", len(Layer4_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer4_1st_Iter_Image5_CH1))
 
         Layer4_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x96874000, End_Address=0x968A8000)
         Layer4_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image6_CH1))
-        #print("ch1 image 6 : ", len(Layer4_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer4_1st_Iter_Image6_CH1))
 
         Layer4_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x968A8000, End_Address=0x968DC000)
         Layer4_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image7_CH1))
-        #print("ch1 image 7 : ", len(Layer4_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer4_1st_Iter_Image7_CH1))
 
         Layer4_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x968DC000, End_Address=0x96910000)
         Layer4_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image8_CH1))
-        #print("ch1 image 8 : ", len(Layer4_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer4_1st_Iter_Image8_CH1))
         e = time.time()
-        print("Read DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
 
 
         '''
@@ -1894,7 +2010,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Image7_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image7_CH0_256, Layer4_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
         Output_Image8_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image8_CH0_256, Layer4_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
 
         OutImages_1st_Layer4 = Output_Image1_Layer4_1st_Iter + Output_Image2_Layer4_1st_Iter + Output_Image3_Layer4_1st_Iter + Output_Image4_Layer4_1st_Iter + \
                             Output_Image5_Layer4_1st_Iter + Output_Image6_Layer4_1st_Iter + Output_Image7_Layer4_1st_Iter + Output_Image8_Layer4_1st_Iter    
@@ -1905,10 +2021,10 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.forward(OutImage_1st_Layer4)
         e = time.time()
-        print("Calculate Mean & Var : ",e-s)
+        if DEBUG: print("Calculate Mean & Var : ",e-s)
 
-        Beta_Layer4 = self.Beta_Dec[4]
-        Gamma_Layer4 = self.Gamma_Dec[4]
+        Beta_Layer4 = data.Beta_Dec[4]
+        Gamma_Layer4 = data.Gamma_Dec[4]
 
         layer4_cache = BN(OutImage_1st_Layer4, Gamma_Layer4, Beta_Layer4)
 
@@ -1918,11 +2034,11 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer4, Var_1st_Layer4 = Mean_Var_Dec2Bfloat(Mean_1st_Layer4, Var_1st_Layer4, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
         s = time.time()
         Weight_2nd_Layer4 = New_Weight_Hardware_ReOrdering_OtherLayer(256, 128, data.Weight_Bfloat[4], Mean_1st_Layer4, Var_1st_Layer4, data.Beta_Bfloat[4], Iteration="2")
         e = time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
 
         '''
         data_read_mean_var = "result/layer4_mean_var.txt"
@@ -1937,11 +2053,11 @@ class YOLOv2_Tiny_FPGA(object):
         Write_DDR(data_256_32(Weight_2nd_Layer4[0]), Wr_Address=0x8001AE00)
         Write_DDR(data_256_32(Weight_2nd_Layer4[1]), Wr_Address=0x9001AE00)
         e = time.time()
-        print("Write DDR & 256bit to 32bit : ",e-s)
+        if DEBUG: print("Write DDR & 256bit to 32bit : ",e-s)
 
         layer4_end = time.time()
         layer4_process = layer4_end - Layer4_start
-        print("Layer4 process time : ", layer4_process)
+        if DEBUG: print("Layer4 process time : ", layer4_process)
         
         resume()
 
@@ -1989,70 +2105,70 @@ class YOLOv2_Tiny_FPGA(object):
         # Read DDR & Conver Format # 512MB
         Layer5_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86978000, End_Address=0x86992000)
         Layer5_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image1_CH0))   
-        #print("ch0 image 1 : ", len(Layer5_1st_Iter_Image1_CH0))     
+        #if DEBUG: print("ch0 image 1 : ", len(Layer5_1st_Iter_Image1_CH0))     
 
         Layer5_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x86992000, End_Address=0x869AC000)
         Layer5_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image2_CH0))
-        #print("ch0 image 2 : ", len(Layer5_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer5_1st_Iter_Image2_CH0))
         
         Layer5_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x869AC000, End_Address=0x869C6000)
         Layer5_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image3_CH0))
-        #print("ch0 image 3 : ", len(Layer5_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer5_1st_Iter_Image3_CH0))
 
         Layer5_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x869C6000, End_Address=0x869E0000)
         Layer5_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image4_CH0))
-        #print("ch0 image 4 : ", len(Layer5_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer5_1st_Iter_Image4_CH0))
 
         Layer5_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x869E0000, End_Address=0x869FA000)
         Layer5_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image5_CH0))
-        #print("ch0 image 5 : ", len(Layer5_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer5_1st_Iter_Image5_CH0))
 
         Layer5_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x869FA000, End_Address=0x86A14000)
         Layer5_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image6_CH0))
-        #print("ch0 image 6 : ", len(Layer5_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer5_1st_Iter_Image6_CH0))
 
         Layer5_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x86A14000, End_Address=0x86A2E000)
         Layer5_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image7_CH0))
-        #print("ch0 image 7 : ", len(Layer5_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer5_1st_Iter_Image7_CH0))
 
         Layer5_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x86A2E000, End_Address=0x86A48000)
         Layer5_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image8_CH0))
-        #print("ch0 image 8 : ", len(Layer5_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer5_1st_Iter_Image8_CH0))
 
 
         Layer5_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96978000, End_Address=0x96992000)
         Layer5_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image1_CH1))
-        #print("ch1 image 1 : ", len(Layer5_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer5_1st_Iter_Image1_CH1))
 
         Layer5_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x96992000, End_Address=0x969AC000)
         Layer5_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image2_CH1))
-        #print("ch1 image 2 : ", len(Layer5_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer5_1st_Iter_Image2_CH1))
 
         Layer5_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x969AC000, End_Address=0x969C6000)
         Layer5_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image3_CH1))
-        #print("ch1 image 3 : ", len(Layer5_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer5_1st_Iter_Image3_CH1))
 
         Layer5_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x969C6000, End_Address=0x969E0000)
         Layer5_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image4_CH1))
-        #print("ch1 image 4 : ", len(Layer5_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer5_1st_Iter_Image4_CH1))
 
         Layer5_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x969E0000, End_Address=0x969FA000)
         Layer5_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image5_CH1))
-        #print("ch1 image 5 : ", len(Layer5_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer5_1st_Iter_Image5_CH1))
 
         Layer5_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x969FA000, End_Address=0x96A14000)
         Layer5_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image6_CH1))
-        #print("ch1 image 6 : ", len(Layer5_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer5_1st_Iter_Image6_CH1))
 
         Layer5_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x96A14000, End_Address=0x96A2E000)
         Layer5_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image7_CH1))
-        #print("ch1 image 7 : ", len(Layer5_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer5_1st_Iter_Image7_CH1))
 
         Layer5_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x96A2E000, End_Address=0x96A48000)
         Layer5_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image8_CH1))
-        #print("ch1 image 8 : ", len(Layer5_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer5_1st_Iter_Image8_CH1))
         e = time.time()
-        print("Read DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
 
         '''
         test_out = '1st_iter_result/Layer5_1st_Iter_Image1_CH0.txt'
@@ -2179,7 +2295,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Image7_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image7_CH0_256, Layer5_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
         Output_Image8_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image8_CH0_256, Layer5_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
 
         OutImages_1st_Layer5 = Output_Image1_Layer5_1st_Iter + Output_Image2_Layer5_1st_Iter + Output_Image3_Layer5_1st_Iter + Output_Image4_Layer5_1st_Iter + \
                             Output_Image5_Layer5_1st_Iter + Output_Image6_Layer5_1st_Iter + Output_Image7_Layer5_1st_Iter + Output_Image8_Layer5_1st_Iter    
@@ -2190,10 +2306,10 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.forward(OutImage_1st_Layer5)
         e = time.time()
-        print("Calculate Mean & Var : ",e-s)
+        if DEBUG: print("Calculate Mean & Var : ",e-s)
 
-        Beta_Layer5 = self.Beta_Dec[5]
-        Gamma_Layer5 = self.Gamma_Dec[5]
+        Beta_Layer5 = data.Beta_Dec[5]
+        Gamma_Layer5 = data.Gamma_Dec[5]
 
         layer5_cache = BN(OutImage_1st_Layer5, Gamma_Layer5, Beta_Layer5)
 
@@ -2203,11 +2319,11 @@ class YOLOv2_Tiny_FPGA(object):
         s =time.time()
         Mean_1st_Layer5, Var_1st_Layer5 = Mean_Var_Dec2Bfloat(Mean_1st_Layer5, Var_1st_Layer5, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
         s = time.time()
         Weight_2nd_Layer5 = New_Weight_Hardware_ReOrdering_OtherLayer(512, 256, data.Weight_Bfloat[5], Mean_1st_Layer5, Var_1st_Layer5, data.Beta_Bfloat[5], Iteration="2")
         e = time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
 
         '''
         data_read_mean_var = "result/layer5_mean_var.txt"
@@ -2222,14 +2338,14 @@ class YOLOv2_Tiny_FPGA(object):
         Write_DDR(data_256_32(Weight_2nd_Layer5[0]), Wr_Address=0x8006AE00)
         Write_DDR(data_256_32(Weight_2nd_Layer5[1]), Wr_Address=0x9006AE00)
         e = time.time()
-        print("Write DDR & 256bit to 32bit : ",e-s)
+        if DEBUG: print("Write DDR & 256bit to 32bit : ",e-s)
 
         layer5_end = time.time()
         layer5_process = layer5_end - Layer5_start
-        print("Layer5 process time : ", layer5_process)
+        if DEBUG: print("Layer5 process time : ", layer5_process)
         
         resume()
-        #print(irq_val)
+        #if DEBUG: print(irq_val)
 
         '''
         d = Device("0000:08:00.0")
@@ -2275,70 +2391,70 @@ class YOLOv2_Tiny_FPGA(object):
         # Read DDR & Conver Format # 512MB
         Layer6_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86B18000, End_Address=0x86B4C000)
         Layer6_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image1_CH0))   
-        #print("ch0 image 1 : ", len(Layer6_1st_Iter_Image1_CH0))     
+        #if DEBUG: print("ch0 image 1 : ", len(Layer6_1st_Iter_Image1_CH0))     
 
         Layer6_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x86B4C000, End_Address=0x86B80000)
         Layer6_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image2_CH0))
-        #print("ch0 image 2 : ", len(Layer6_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer6_1st_Iter_Image2_CH0))
         
         Layer6_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x86B80000, End_Address=0x86BB4000)
         Layer6_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image3_CH0))
-        #print("ch0 image 3 : ", len(Layer6_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer6_1st_Iter_Image3_CH0))
 
         Layer6_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x86BB4000, End_Address=0x86BE8000)
         Layer6_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image4_CH0))
-        #print("ch0 image 4 : ", len(Layer6_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer6_1st_Iter_Image4_CH0))
 
         Layer6_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x86BE8000, End_Address=0x86C1C000)
         Layer6_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image5_CH0))
-        #print("ch0 image 5 : ", len(Layer6_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer6_1st_Iter_Image5_CH0))
 
         Layer6_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x86C1C000, End_Address=0x86C50000)
         Layer6_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image6_CH0))
-        #print("ch0 image 6 : ", len(Layer6_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer6_1st_Iter_Image6_CH0))
 
         Layer6_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x86C50000, End_Address=0x86C84000)
         Layer6_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image7_CH0))
-        #print("ch0 image 7 : ", len(Layer6_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer6_1st_Iter_Image7_CH0))
 
         Layer6_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x86C84000, End_Address=0x86CB8000)
         Layer6_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image8_CH0))
-        #print("ch0 image 8 : ", len(Layer6_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer6_1st_Iter_Image8_CH0))
 
 
         Layer6_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96B18000, End_Address=0x96B4C000)
         Layer6_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image1_CH1))
-        #print("ch1 image 1 : ", len(Layer6_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer6_1st_Iter_Image1_CH1))
 
         Layer6_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x96B4C000, End_Address=0x96B80000)
         Layer6_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image2_CH1))
-        #print("ch1 image 2 : ", len(Layer6_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer6_1st_Iter_Image2_CH1))
 
         Layer6_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x96B80000, End_Address=0x96BB4000)
         Layer6_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image3_CH1))
-        #print("ch1 image 3 : ", len(Layer6_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer6_1st_Iter_Image3_CH1))
 
         Layer6_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x96BB4000, End_Address=0x96BE8000)
         Layer6_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image4_CH1))
-        #print("ch1 image 4 : ", len(Layer6_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer6_1st_Iter_Image4_CH1))
 
         Layer6_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x96BE8000, End_Address=0x96C1C000)
         Layer6_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image5_CH1))
-        #print("ch1 image 5 : ", len(Layer6_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer6_1st_Iter_Image5_CH1))
 
         Layer6_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x96C1C000, End_Address=0x96C50000)
         Layer6_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image6_CH1))
-        #print("ch1 image 6 : ", len(Layer6_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer6_1st_Iter_Image6_CH1))
 
         Layer6_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x96C50000, End_Address=0x96C84000)
         Layer6_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image7_CH1))
-        #print("ch1 image 7 : ", len(Layer6_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer6_1st_Iter_Image7_CH1))
 
         Layer6_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x96C84000, End_Address=0x96CB8000)
         Layer6_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image8_CH1))
-        #print("ch1 image 8 : ", len(Layer6_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer6_1st_Iter_Image8_CH1))
         e = time.time()
-        print("Read DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
 
 
         '''
@@ -2465,7 +2581,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Image7_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image7_CH0_256, Layer6_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
         Output_Image8_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image8_CH0_256, Layer6_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
 
         OutImages_1st_Layer6 = Output_Image1_Layer6_1st_Iter + Output_Image2_Layer6_1st_Iter + Output_Image3_Layer6_1st_Iter + Output_Image4_Layer6_1st_Iter + \
                             Output_Image5_Layer6_1st_Iter + Output_Image6_Layer6_1st_Iter + Output_Image7_Layer6_1st_Iter + Output_Image8_Layer6_1st_Iter    
@@ -2475,8 +2591,8 @@ class YOLOv2_Tiny_FPGA(object):
         # Mean, Var
         Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
         
-        Beta_Layer6 = self.Beta_Dec[6]
-        Gamma_Layer6 = self.Gamma_Dec[6]
+        Beta_Layer6 = data.Beta_Dec[6]
+        Gamma_Layer6 = data.Gamma_Dec[6]
 
         layer6_cache = BN(OutImage_1st_Layer6, Gamma_Layer6, Beta_Layer6)
 
@@ -2486,11 +2602,11 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer6, Var_1st_Layer6 = Mean_Var_Dec2Bfloat(Mean_1st_Layer6, Var_1st_Layer6, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
         s = time.time()
         Weight_2nd_Layer6 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 512, data.Weight_Bfloat[6], Mean_1st_Layer6, Var_1st_Layer6, data.Beta_Bfloat[6], Iteration="2")
         e = time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
 
         '''
         data_read_mean_var = "result/layer6_mean_var.txt"
@@ -2505,11 +2621,11 @@ class YOLOv2_Tiny_FPGA(object):
         Write_DDR(data_256_32(Weight_2nd_Layer6[0]), Wr_Address=0x801AAE00)
         Write_DDR(data_256_32(Weight_2nd_Layer6[1]), Wr_Address=0x901AAE00)
         e = time.time()
-        print("Write DDR & 256bit to 32bit : ",e-s)
+        if DEBUG: print("Write DDR & 256bit to 32bit : ",e-s)
 
         layer6_end = time.time()
         layer6_process = layer6_end - Layer6_start
-        print("Layer6 process time : ", layer6_process)
+        if DEBUG: print("Layer6 process time : ", layer6_process)
 
         resume()
 
@@ -2555,73 +2671,73 @@ class YOLOv2_Tiny_FPGA(object):
         Layer7_start = time.time()
         s = time.time()
         # Read DDR & Conver Format # 512MB
-        # print("Read DDR")
+        # if DEBUG: print("Read DDR")
         Layer7_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86E58000, End_Address=0x86E8C000)
         Layer7_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image1_CH0))   
-        #print("ch0 image 1 : ", len(Layer7_1st_Iter_Image1_CH0))     
+        #if DEBUG: print("ch0 image 1 : ", len(Layer7_1st_Iter_Image1_CH0))     
 
         Layer7_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x86E8C000, End_Address=0x86EC0000)
         Layer7_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image2_CH0))
-        #print("ch0 image 2 : ", len(Layer7_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer7_1st_Iter_Image2_CH0))
         
         Layer7_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x86EC0000, End_Address=0x86EF4000)
         Layer7_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image3_CH0))
-        #print("ch0 image 3 : ", len(Layer7_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer7_1st_Iter_Image3_CH0))
 
         Layer7_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x86EF4000, End_Address=0x86F28000)
         Layer7_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image4_CH0))
-        #print("ch0 image 4 : ", len(Layer7_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer7_1st_Iter_Image4_CH0))
 
         Layer7_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x86F28000, End_Address=0x86F5C000)
         Layer7_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image5_CH0))
-        #print("ch0 image 5 : ", len(Layer7_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer7_1st_Iter_Image5_CH0))
 
         Layer7_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x86F5C000, End_Address=0x86F90000)
         Layer7_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image6_CH0))
-        #print("ch0 image 6 : ", len(Layer7_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer7_1st_Iter_Image6_CH0))
 
         Layer7_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x86F90000, End_Address=0x86FC4000)
         Layer7_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image7_CH0))
-        #print("ch0 image 7 : ", len(Layer7_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer7_1st_Iter_Image7_CH0))
 
         Layer7_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x86FC4000, End_Address=0x86FF8000)
         Layer7_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image8_CH0))
-        #print("ch0 image 8 : ", len(Layer7_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer7_1st_Iter_Image8_CH0))
 
 
         Layer7_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96E58000, End_Address=0x96E8C000)
         Layer7_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image1_CH1))
-        #print("ch1 image 1 : ", len(Layer7_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer7_1st_Iter_Image1_CH1))
 
         Layer7_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x96E8C000, End_Address=0x96EC0000)
         Layer7_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image2_CH1))
-        #print("ch1 image 2 : ", len(Layer7_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer7_1st_Iter_Image2_CH1))
 
         Layer7_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x96EC0000, End_Address=0x96EF4000)
         Layer7_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image3_CH1))
-        #print("ch1 image 3 : ", len(Layer7_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer7_1st_Iter_Image3_CH1))
 
         Layer7_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x96EF4000, End_Address=0x96F28000)
         Layer7_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image4_CH1))
-        #print("ch1 image 4 : ", len(Layer7_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer7_1st_Iter_Image4_CH1))
 
         Layer7_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x96F28000, End_Address=0x96F5C000)
         Layer7_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image5_CH1))
-        #print("ch1 image 5 : ", len(Layer7_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer7_1st_Iter_Image5_CH1))
 
         Layer7_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x96F5C000, End_Address=0x96F90000)
         Layer7_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image6_CH1))
-        #print("ch1 image 6 : ", len(Layer7_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer7_1st_Iter_Image6_CH1))
 
         Layer7_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x96F90000, End_Address=0x96FC4000)
         Layer7_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image7_CH1))
-        #print("ch1 image 7 : ", len(Layer7_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer7_1st_Iter_Image7_CH1))
 
         Layer7_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x96FC4000, End_Address=0x96FF8000)
         Layer7_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image8_CH1))
-        #print("ch1 image 8 : ", len(Layer7_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer7_1st_Iter_Image8_CH1))
         e = time.time()
-        print("Read DDR Time : ",e-s)
+        if DEBUG: print("Read DDR Time : ",e-s)
 
 
         '''
@@ -2752,16 +2868,16 @@ class YOLOv2_Tiny_FPGA(object):
 
         OutImage_1st_Layer7 = torch.tensor([float(value) for value in OutImages_1st_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
         e = time.time()
-        # print("OutFmap_Bfloat2Dec Convert Time : ", e-s)
+        # if DEBUG: print("OutFmap_Bfloat2Dec Convert Time : ", e-s)
 
         # Mean, Var
         s = time.time()
         Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.forward(OutImage_1st_Layer7)
         e = time.time()
-        print("Calculate Mean & Var Time : ",e-s)
+        if DEBUG: print("Calculate Mean & Var Time : ",e-s)
 
-        Beta_Layer7 = self.Beta_Dec[7]
-        Gamma_Layer7 = self.Gamma_Dec[7]
+        Beta_Layer7 = data.Beta_Dec[7]
+        Gamma_Layer7 = data.Gamma_Dec[7]
 
         layer7_cache = BN(OutImage_1st_Layer7, Gamma_Layer7, Beta_Layer7)
 
@@ -2771,11 +2887,11 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Mean_1st_Layer7, Var_1st_Layer7 = Mean_Var_Dec2Bfloat(Mean_1st_Layer7, Var_1st_Layer7, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
         s = time.time()
         Weight_2nd_Layer7 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 1024, data.Weight_Bfloat[7], Mean_1st_Layer7, Var_1st_Layer7, data.Beta_Bfloat[7], Iteration="2")
         e = time.time()
-        print("New_Weight_Hardware_ReOrdering_OtherLayer Time : ", e-s)
+        if DEBUG: print("New_Weight_Hardware_ReOrdering_OtherLayer Time : ", e-s)
 
         '''
         data_read_mean_var = "result/layer7_mean_var.txt"
@@ -2791,11 +2907,11 @@ class YOLOv2_Tiny_FPGA(object):
         Write_DDR(data_256_32(Weight_2nd_Layer7[0]), Wr_Address=0x806AAE00)
         Write_DDR(data_256_32(Weight_2nd_Layer7[1]), Wr_Address=0x906AAE00)
         e = time.time()
-        print("256 to 32 & Write DDR Time : ",e-s)
+        if DEBUG: print("256 to 32 & Write DDR Time : ",e-s)
 
         layer7_end = time.time()
         layer7_process = layer7_end - Layer7_start
-        print("Layer7 process time : ", layer7_process)
+        if DEBUG: print("Layer7 process time : ", layer7_process)
         
         resume()
 
@@ -2833,7 +2949,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         end = time.time()
         process_time = (end-start)/60
-        # print(f'Whole Process: {process_time} mn')
+        # if DEBUG: print(f'Whole Process: {process_time} mn')
         #################################################
         #                Layer 8 Start                  #
         #################################################
@@ -2855,70 +2971,70 @@ class YOLOv2_Tiny_FPGA(object):
         
         Layer8_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x87198000, End_Address=0x8719E800)
         Layer8_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image1_CH0))   
-        #print("ch0 image 1 : ", len(Layer8_1st_Iter_Image1_CH0))     
+        #if DEBUG: print("ch0 image 1 : ", len(Layer8_1st_Iter_Image1_CH0))     
 
         Layer8_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x8719E800, End_Address=0x871A5000)
         Layer8_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image2_CH0))
-        #print("ch0 image 2 : ", len(Layer8_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer8_1st_Iter_Image2_CH0))
 
         Layer8_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x871A5000, End_Address=0x871AB800)
         Layer8_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image3_CH0))
-        #print("ch0 image 3 : ", len(Layer8_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer8_1st_Iter_Image3_CH0))
 
         Layer8_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x871AB800, End_Address=0x871B2000)
         Layer8_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image4_CH0))
-        #print("ch0 image 4 : ", len(Layer8_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer8_1st_Iter_Image4_CH0))
 
         Layer8_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x871B2000, End_Address=0x871B8800)
         Layer8_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image5_CH0))
-        #print("ch0 image 5 : ", len(Layer8_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer8_1st_Iter_Image5_CH0))
 
         Layer8_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x871B8800, End_Address=0x871BF000)
         Layer8_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image6_CH0))
-        #print("ch0 image 6 : ", len(Layer8_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer8_1st_Iter_Image6_CH0))
 
         Layer8_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x871BF000, End_Address=0x871C5800)
         Layer8_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image7_CH0))
-        #print("ch0 image 7 : ", len(Layer8_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer8_1st_Iter_Image7_CH0))
 
         Layer8_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x871C5800, End_Address=0x871CC000)
         Layer8_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image8_CH0))
-        #print("ch0 image 8 : ", len(Layer8_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer8_1st_Iter_Image8_CH0))
 
 
         Layer8_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x97198000, End_Address=0x9719E800)
         Layer8_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image1_CH1))   
-        #print("ch1 image 1 : ", len(Layer8_1st_Iter_Image1_CH1))     
+        #if DEBUG: print("ch1 image 1 : ", len(Layer8_1st_Iter_Image1_CH1))     
 
         Layer8_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x9719E800, End_Address=0x971A5000)
         Layer8_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image2_CH1))
-        #print("ch1 image 2 : ", len(Layer8_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer8_1st_Iter_Image2_CH1))
 
         Layer8_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x971A5000, End_Address=0x971AB800)
         Layer8_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image3_CH1))
-        #print("ch1 image 3 : ", len(Layer8_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer8_1st_Iter_Image3_CH1))
 
         Layer8_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x971AB800, End_Address=0x971B2000)
         Layer8_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image4_CH1))
-        #print("ch1 image 4 : ", len(Layer8_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer8_1st_Iter_Image4_CH1))
 
         Layer8_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x971B2000, End_Address=0x971B8800)
         Layer8_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image5_CH1))
-        #print("ch1 image 5 : ", len(Layer8_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer8_1st_Iter_Image5_CH1))
 
         Layer8_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x971B8800, End_Address=0x971BF000)
         Layer8_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image6_CH1))
-        #print("ch1 image 6 : ", len(Layer8_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer8_1st_Iter_Image6_CH1))
 
         Layer8_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x971BF000, End_Address=0x971C5800)
         Layer8_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image7_CH1))
-        #print("ch1 image 7 : ", len(Layer8_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer8_1st_Iter_Image7_CH1))
 
         Layer8_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x971C5800, End_Address=0x971CC000)
         Layer8_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image8_CH1))
-        #print("ch1 image 8 : ", len(Layer8_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer8_1st_Iter_Image8_CH1))
         e = time.time()
-        print("Read DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
 
         Output_Image1 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image1_CH0_256, Layer8_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits)
         Output_Image2 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image2_CH0_256, Layer8_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits)
@@ -3080,9 +3196,9 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Loss, Loss_Gradient = PostProcessing.PostProcessing(gt_boxes, gt_classes, num_boxes)
         e = time.time()
-        print("Calculate Loss : ",e-s)
-        # print(Loss)
-        #print(Loss_Gradient)
+        if DEBUG: print("Calculate Loss : ",e-s)
+        # if DEBUG: print(Loss)
+        #if DEBUG: print(Loss_Gradient)
         
         resume()
         
@@ -3098,10 +3214,102 @@ class YOLOv2_Tiny_FPGA(object):
         
         return Loss, Loss_Gradient
     
+     
+    def Forward_Inference(self, data):
+
+        #################################################
+        #                Layer 8 Start                  #
+        #################################################
+        # Read DDR & Conver Format # 512MB
+        
+        Layer8_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x87198000, End_Address=0x8719E800)
+        Layer8_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image1_CH0))   
+        #if DEBUG: print("ch0 image 1 : ", len(Layer8_1st_Iter_Image1_CH0))     
+
+        Layer8_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x8719E800, End_Address=0x871A5000)
+        Layer8_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer8_1st_Iter_Image2_CH0))
+
+        Layer8_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x871A5000, End_Address=0x871AB800)
+        Layer8_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer8_1st_Iter_Image3_CH0))
+
+        Layer8_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x871AB800, End_Address=0x871B2000)
+        Layer8_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer8_1st_Iter_Image4_CH0))
+
+        Layer8_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x871B2000, End_Address=0x871B8800)
+        Layer8_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer8_1st_Iter_Image5_CH0))
+
+        Layer8_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x871B8800, End_Address=0x871BF000)
+        Layer8_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer8_1st_Iter_Image6_CH0))
+
+        Layer8_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x871BF000, End_Address=0x871C5800)
+        Layer8_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer8_1st_Iter_Image7_CH0))
+
+        Layer8_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x871C5800, End_Address=0x871CC000)
+        Layer8_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer8_1st_Iter_Image8_CH0))
+
+
+        Layer8_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x97198000, End_Address=0x9719E800)
+        Layer8_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image1_CH1))   
+        #if DEBUG: print("ch1 image 1 : ", len(Layer8_1st_Iter_Image1_CH1))     
+
+        Layer8_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x9719E800, End_Address=0x971A5000)
+        Layer8_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer8_1st_Iter_Image2_CH1))
+
+        Layer8_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x971A5000, End_Address=0x971AB800)
+        Layer8_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer8_1st_Iter_Image3_CH1))
+
+        Layer8_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x971AB800, End_Address=0x971B2000)
+        Layer8_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer8_1st_Iter_Image4_CH1))
+
+        Layer8_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x971B2000, End_Address=0x971B8800)
+        Layer8_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer8_1st_Iter_Image5_CH1))
+
+        Layer8_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x971B8800, End_Address=0x971BF000)
+        Layer8_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer8_1st_Iter_Image6_CH1))
+
+        Layer8_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x971BF000, End_Address=0x971C5800)
+        Layer8_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer8_1st_Iter_Image7_CH1))
+
+        Layer8_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x971C5800, End_Address=0x971CC000)
+        Layer8_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer8_1st_Iter_Image8_CH1))
+        e = time.time()
+
+        Output_Image1 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image1_CH0_256, Layer8_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image2 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image2_CH0_256, Layer8_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image3 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image3_CH0_256, Layer8_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image4 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image4_CH0_256, Layer8_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image5 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image5_CH0_256, Layer8_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image6 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image6_CH0_256, Layer8_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image7 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image7_CH0_256, Layer8_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image8 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image8_CH0_256, Layer8_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Layer8 = Output_Image1 + Output_Image2 + Output_Image3 + Output_Image4 + \
+                        Output_Image5 + Output_Image6 + Output_Image7 + Output_Image8
+
+        Float_OutputImage = [np.float32(x) for x in Output_Layer8]
+        Float_OutputImage = Float_OutputImage[0:(8*125*(13**2))]
+        Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
+        
+        return Output_Layer8
+
+
     # Modified By Thaising
     def Pre_Processing_Backward(self, data, Loss_Gradient):     
                 
-            # print(f"Loss Calculation Time: {(Loss_Calculation_Time):.2f} s\n")
+            # if DEBUG: print(f"Loss Calculation Time: {(Loss_Calculation_Time):.2f} s\n")
         '''
         if data.Mode == "Inference":
             PostProcessing = Post_Processing_Inference(Mode="Inference",
@@ -3126,8 +3334,8 @@ class YOLOv2_Tiny_FPGA(object):
                         OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
                         )
             Loss, _ = PostProcessing.PostProcessing_Inference()
-            print(Loss)
-            print("\n")
+            if DEBUG: print(Loss)
+            if DEBUG: print("\n")
         '''    
 
 
@@ -3138,21 +3346,21 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Backward_Layer8 = Weight_Hardware_Backward_ReOrdering_Layer8(128, 1024, data.Weight_Bfloat[8]+["0000"]*3072, ["0000"]*128, ["0000"]*128)
         e = time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
         
         # Break 256To32 and Flip the Data: 
         s = time.time()
         Weight_Backward_CH0 = data_256_32(Weight_Backward_Layer8[0])
         Weight_Backward_CH1 = data_256_32(Weight_Backward_Layer8[1])
         e = time.time()
-        print("256bit to 32bit : ",e-s)
+        if DEBUG: print("256bit to 32bit : ",e-s)
 
         # Write Weight For Backward into DDR
         s = time.time()
         Write_DDR(Weight_Backward_CH0,Wr_Address=0x81200000)
         Write_DDR(Weight_Backward_CH1,Wr_Address=0x91200000)
         e = time.time()
-        print("Write DDR : ",e-s)
+        if DEBUG: print("Write DDR : ",e-s)
         
         # Loss Gradient for Soft2Hardware
         Loss_Gradient1_layer8 = Loss_Gradient[0:1]  
@@ -3190,7 +3398,7 @@ class YOLOv2_Tiny_FPGA(object):
         Loss_Grad8_layer8 = Loss_Gradient_Dec2Bfloat(Loss_Gradient8_layer8, Exponent_Bits, Mantissa_Bits)
         Loss_Grad8_layer8 = Fmap_Ordering(Channel=128, Data_List=Loss_Grad8_layer8)
         e = time.time()
-        print("Loss Reordering : ",e-s)
+        if DEBUG: print("Loss Reordering : ",e-s)
         
         # Separate the DDR Channel: 
         Loss_Grad_layer8_CH0 =  Loss_Grad1_layer8[0] + Loss_Grad2_layer8[0] + Loss_Grad3_layer8[0] + Loss_Grad4_layer8[0] + \
@@ -3205,12 +3413,12 @@ class YOLOv2_Tiny_FPGA(object):
         Write_DDR(data_256_32(Loss_Grad_layer8_CH0), Wr_Address=0x882A8000)
         Write_DDR(data_256_32(Loss_Grad_layer8_CH1), Wr_Address=0x982A8000)
         e = time.time()
-        print("Write DDR & 256bit to 32bit : ",e-s)
+        if DEBUG: print("Write DDR & 256bit to 32bit : ",e-s)
 
         layer8_end = time.time()
-        print("layer8 process : ",layer8_end-layer8_start)
+        if DEBUG: print("layer8 process : ",layer8_end-layer8_start)
         resume()
-        #print(irq_val)
+        #if DEBUG: print(irq_val)
 
         '''
         output_file1 = "result/Loss_Grad_layer8_CH0.txt"
@@ -3230,108 +3438,6 @@ class YOLOv2_Tiny_FPGA(object):
         # return Bias_Grad
         # return Loss
         
-     
-    def Forward_Inference(self, data):
-
-        #################################################
-        #                Layer 8 Start                  #
-        #################################################
-        # check Layer8 IRQ
-        check_irq_layer0()
-        # print("Read Start")
-        Layer8_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x81755000, End_Address=0x8175B800)
-        Layer8_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image1_CH0))   
-        #print("ch0 image 1 : ", len(Layer8_1st_Iter_Image1_CH0))     
-
-        Layer8_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x83200000, End_Address=0x83206800)
-        Layer8_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image2_CH0))
-        #print("ch0 image 2 : ", len(Layer8_1st_Iter_Image2_CH0))
-
-        Layer8_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x83206800, End_Address=0x8320D000)
-        Layer8_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image3_CH0))
-        #print("ch0 image 3 : ", len(Layer8_1st_Iter_Image3_CH0))
-
-        Layer8_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x8320D000, End_Address=0x83213800)
-        Layer8_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image4_CH0))
-        #print("ch0 image 4 : ", len(Layer8_1st_Iter_Image4_CH0))
-
-        Layer8_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x83213800, End_Address=0x8321A000)
-        Layer8_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image5_CH0))
-        #print("ch0 image 5 : ", len(Layer8_1st_Iter_Image5_CH0))
-
-        Layer8_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x8321A000, End_Address=0x83220800)
-        Layer8_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image6_CH0))
-        #print("ch0 image 6 : ", len(Layer8_1st_Iter_Image6_CH0))
-
-        Layer8_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x83220800, End_Address=0x83227000)
-        Layer8_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image7_CH0))
-        #print("ch0 image 7 : ", len(Layer8_1st_Iter_Image7_CH0))
-
-        Layer8_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x83227000, End_Address=0x8322D800)
-        Layer8_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image8_CH0))
-        #print("ch0 image 8 : ", len(Layer8_1st_Iter_Image8_CH0))
-
-
-        Layer8_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x91755000, End_Address=0x9175B800)
-        Layer8_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image1_CH1))   
-        #print("ch1 image 1 : ", len(Layer8_1st_Iter_Image1_CH1))     
-
-        Layer8_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x93200000, End_Address=0x93206800)
-        Layer8_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image2_CH1))
-        #print("ch1 image 2 : ", len(Layer8_1st_Iter_Image2_CH1))
-
-        Layer8_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x93206800, End_Address=0x9320D000)
-        Layer8_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image3_CH1))
-        #print("ch1 image 3 : ", len(Layer8_1st_Iter_Image3_CH1))
-
-        Layer8_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x9320D000, End_Address=0x93213800)
-        Layer8_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image4_CH1))
-        #print("ch1 image 4 : ", len(Layer8_1st_Iter_Image4_CH1))
-
-        Layer8_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x93213800, End_Address=0x9321A000)
-        Layer8_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image5_CH1))
-        #print("ch1 image 5 : ", len(Layer8_1st_Iter_Image5_CH1))
-
-        Layer8_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x9321A000, End_Address=0x93220800)
-        Layer8_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image6_CH1))
-        #print("ch1 image 6 : ", len(Layer8_1st_Iter_Image6_CH1))
-
-        Layer8_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x93220800, End_Address=0x93227000)
-        Layer8_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image7_CH1))
-        #print("ch1 image 7 : ", len(Layer8_1st_Iter_Image7_CH1))
-
-        Layer8_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x93227000, End_Address=0x9322D800)
-        Layer8_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image8_CH1))
-        #print("ch1 image 8 : ", len(Layer8_1st_Iter_Image8_CH1))
-
-        # print("Read Done")
-        
-        PostProcessing = Post_Processing_Inference(Mode="Inference",
-                    Brain_Floating_Point=data.Brain_Floating_Point,
-                    Exponent_Bits=Exponent_Bits,
-                    Mantissa_Bits=Mantissa_Bits,
-                    OutImage1_Data_CH0=Layer8_1st_Iter_Image1_CH0_256,
-                    OutImage1_Data_CH1=Layer8_1st_Iter_Image1_CH1_256,
-                    OutImage2_Data_CH0=Layer8_1st_Iter_Image2_CH0_256,
-                    OutImage2_Data_CH1=Layer8_1st_Iter_Image2_CH1_256,
-                    OutImage3_Data_CH0=Layer8_1st_Iter_Image3_CH0_256,
-                    OutImage3_Data_CH1=Layer8_1st_Iter_Image3_CH1_256,
-                    OutImage4_Data_CH0=Layer8_1st_Iter_Image4_CH0_256,
-                    OutImage4_Data_CH1=Layer8_1st_Iter_Image4_CH1_256,
-                    OutImage5_Data_CH0=Layer8_1st_Iter_Image5_CH0_256,
-                    OutImage5_Data_CH1=Layer8_1st_Iter_Image5_CH1_256,
-                    OutImage6_Data_CH0=Layer8_1st_Iter_Image6_CH0_256,
-                    OutImage6_Data_CH1=Layer8_1st_Iter_Image6_CH1_256,
-                    OutImage7_Data_CH0=Layer8_1st_Iter_Image7_CH0_256,
-                    OutImage7_Data_CH1=Layer8_1st_Iter_Image7_CH1_256,
-                    OutImage8_Data_CH0=Layer8_1st_Iter_Image8_CH0_256,
-                    OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
-                    )
-        Output_data = PostProcessing.PostProcessing_Inference(gt_boxes=None, gt_classes=None, num_boxes=None)
-
-        return Output_data    
-
-
 
     def Backward(self, data, Loss_Gradient):
         
@@ -3347,7 +3453,7 @@ class YOLOv2_Tiny_FPGA(object):
             dL_dgamma_1, dL_dbeta_1, dL_dgamma_0, dL_dbeta_0
         
         global Gamma_Gradient, Beta_Gradient, Weight_Gradient
-            
+                    
         # check Layer8 IRQ
         check_irq_otherlayer()       
         s = time.time()
@@ -3355,69 +3461,69 @@ class YOLOv2_Tiny_FPGA(object):
         # Read Gradient of Output After ReLU Backward: 
         Output_Grad1_Layer8_CH0 = Read_DDR(Rd_Address=0x86E58000,  End_Address=0x86E8C000)
         Output_Grad1_Layer8_CH0 = data_32_to_16(Output_Grad1_Layer8_CH0)
-        #print("Read Output_Grad1_Layer8_CH0")
+        #if DEBUG: print("Read Output_Grad1_Layer8_CH0")
 
         Output_Grad1_Layer8_CH1 = Read_DDR(Rd_Address=0x96E58000,  End_Address=0x96E8C000)
         Output_Grad1_Layer8_CH1 = data_32_to_16(Output_Grad1_Layer8_CH1)
-        #print("Read Output_Grad1_Layer8_CH1")
+        #if DEBUG: print("Read Output_Grad1_Layer8_CH1")
         
         Output_Grad2_Layer8_CH0 = Read_DDR(Rd_Address=0x86E8C000,  End_Address=0x86EC0000)
         Output_Grad2_Layer8_CH0 = data_32_to_16(Output_Grad2_Layer8_CH0)
-        #print("Read Output_Grad2_Layer8_CH0")
+        #if DEBUG: print("Read Output_Grad2_Layer8_CH0")
 
         Output_Grad2_Layer8_CH1 = Read_DDR(Rd_Address=0x96E8C000,  End_Address=0x96EC0000)
         Output_Grad2_Layer8_CH1 = data_32_to_16(Output_Grad2_Layer8_CH1)
-        #print("Read Output_Grad2_Layer8_CH1")
+        #if DEBUG: print("Read Output_Grad2_Layer8_CH1")
 
         Output_Grad3_Layer8_CH0 = Read_DDR(Rd_Address=0x86EC0000,  End_Address=0x86EF4000)
         Output_Grad3_Layer8_CH0 = data_32_to_16(Output_Grad3_Layer8_CH0)
-        #print("Read Output_Grad3_Layer8_CH0")
+        #if DEBUG: print("Read Output_Grad3_Layer8_CH0")
 
         Output_Grad3_Layer8_CH1 = Read_DDR(Rd_Address=0x96EC0000,  End_Address=0x96EF4000)
         Output_Grad3_Layer8_CH1 = data_32_to_16(Output_Grad3_Layer8_CH1)
-        #print("Read Output_Grad3_Layer8_CH1")
+        #if DEBUG: print("Read Output_Grad3_Layer8_CH1")
 
         Output_Grad4_Layer8_CH0 = Read_DDR(Rd_Address=0x86EF4000,  End_Address=0x86F28000)
         Output_Grad4_Layer8_CH0 = data_32_to_16(Output_Grad4_Layer8_CH0)
-        #print("Read Output_Grad4_Layer8_CH0")
+        #if DEBUG: print("Read Output_Grad4_Layer8_CH0")
 
         Output_Grad4_Layer8_CH1 = Read_DDR(Rd_Address=0x96EF4000,  End_Address=0x96F28000)
         Output_Grad4_Layer8_CH1 = data_32_to_16(Output_Grad4_Layer8_CH1)
-        #print("Read Output_Grad4_Layer8_CH1")
+        #if DEBUG: print("Read Output_Grad4_Layer8_CH1")
 
         Output_Grad5_Layer8_CH0 = Read_DDR(Rd_Address=0x86F28000,  End_Address=0x86F5C000)
         Output_Grad5_Layer8_CH0 = data_32_to_16(Output_Grad5_Layer8_CH0)
-        #print("Read Output_Grad5_Layer8_CH0")
+        #if DEBUG: print("Read Output_Grad5_Layer8_CH0")
 
         Output_Grad5_Layer8_CH1 = Read_DDR(Rd_Address=0x96F28000,  End_Address=0x96F5C000)
         Output_Grad5_Layer8_CH1 = data_32_to_16(Output_Grad5_Layer8_CH1)
-        #print("Read Output_Grad5_Layer8_CH1")
+        #if DEBUG: print("Read Output_Grad5_Layer8_CH1")
 
         Output_Grad6_Layer8_CH0 = Read_DDR(Rd_Address=0x86F5C000,  End_Address=0x86F90000)
         Output_Grad6_Layer8_CH0 = data_32_to_16(Output_Grad6_Layer8_CH0)
-        #print("Read Output_Grad6_Layer8_CH0")
+        #if DEBUG: print("Read Output_Grad6_Layer8_CH0")
 
         Output_Grad6_Layer8_CH1 = Read_DDR(Rd_Address=0x96F5C000,  End_Address=0x96F90000)
         Output_Grad6_Layer8_CH1 = data_32_to_16(Output_Grad6_Layer8_CH1)
-        #print("Read Output_Grad6_Layer8_CH1")
+        #if DEBUG: print("Read Output_Grad6_Layer8_CH1")
 
         Output_Grad7_Layer8_CH0 = Read_DDR(Rd_Address=0x86F90000,  End_Address=0x86FC4000)
         Output_Grad7_Layer8_CH0 = data_32_to_16(Output_Grad7_Layer8_CH0)
-        #print("Read Output_Grad7_Layer8_CH0")
+        #if DEBUG: print("Read Output_Grad7_Layer8_CH0")
 
         Output_Grad7_Layer8_CH1 = Read_DDR(Rd_Address=0x96F90000,  End_Address=0x96FC4000)
         Output_Grad7_Layer8_CH1 = data_32_to_16(Output_Grad7_Layer8_CH1)
-        #print("Read Output_Grad7_Layer8_CH1")
+        #if DEBUG: print("Read Output_Grad7_Layer8_CH1")
 
         Output_Grad8_Layer8_CH0 = Read_DDR(Rd_Address=0x86FC4000,  End_Address=0x86FF8000)
         Output_Grad8_Layer8_CH0 = data_32_to_16(Output_Grad8_Layer8_CH0)
-        #print("Read Output_Grad8_Layer8_CH0")
+        #if DEBUG: print("Read Output_Grad8_Layer8_CH0")
 
         Output_Grad8_Layer8_CH1 = Read_DDR(Rd_Address=0x96FC4000,  End_Address=0x96FF8000)
         Output_Grad8_Layer8_CH1 = data_32_to_16(Output_Grad8_Layer8_CH1)    
-        #print("Read Output_Grad8_Layer8_CH1")
+        #if DEBUG: print("Read Output_Grad8_Layer8_CH1")
         e = time.time()
-        print("Read OutG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read OutG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
         Output_Grad1_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer8_CH0, Output_Grad1_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
@@ -3429,7 +3535,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad7_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer8_CH0, Output_Grad7_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
         Output_Grad8_Layer8 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer8_CH0, Output_Grad8_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
 
         Output_Grads_Layer8 = Output_Grad1_Layer8 + Output_Grad2_Layer8 + Output_Grad3_Layer8 + Output_Grad4_Layer8 + \
                                 Output_Grad5_Layer8 + Output_Grad6_Layer8 + Output_Grad7_Layer8 + Output_Grad8_Layer8    
@@ -3485,7 +3591,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking8_Layer7_CH1 = Read_DDR(Rd_Address=0x98240000,  End_Address=0x98274000)
         ReLu_Marking8_Layer7_CH1_256 = data_32_to_16(ReLu_Marking8_Layer7_CH1)
         e = time.time()
-        print("Read ReLu DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read ReLu DDR & 32bit to 16bit : ",e-s)
 
         # ReLu Reordering
         s = time.time()
@@ -3498,7 +3604,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking7_Layer7 = Read_ReLu_Marking(ReLu_Marking7_Layer7_CH0_256, ReLu_Marking7_Layer7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
         ReLu_Marking8_Layer7 = Read_ReLu_Marking(ReLu_Marking8_Layer7_CH0_256, ReLu_Marking8_Layer7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
         e = time.time()
-        print("ReLU ordering : ",e-s)
+        if DEBUG: print("ReLU ordering : ",e-s)
 
         ReLu_Marking_Layer7 = ReLu_Marking1_Layer7 + ReLu_Marking2_Layer7 + ReLu_Marking3_Layer7 + ReLu_Marking4_Layer7 + ReLu_Marking5_Layer7 + \
                                 ReLu_Marking6_Layer7 + ReLu_Marking7_Layer7 + ReLu_Marking8_Layer7
@@ -3515,82 +3621,82 @@ class YOLOv2_Tiny_FPGA(object):
         #grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_7, dL_dbeta_7, avg_pc_7, backward_const_7 = backward_LightNorm(grad_relu_output, layer7_cache)
         e = time.time()
-        print("Software Calculate : ",e-s)
+        if DEBUG: print("Software Calculate : ",e-s)
         # avg_pc_7 = avg_pc_7.squeeze()
         # backward_const_7 = backward_const_7.squeeze()
         s = time.time()
         avg_pc_7, backward_const_7 = Mean_Var_Dec2Bfloat(avg_pc_7, backward_const_7, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
 
         # Weight Gradient
         s = time.time()
         Weight_Gradient1_Layer8_CH0 = Read_DDR(Rd_Address=0x882DC000,  End_Address=0x882FC000)
         Weight_Gradient1_Layer8_CH0_256 = data_32_to_16(Weight_Gradient1_Layer8_CH0)
-        #print("Weight_Gradient1_Layer8_CH0 : ", len(Weight_Gradient1_Layer8_CH0))   
+        #if DEBUG: print("Weight_Gradient1_Layer8_CH0 : ", len(Weight_Gradient1_Layer8_CH0))   
 
         Weight_Gradient2_Layer8_CH0 = Read_DDR(Rd_Address=0x882FC000,  End_Address=0x8831C000)
         Weight_Gradient2_Layer8_CH0_256 = data_32_to_16(Weight_Gradient2_Layer8_CH0)
-        #print("Weight_Gradient2_Layer8_CH0 : ", len(Weight_Gradient2_Layer8_CH0))    
+        #if DEBUG: print("Weight_Gradient2_Layer8_CH0 : ", len(Weight_Gradient2_Layer8_CH0))    
 
         Weight_Gradient3_Layer8_CH0 = Read_DDR(Rd_Address=0x8831C000,  End_Address=0x8833C000)
         Weight_Gradient3_Layer8_CH0_256 = data_32_to_16(Weight_Gradient3_Layer8_CH0)
-        #print("Weight_Gradient3_Layer8_CH0 : ", len(Weight_Gradient3_Layer8_CH0)) 
+        #if DEBUG: print("Weight_Gradient3_Layer8_CH0 : ", len(Weight_Gradient3_Layer8_CH0)) 
 
         Weight_Gradient4_Layer8_CH0 = Read_DDR(Rd_Address=0x8833C000,  End_Address=0x8835C000)
         Weight_Gradient4_Layer8_CH0_256 = data_32_to_16(Weight_Gradient4_Layer8_CH0)
-        #print("Weight_Gradient4_Layer8_CH0 : ", len(Weight_Gradient4_Layer8_CH0)) 
+        #if DEBUG: print("Weight_Gradient4_Layer8_CH0 : ", len(Weight_Gradient4_Layer8_CH0)) 
 
         Weight_Gradient5_Layer8_CH0 = Read_DDR(Rd_Address=0x8835C000,  End_Address=0X8837C000)
         Weight_Gradient5_Layer8_CH0_256 = data_32_to_16(Weight_Gradient5_Layer8_CH0)
-        #print("Weight_Gradient5_Layer8_CH0 : ", len(Weight_Gradient5_Layer8_CH0)) 
+        #if DEBUG: print("Weight_Gradient5_Layer8_CH0 : ", len(Weight_Gradient5_Layer8_CH0)) 
 
         Weight_Gradient6_Layer8_CH0 = Read_DDR(Rd_Address=0X8837C000,  End_Address=0x8839C000)
         Weight_Gradient6_Layer8_CH0_256 = data_32_to_16(Weight_Gradient6_Layer8_CH0)
-        #print("Weight_Gradient6_Layer8_CH0 : ", len(Weight_Gradient6_Layer8_CH0)) 
+        #if DEBUG: print("Weight_Gradient6_Layer8_CH0 : ", len(Weight_Gradient6_Layer8_CH0)) 
 
         Weight_Gradient7_Layer8_CH0 = Read_DDR(Rd_Address=0x8839C000,  End_Address=0x883BC000)
         Weight_Gradient7_Layer8_CH0_256 = data_32_to_16(Weight_Gradient7_Layer8_CH0)
-        #print("Weight_Gradient7_Layer8_CH0 : ", len(Weight_Gradient7_Layer8_CH0)) 
+        #if DEBUG: print("Weight_Gradient7_Layer8_CH0 : ", len(Weight_Gradient7_Layer8_CH0)) 
 
         Weight_Gradient8_Layer8_CH0 = Read_DDR(Rd_Address=0x883BC000,  End_Address=0x883DC000)
         Weight_Gradient8_Layer8_CH0_256 = data_32_to_16(Weight_Gradient8_Layer8_CH0)
-        #print("Weight_Gradient8_Layer8_CH0 : ", len(Weight_Gradient8_Layer8_CH0)) 
+        #if DEBUG: print("Weight_Gradient8_Layer8_CH0 : ", len(Weight_Gradient8_Layer8_CH0)) 
 
 
         Weight_Gradient1_Layer8_CH1 = Read_DDR(Rd_Address=0x982DC000,  End_Address=0x982FC000)
         Weight_Gradient1_Layer8_CH1_256 = data_32_to_16(Weight_Gradient1_Layer8_CH1)
-        #print("Weight_Gradient1_Layer8_CH1 : ", len(Weight_Gradient1_Layer8_CH1))   
+        #if DEBUG: print("Weight_Gradient1_Layer8_CH1 : ", len(Weight_Gradient1_Layer8_CH1))   
 
         Weight_Gradient2_Layer8_CH1 = Read_DDR(Rd_Address=0x982FC000,  End_Address=0x9831C000)
         Weight_Gradient2_Layer8_CH1_256 = data_32_to_16(Weight_Gradient2_Layer8_CH1)
-        #print("Weight_Gradient2_Layer8_CH1 : ", len(Weight_Gradient2_Layer8_CH1))    
+        #if DEBUG: print("Weight_Gradient2_Layer8_CH1 : ", len(Weight_Gradient2_Layer8_CH1))    
 
         Weight_Gradient3_Layer8_CH1 = Read_DDR(Rd_Address=0x9831C000,  End_Address=0x9833C000)
         Weight_Gradient3_Layer8_CH1_256 = data_32_to_16(Weight_Gradient3_Layer8_CH1)
-        #print("Weight_Gradient3_Layer8_CH1 : ", len(Weight_Gradient3_Layer8_CH1)) 
+        #if DEBUG: print("Weight_Gradient3_Layer8_CH1 : ", len(Weight_Gradient3_Layer8_CH1)) 
 
         Weight_Gradient4_Layer8_CH1 = Read_DDR(Rd_Address=0x9833C000,  End_Address=0x9835C000)
         Weight_Gradient4_Layer8_CH1_256 = data_32_to_16(Weight_Gradient4_Layer8_CH1)
-        #print("Weight_Gradient4_Layer8_CH1 : ", len(Weight_Gradient4_Layer8_CH1)) 
+        #if DEBUG: print("Weight_Gradient4_Layer8_CH1 : ", len(Weight_Gradient4_Layer8_CH1)) 
 
         Weight_Gradient5_Layer8_CH1 = Read_DDR(Rd_Address=0x9835C000,  End_Address=0x9837C000)
         Weight_Gradient5_Layer8_CH1_256 = data_32_to_16(Weight_Gradient5_Layer8_CH1)
-        #print("Weight_Gradient5_Layer8_CH1 : ", len(Weight_Gradient5_Layer8_CH1)) 
+        #if DEBUG: print("Weight_Gradient5_Layer8_CH1 : ", len(Weight_Gradient5_Layer8_CH1)) 
 
         Weight_Gradient6_Layer8_CH1 = Read_DDR(Rd_Address=0x9837C000,  End_Address=0x9839C000)
         Weight_Gradient6_Layer8_CH1_256 = data_32_to_16(Weight_Gradient6_Layer8_CH1)
-        #print("Weight_Gradient6_Layer8_CH1 : ", len(Weight_Gradient6_Layer8_CH1)) 
+        #if DEBUG: print("Weight_Gradient6_Layer8_CH1 : ", len(Weight_Gradient6_Layer8_CH1)) 
 
         Weight_Gradient7_Layer8_CH1 = Read_DDR(Rd_Address=0x9839C000,  End_Address=0x983BC000)
         Weight_Gradient7_Layer8_CH1_256 = data_32_to_16(Weight_Gradient7_Layer8_CH1)
-        #print("Weight_Gradient7_Layer8_CH1 : ", len(Weight_Gradient7_Layer8_CH1)) 
+        #if DEBUG: print("Weight_Gradient7_Layer8_CH1 : ", len(Weight_Gradient7_Layer8_CH1)) 
 
         Weight_Gradient8_Layer8_CH1 = Read_DDR(Rd_Address=0x983BC000,  End_Address=0x983DC000)
         Weight_Gradient8_Layer8_CH1_256 = data_32_to_16(Weight_Gradient8_Layer8_CH1)
-        #print("Weight_Gradient8_Layer8_CH1 : ", len(Weight_Gradient8_Layer8_CH1)) 
+        #if DEBUG: print("Weight_Gradient8_Layer8_CH1 : ", len(Weight_Gradient8_Layer8_CH1)) 
         e = time.time()
-        print("Read WG DDR & 32bit to 16bit ",e-s)
+        if DEBUG: print("Read WG DDR & 32bit to 16bit ",e-s)
 
         '''
         test_out = 'Weight_Result/Weight_Gradient1_Layer8_CH0.txt'
@@ -3713,7 +3819,7 @@ class YOLOv2_Tiny_FPGA(object):
         # s = time.time()
         # Weight_Gradient_Layer8 = Read_WeightGradient_Bfloat2Dec_whole_image(Weight_Gradient_Layer8_CH0, Weight_Gradient_Layer8_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, In_CH=1024, Layer8=True)
         # e = time.time()
-        # print("Read_WeightGradient_Bfloat2Dec_whole_image Time : ", e-s)
+        # if DEBUG: print("Read_WeightGradient_Bfloat2Dec_whole_image Time : ", e-s)
         s = time.time()
         Weight_Gradient1_Layer8 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient1_Layer8_CH0_256, Weight_Gradient1_Layer8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, In_CH=1024, Layer8=True)
         Weight_Gradient2_Layer8 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient2_Layer8_CH0_256, Weight_Gradient2_Layer8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, In_CH=1024, Layer8=True)
@@ -3724,7 +3830,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient7_Layer8 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient7_Layer8_CH0_256, Weight_Gradient7_Layer8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, In_CH=1024, Layer8=True)
         Weight_Gradient8_Layer8 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient8_Layer8_CH0_256, Weight_Gradient8_Layer8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, In_CH=1024, Layer8=True)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Weight_Gradient_Layer8 = [Weight_Gradient1_Layer8, Weight_Gradient2_Layer8, Weight_Gradient3_Layer8, Weight_Gradient4_Layer8, Weight_Gradient5_Layer8, 
                                 Weight_Gradient6_Layer8, Weight_Gradient7_Layer8, Weight_Gradient8_Layer8]
@@ -3741,28 +3847,28 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Backward_Layer7 = Weight_Hardware_Backward_ReOrdering_OtherLayer(1024, 1024, data.Weight_Bfloat[7], backward_const_7, avg_pc_7)
         e = time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
 
         # Break 256To32 and Flip the Data: 
         s = time.time()
         Weight_Backward_Layer7_CH0 = data_256_32(Weight_Backward_Layer7[0])
         Weight_Backward_Layer7_CH1 = data_256_32(Weight_Backward_Layer7[1])
         e = time.time()
-        print("256bit to 32bit : ",e-s)
+        if DEBUG: print("256bit to 32bit : ",e-s)
 
         # Write Weight For Backward into DDR
         s = time.time()
         Write_DDR(Weight_Backward_Layer7_CH0,Wr_Address=0x81340000)
         Write_DDR(Weight_Backward_Layer7_CH1,Wr_Address=0x91340000)
         e = time.time()
-        print("Write DDR : ",e-s)
+        if DEBUG: print("Write DDR : ",e-s)
 
         Blayer8_end = time.time()
-        print("Layer8 Process Time : ", Blayer8_end-Blayer8_start)
+        if DEBUG: print("Layer8 Process Time : ", Blayer8_end-Blayer8_start)
 
 
         resume()
-        ##print(irq_val)
+        ##if DEBUG: print(irq_val)
 
         #################################################
         #             Backward Layer 7 Start            #
@@ -3821,7 +3927,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad8_Layer7_CH1 = Read_DDR(Rd_Address=0x96C84000,  End_Address=0x96CB8000)
         Output_Grad8_Layer7_CH1 = data_32_to_16(Output_Grad8_Layer7_CH1)
         e = time.time()
-        print("Read Output_Gradient Time : ",e-s)
+        if DEBUG: print("Read Output_Gradient Time : ",e-s)
 
         s = time.time()
         Output_Grad1_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer7_CH0, Output_Grad1_Layer7_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
@@ -3836,7 +3942,7 @@ class YOLOv2_Tiny_FPGA(object):
                                 Output_Grad5_Layer7 + Output_Grad6_Layer7 + Output_Grad7_Layer7 + Output_Grad8_Layer7    
         Output_Grad_Layer7 = torch.tensor([float(value) for value in Output_Grads_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
         e = time.time()
-        print("Read_OutFmap_Bfloat2Dec Time : ", e-s)
+        if DEBUG: print("Read_OutFmap_Bfloat2Dec Time : ", e-s)
 
         # BReLu Marking
         s = time.time()
@@ -3888,7 +3994,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking8_Layer6_CH1 = Read_DDR(Rd_Address=0x980A0000,  End_Address=0x980D4000)
         ReLu_Marking8_Layer6_CH1_256 = data_32_to_16(ReLu_Marking8_Layer6_CH1)
         e = time.time()
-        print("Read ReLu_Marking Time : ",e-s)
+        if DEBUG: print("Read ReLu_Marking Time : ",e-s)
         # ReLu Reordering
         s = time.time()
         ReLu_Marking1_Layer6 = Read_ReLu_Marking(ReLu_Marking1_Layer6_CH0_256, ReLu_Marking1_Layer6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
@@ -3907,7 +4013,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking_Layer6 = torch.tensor([float(value) for value in ReLu_Marking_Layer6], dtype=torch.float32).reshape(8, 1024, 13, 13)
 
         e = time.time()
-        print("ReLu Marking Convert Time : ",e-s)
+        if DEBUG: print("ReLu Marking Convert Time : ",e-s)
 
         # BReLu Calculate
         # Output_Grad_layer7_input = torch.tensor(Output_Grad_Layer7, dtype=torch.float32).reshape(8,1024,13,13)
@@ -3921,18 +4027,18 @@ class YOLOv2_Tiny_FPGA(object):
         # avg_pc_6 = avg_pc_6.squeeze()
         # backward_const_6 = backward_const_6.squeeze()
         e = time.time()
-        print("Backward ReLu & Backward Maxpoolin Time : ",e-s)
+        if DEBUG: print("Backward ReLu & Backward Maxpoolin Time : ",e-s)
 
         s = time.time()
         avg_pc_6, backward_const_6 = Mean_Var_Dec2Bfloat(avg_pc_6, backward_const_6, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Mean_Var_Dec2Bfloat Time : ",e-s)
+        if DEBUG: print("Mean_Var_Dec2Bfloat Time : ",e-s)
 
         # Weight_Backward_Layer6 for Soft2Hardware
         s = time.time()
         Weight_Backward_Layer6 = Weight_Hardware_Backward_ReOrdering_OtherLayer(1024, 512, data.Weight_Bfloat[6], backward_const_6, avg_pc_6)
         e = time.time()
-        print("Weight_Hardware_Backward_ReOrdering_OtherLayer Time : ",e-s)
+        if DEBUG: print("Weight_Hardware_Backward_ReOrdering_OtherLayer Time : ",e-s)
 
 
         # Break 256To32 and Flip the Data: 
@@ -3940,13 +4046,13 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Backward_Layer6_CH0 = data_256_32(Weight_Backward_Layer6[0])
         Weight_Backward_Layer6_CH1 = data_256_32(Weight_Backward_Layer6[1])
         e = time.time()
-        print("data_256_32 Time : ",e-s)
+        if DEBUG: print("data_256_32 Time : ",e-s)
         # Write Weight For Backward into DDR
         s = time.time()
         Write_DDR(Weight_Backward_Layer6_CH0,Wr_Address=0x81D40000)
         Write_DDR(Weight_Backward_Layer6_CH1,Wr_Address=0x91D40000)
         e = time.time()
-        print("Write_DDR Time : ",e-s)
+        if DEBUG: print("Write_DDR Time : ",e-s)
 
         # Gradient of Beta Calculation:
         # Beta_Gradient_Layer7 = (Output_Grad_Layer7).sum(dim=(0, 2, 3), keepdim=True)
@@ -3955,69 +4061,69 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Gradient1_Layer7_CH0 = Read_DDR(Rd_Address=0x883DC000,  End_Address=0x88CDC000)
         Weight_Gradient1_Layer7_CH0_256 = data_32_to_16(Weight_Gradient1_Layer7_CH0)
-        #print("Weight_Gradient1_Layer7_CH0 : ", len(Weight_Gradient1_Layer7_CH0))   
+        #if DEBUG: print("Weight_Gradient1_Layer7_CH0 : ", len(Weight_Gradient1_Layer7_CH0))   
 
         Weight_Gradient2_Layer7_CH0 = Read_DDR(Rd_Address=0x88CDC000,  End_Address=0x895DC000)
         Weight_Gradient2_Layer7_CH0_256 = data_32_to_16(Weight_Gradient2_Layer7_CH0)
-        #print("Weight_Gradient2_Layer7_CH0 : ", len(Weight_Gradient2_Layer7_CH0))    
+        #if DEBUG: print("Weight_Gradient2_Layer7_CH0 : ", len(Weight_Gradient2_Layer7_CH0))    
 
         Weight_Gradient3_Layer7_CH0 = Read_DDR(Rd_Address=0x895DC000,  End_Address=0x89EDC000)
         Weight_Gradient3_Layer7_CH0_256 = data_32_to_16(Weight_Gradient3_Layer7_CH0)
-        #print("Weight_Gradient3_Layer7_CH0 : ", len(Weight_Gradient3_Layer7_CH0)) 
+        #if DEBUG: print("Weight_Gradient3_Layer7_CH0 : ", len(Weight_Gradient3_Layer7_CH0)) 
 
         Weight_Gradient4_Layer7_CH0 = Read_DDR(Rd_Address=0x89EDC000,  End_Address=0x8A7DC000)
         Weight_Gradient4_Layer7_CH0_256 = data_32_to_16(Weight_Gradient4_Layer7_CH0)
-        #print("Weight_Gradient4_Layer7_CH0 : ", len(Weight_Gradient4_Layer7_CH0)) 
+        #if DEBUG: print("Weight_Gradient4_Layer7_CH0 : ", len(Weight_Gradient4_Layer7_CH0)) 
 
         Weight_Gradient5_Layer7_CH0 = Read_DDR(Rd_Address=0x8A7DC000,  End_Address=0x8B0DC000)
         Weight_Gradient5_Layer7_CH0_256 = data_32_to_16(Weight_Gradient5_Layer7_CH0)
-        #print("Weight_Gradient5_Layer7_CH0 : ", len(Weight_Gradient5_Layer7_CH0)) 
+        #if DEBUG: print("Weight_Gradient5_Layer7_CH0 : ", len(Weight_Gradient5_Layer7_CH0)) 
 
         Weight_Gradient6_Layer7_CH0 = Read_DDR(Rd_Address=0x8B0DC000,  End_Address=0x8B9DC000)
         Weight_Gradient6_Layer7_CH0_256 = data_32_to_16(Weight_Gradient6_Layer7_CH0)
-        #print("Weight_Gradient6_Layer7_CH0 : ", len(Weight_Gradient6_Layer7_CH0)) 
+        #if DEBUG: print("Weight_Gradient6_Layer7_CH0 : ", len(Weight_Gradient6_Layer7_CH0)) 
 
         Weight_Gradient7_Layer7_CH0 = Read_DDR(Rd_Address=0x8B9DC000,  End_Address=0x8C2DC000)
         Weight_Gradient7_Layer7_CH0_256 = data_32_to_16(Weight_Gradient7_Layer7_CH0)
-        #print("Weight_Gradient7_Layer7_CH0 : ", len(Weight_Gradient7_Layer7_CH0)) 
+        #if DEBUG: print("Weight_Gradient7_Layer7_CH0 : ", len(Weight_Gradient7_Layer7_CH0)) 
 
         Weight_Gradient8_Layer7_CH0 = Read_DDR(Rd_Address=0x8C2DC000,  End_Address=0x8CBDC000)
         Weight_Gradient8_Layer7_CH0_256 = data_32_to_16(Weight_Gradient8_Layer7_CH0)
-        #print("Weight_Gradient8_Layer7_CH0 : ", len(Weight_Gradient8_Layer7_CH0)) 
+        #if DEBUG: print("Weight_Gradient8_Layer7_CH0 : ", len(Weight_Gradient8_Layer7_CH0)) 
 
         Weight_Gradient1_Layer7_CH1 = Read_DDR(Rd_Address=0x983DC000,  End_Address=0x98CDC000)
         Weight_Gradient1_Layer7_CH1_256 = data_32_to_16(Weight_Gradient1_Layer7_CH1)
-        #print("Weight_Gradient1_Layer7_CH1 : ", len(Weight_Gradient1_Layer7_CH1)) 
+        #if DEBUG: print("Weight_Gradient1_Layer7_CH1 : ", len(Weight_Gradient1_Layer7_CH1)) 
 
         Weight_Gradient2_Layer7_CH1 = Read_DDR(Rd_Address=0x98CDC000,  End_Address=0x995DC000)
         Weight_Gradient2_Layer7_CH1_256 = data_32_to_16(Weight_Gradient2_Layer7_CH1)
-        #print("Weight_Gradient2_Layer7_CH1 : ", len(Weight_Gradient2_Layer7_CH1)) 
+        #if DEBUG: print("Weight_Gradient2_Layer7_CH1 : ", len(Weight_Gradient2_Layer7_CH1)) 
 
         Weight_Gradient3_Layer7_CH1 = Read_DDR(Rd_Address=0x995DC000,  End_Address=0x99EDC000)
         Weight_Gradient3_Layer7_CH1_256 = data_32_to_16(Weight_Gradient3_Layer7_CH1)
-        #print("Weight_Gradient3_Layer7_CH1 : ", len(Weight_Gradient3_Layer7_CH1)) 
+        #if DEBUG: print("Weight_Gradient3_Layer7_CH1 : ", len(Weight_Gradient3_Layer7_CH1)) 
 
         Weight_Gradient4_Layer7_CH1 = Read_DDR(Rd_Address=0x99EDC000,  End_Address=0x9A7DC000)
         Weight_Gradient4_Layer7_CH1_256 = data_32_to_16(Weight_Gradient4_Layer7_CH1)
-        #print("Weight_Gradient4_Layer7_CH1 : ", len(Weight_Gradient4_Layer7_CH1)) 
+        #if DEBUG: print("Weight_Gradient4_Layer7_CH1 : ", len(Weight_Gradient4_Layer7_CH1)) 
 
         Weight_Gradient5_Layer7_CH1 = Read_DDR(Rd_Address=0x9A7DC000,  End_Address=0x9B0DC000)
         Weight_Gradient5_Layer7_CH1_256 = data_32_to_16(Weight_Gradient5_Layer7_CH1)
-        #print("Weight_Gradient5_Layer7_CH1 : ", len(Weight_Gradient5_Layer7_CH1)) 
+        #if DEBUG: print("Weight_Gradient5_Layer7_CH1 : ", len(Weight_Gradient5_Layer7_CH1)) 
 
         Weight_Gradient6_Layer7_CH1 = Read_DDR(Rd_Address=0x9B0DC000,  End_Address=0x9B9DC000)
         Weight_Gradient6_Layer7_CH1_256 = data_32_to_16(Weight_Gradient6_Layer7_CH1)
-        #print("Weight_Gradient6_Layer7_CH1 : ", len(Weight_Gradient6_Layer7_CH1)) 
+        #if DEBUG: print("Weight_Gradient6_Layer7_CH1 : ", len(Weight_Gradient6_Layer7_CH1)) 
 
         Weight_Gradient7_Layer7_CH1 = Read_DDR(Rd_Address=0x9B9DC000,  End_Address=0x9C2DC000)
         Weight_Gradient7_Layer7_CH1_256 = data_32_to_16(Weight_Gradient7_Layer7_CH1)
-        #print("Weight_Gradient7_Layer7_CH1 : ", len(Weight_Gradient7_Layer7_CH1)) 
+        #if DEBUG: print("Weight_Gradient7_Layer7_CH1 : ", len(Weight_Gradient7_Layer7_CH1)) 
 
         Weight_Gradient8_Layer7_CH1 = Read_DDR(Rd_Address=0x9C2DC000,  End_Address=0x9CBDC000)
         Weight_Gradient8_Layer7_CH1_256 = data_32_to_16(Weight_Gradient8_Layer7_CH1)
-        #print("Weight_Gradient8_Layer7_CH1 : ", len(Weight_Gradient8_Layer7_CH1)) 
+        #if DEBUG: print("Weight_Gradient8_Layer7_CH1 : ", len(Weight_Gradient8_Layer7_CH1)) 
         e = time.time()
-        print("Read Weight_Gradient8 Time : ",e-s)
+        if DEBUG: print("Read Weight_Gradient8 Time : ",e-s)
 
         '''
         test_out = 'Weight_Result/Weight_Gradient1_Layer7_CH0.txt'
@@ -4156,10 +4262,10 @@ class YOLOv2_Tiny_FPGA(object):
         
         Weight_Gradient_Layer7 = torch.tensor([float(value) for value in Weight_Gradient_Layer7], dtype=torch.float32).reshape(1024, 1024, 3, 3)  
         e = time.time()
-        print("WeightGradient_Bfloat2Dec Time : ",e-s)
+        if DEBUG: print("WeightGradient_Bfloat2Dec Time : ",e-s)
         layer7_end = time.time()
         process_time = layer7_end - layer7_start
-        print("Layer7 Process Time : ", process_time)  
+        if DEBUG: print("Layer7 Process Time : ", process_time)  
 
         resume()
 
@@ -4221,7 +4327,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad8_Layer6_CH1 = Read_DDR(Rd_Address=0x96A2E000,  End_Address=0x96A48000)
         Output_Grad8_Layer6_CH1 = data_32_to_16(Output_Grad8_Layer6_CH1)
         e = time.time()
-        print("Read OG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
         Output_Grad1_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer6_CH0, Output_Grad1_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
@@ -4233,7 +4339,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad7_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer6_CH0, Output_Grad7_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
         Output_Grad8_Layer6 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer6_CH0, Output_Grad8_Layer6_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Output_Grads_Layer6 = Output_Grad1_Layer6 + Output_Grad2_Layer6 + Output_Grad3_Layer6 + Output_Grad4_Layer6 + \
                                 Output_Grad5_Layer6 + Output_Grad6_Layer6 + Output_Grad7_Layer6 + Output_Grad8_Layer6    
@@ -4290,7 +4396,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking8_Layer5_CH1 = Read_DDR(Rd_Address=0x97F1A000,  End_Address=0x97F34000)
         ReLu_Marking8_Layer5_CH1_256 = data_32_to_16(ReLu_Marking8_Layer5_CH1)
         e = time.time()
-        print("Read RM DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read RM DDR & 32bit to 16bit : ",e-s)
 
         # ReLu Reordering
         s = time.time()
@@ -4303,7 +4409,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking7_Layer5 = Read_ReLu_Marking(ReLu_Marking7_Layer5_CH0_256, ReLu_Marking7_Layer5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
         ReLu_Marking8_Layer5 = Read_ReLu_Marking(ReLu_Marking8_Layer5_CH0_256, ReLu_Marking8_Layer5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
         e = time.time()
-        print("ReLu Reordering : ",e-s)
+        if DEBUG: print("ReLu Reordering : ",e-s)
 
         ReLu_Marking_Layer5 = ReLu_Marking1_Layer5 + ReLu_Marking2_Layer5 + ReLu_Marking3_Layer5 + ReLu_Marking4_Layer5 + ReLu_Marking5_Layer5 + \
                                 ReLu_Marking6_Layer5 + ReLu_Marking7_Layer5 + ReLu_Marking8_Layer5
@@ -4320,34 +4426,34 @@ class YOLOv2_Tiny_FPGA(object):
         #grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_5, dL_dbeta_5, avg_pc_5, backward_const_5 = backward_LightNorm(grad_relu_output, layer5_cache)
         e = time.time()
-        print("Software : ",e-s)
+        if DEBUG: print("Software : ",e-s)
 
         # avg_pc_5 = avg_pc_5.squeeze()
         # backward_const_5 = backward_const_5.squeeze()
         s = time.time()
         avg_pc_5, backward_const_5 = Mean_Var_Dec2Bfloat(avg_pc_5, backward_const_5, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
 
         # Weight_Backward_Layer5 for Soft2Hardware
         s = time.time()
         Weight_Backward_Layer5 = Weight_Hardware_Backward_ReOrdering_OtherLayer(512, 256, data.Weight_Bfloat[5], backward_const_5, avg_pc_5)
         e = time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
 
         # Break 256To32 and Flip the Data: 
         s = time.time()
         Weight_Backward_Layer5_CH0 = data_256_32(Weight_Backward_Layer5[0])
         Weight_Backward_Layer5_CH1 = data_256_32(Weight_Backward_Layer5[1])
         e = time.time()
-        print("256bit to 32bit : ",e-s)
+        if DEBUG: print("256bit to 32bit : ",e-s)
 
         # Write Weight For Backward into DDR
         s = time.time()
         Write_DDR(Weight_Backward_Layer5_CH0,Wr_Address=0x82240000)
         Write_DDR(Weight_Backward_Layer5_CH1,Wr_Address=0x92240000)
         e = time.time()
-        print("Write DDR : ",e-s)
+        if DEBUG: print("Write DDR : ",e-s)
 
         
         # Gradient of Beta Calculation:
@@ -4357,69 +4463,69 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Gradient1_Layer6_CH0 = Read_DDR(Rd_Address=0x8CBDC000,  End_Address=0x8D05C000)
         Weight_Gradient1_Layer6_CH0_256 = data_32_to_16(Weight_Gradient1_Layer6_CH0)
-        #print("Weight_Gradient1_Layer6_CH0 : ", len(Weight_Gradient1_Layer6_CH0))   
+        #if DEBUG: print("Weight_Gradient1_Layer6_CH0 : ", len(Weight_Gradient1_Layer6_CH0))   
 
         Weight_Gradient2_Layer6_CH0 = Read_DDR(Rd_Address=0x8D05C000,  End_Address=0x8D4DC000)
         Weight_Gradient2_Layer6_CH0_256 = data_32_to_16(Weight_Gradient2_Layer6_CH0)
-        #print("Weight_Gradient2_Layer6_CH0 : ", len(Weight_Gradient2_Layer6_CH0))    
+        #if DEBUG: print("Weight_Gradient2_Layer6_CH0 : ", len(Weight_Gradient2_Layer6_CH0))    
 
         Weight_Gradient3_Layer6_CH0 = Read_DDR(Rd_Address=0x8D4DC000,  End_Address=0x8D95C000)
         Weight_Gradient3_Layer6_CH0_256 = data_32_to_16(Weight_Gradient3_Layer6_CH0)
-        #print("Weight_Gradient3_Layer6_CH0 : ", len(Weight_Gradient3_Layer6_CH0)) 
+        #if DEBUG: print("Weight_Gradient3_Layer6_CH0 : ", len(Weight_Gradient3_Layer6_CH0)) 
 
         Weight_Gradient4_Layer6_CH0 = Read_DDR(Rd_Address=0x8D95C000,  End_Address=0x8DDDC000)
         Weight_Gradient4_Layer6_CH0_256 = data_32_to_16(Weight_Gradient4_Layer6_CH0)
-        #print("Weight_Gradient4_Layer6_CH0 : ", len(Weight_Gradient4_Layer6_CH0)) 
+        #if DEBUG: print("Weight_Gradient4_Layer6_CH0 : ", len(Weight_Gradient4_Layer6_CH0)) 
 
         Weight_Gradient5_Layer6_CH0 = Read_DDR(Rd_Address=0x8DDDC000,  End_Address=0x8E25C000)
         Weight_Gradient5_Layer6_CH0_256 = data_32_to_16(Weight_Gradient5_Layer6_CH0)
-        #print("Weight_Gradient5_Layer6_CH0 : ", len(Weight_Gradient5_Layer6_CH0)) 
+        #if DEBUG: print("Weight_Gradient5_Layer6_CH0 : ", len(Weight_Gradient5_Layer6_CH0)) 
 
         Weight_Gradient6_Layer6_CH0 = Read_DDR(Rd_Address=0x8E25C000,  End_Address=0x8E6DC000)
         Weight_Gradient6_Layer6_CH0_256 = data_32_to_16(Weight_Gradient6_Layer6_CH0)
-        #print("Weight_Gradient6_Layer6_CH0 : ", len(Weight_Gradient6_Layer6_CH0)) 
+        #if DEBUG: print("Weight_Gradient6_Layer6_CH0 : ", len(Weight_Gradient6_Layer6_CH0)) 
 
         Weight_Gradient7_Layer6_CH0 = Read_DDR(Rd_Address=0x8E6DC000,  End_Address=0x8EB5C000)
         Weight_Gradient7_Layer6_CH0_256 = data_32_to_16(Weight_Gradient7_Layer6_CH0)
-        #print("Weight_Gradient7_Layer6_CH0 : ", len(Weight_Gradient7_Layer6_CH0)) 
+        #if DEBUG: print("Weight_Gradient7_Layer6_CH0 : ", len(Weight_Gradient7_Layer6_CH0)) 
 
         Weight_Gradient8_Layer6_CH0 = Read_DDR(Rd_Address=0x8EB5C000,  End_Address=0x8EFDC000)
         Weight_Gradient8_Layer6_CH0_256 = data_32_to_16(Weight_Gradient8_Layer6_CH0)
-        #print("Weight_Gradient8_Layer6_CH0 : ", len(Weight_Gradient8_Layer6_CH0)) 
+        #if DEBUG: print("Weight_Gradient8_Layer6_CH0 : ", len(Weight_Gradient8_Layer6_CH0)) 
 
         Weight_Gradient1_Layer6_CH1 = Read_DDR(Rd_Address=0x9CBDC000,  End_Address=0x9D05C000)
         Weight_Gradient1_Layer6_CH1_256 = data_32_to_16(Weight_Gradient1_Layer6_CH1)
-        #print("Weight_Gradient1_Layer6_CH1 : ", len(Weight_Gradient1_Layer6_CH1)) 
+        #if DEBUG: print("Weight_Gradient1_Layer6_CH1 : ", len(Weight_Gradient1_Layer6_CH1)) 
 
         Weight_Gradient2_Layer6_CH1 = Read_DDR(Rd_Address=0x9D05C000,  End_Address=0x9D4DC000)
         Weight_Gradient2_Layer6_CH1_256 = data_32_to_16(Weight_Gradient2_Layer6_CH1)
-        #print("Weight_Gradient2_Layer6_CH1 : ", len(Weight_Gradient2_Layer6_CH1)) 
+        #if DEBUG: print("Weight_Gradient2_Layer6_CH1 : ", len(Weight_Gradient2_Layer6_CH1)) 
 
         Weight_Gradient3_Layer6_CH1 = Read_DDR(Rd_Address=0x9D4DC000,  End_Address=0x9D95C000)
         Weight_Gradient3_Layer6_CH1_256 = data_32_to_16(Weight_Gradient3_Layer6_CH1)
-        #print("Weight_Gradient3_Layer6_CH1 : ", len(Weight_Gradient3_Layer6_CH1)) 
+        #if DEBUG: print("Weight_Gradient3_Layer6_CH1 : ", len(Weight_Gradient3_Layer6_CH1)) 
 
         Weight_Gradient4_Layer6_CH1 = Read_DDR(Rd_Address=0x9D95C000,  End_Address=0x9DDDC000)
         Weight_Gradient4_Layer6_CH1_256 = data_32_to_16(Weight_Gradient4_Layer6_CH1)
-        #print("Weight_Gradient4_Layer6_CH1 : ", len(Weight_Gradient4_Layer6_CH1)) 
+        #if DEBUG: print("Weight_Gradient4_Layer6_CH1 : ", len(Weight_Gradient4_Layer6_CH1)) 
 
         Weight_Gradient5_Layer6_CH1 = Read_DDR(Rd_Address=0x9DDDC000,  End_Address=0x9E25C000)
         Weight_Gradient5_Layer6_CH1_256 = data_32_to_16(Weight_Gradient5_Layer6_CH1)
-        #print("Weight_Gradient5_Layer6_CH1 : ", len(Weight_Gradient5_Layer6_CH1)) 
+        #if DEBUG: print("Weight_Gradient5_Layer6_CH1 : ", len(Weight_Gradient5_Layer6_CH1)) 
 
         Weight_Gradient6_Layer6_CH1 = Read_DDR(Rd_Address=0x9E25C000,  End_Address=0x9E6DC000)
         Weight_Gradient6_Layer6_CH1_256 = data_32_to_16(Weight_Gradient6_Layer6_CH1)
-        #print("Weight_Gradient6_Layer6_CH1 : ", len(Weight_Gradient6_Layer6_CH1)) 
+        #if DEBUG: print("Weight_Gradient6_Layer6_CH1 : ", len(Weight_Gradient6_Layer6_CH1)) 
 
         Weight_Gradient7_Layer6_CH1 = Read_DDR(Rd_Address=0x9E6DC000,  End_Address=0x9EB5C000)
         Weight_Gradient7_Layer6_CH1_256 = data_32_to_16(Weight_Gradient7_Layer6_CH1)
-        #print("Weight_Gradient7_Layer6_CH1 : ", len(Weight_Gradient7_Layer6_CH1)) 
+        #if DEBUG: print("Weight_Gradient7_Layer6_CH1 : ", len(Weight_Gradient7_Layer6_CH1)) 
 
         Weight_Gradient8_Layer6_CH1 = Read_DDR(Rd_Address=0x9EB5C000,  End_Address=0x9EFDC000)
         Weight_Gradient8_Layer6_CH1_256 = data_32_to_16(Weight_Gradient8_Layer6_CH1)
-        #print("Weight_Gradient8_Layer6_CH1 : ", len(Weight_Gradient8_Layer6_CH1)) 
+        #if DEBUG: print("Weight_Gradient8_Layer6_CH1 : ", len(Weight_Gradient8_Layer6_CH1)) 
         e = time.time()
-        print("Read WG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read WG DDR & 32bit to 16bit : ",e-s)
 
         '''
         test_out = 'Weight_Result/Weight_Gradient1_Layer6_CH0.txt'
@@ -4545,7 +4651,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient7_Layer6 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient7_Layer6_CH0_256, Weight_Gradient7_Layer6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, In_CH=512, Layer8=False)
         Weight_Gradient8_Layer6 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient8_Layer6_CH0_256, Weight_Gradient8_Layer6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, In_CH=512, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Weight_Gradient_Layer6 = [Weight_Gradient1_Layer6, Weight_Gradient2_Layer6, Weight_Gradient3_Layer6, Weight_Gradient4_Layer6, Weight_Gradient5_Layer6, 
                                 Weight_Gradient6_Layer6, Weight_Gradient7_Layer6, Weight_Gradient8_Layer6]
@@ -4554,7 +4660,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         layer6_end = time.time()
         process_time = layer6_end - layer6_start
-        print("Layer6 Process Time : ", process_time)
+        if DEBUG: print("Layer6 Process Time : ", process_time)
 
         resume()
 
@@ -4569,69 +4675,69 @@ class YOLOv2_Tiny_FPGA(object):
         # Read Gradient of Output After ReLU Backward: 
         Output_Grad1_Layer5_CH0 = Read_DDR(Rd_Address=0x86770000,  End_Address=0x8677D000)
         Output_Grad1_Layer5_CH0 = data_32_to_16(Output_Grad1_Layer5_CH0)
-        #print("Read Output_Grad1_Layer5_CH0")
+        #if DEBUG: print("Read Output_Grad1_Layer5_CH0")
 
         Output_Grad1_Layer5_CH1 = Read_DDR(Rd_Address=0x96770000,  End_Address=0x9677D000)
         Output_Grad1_Layer5_CH1 = data_32_to_16(Output_Grad1_Layer5_CH1)
-        #print("Read Output_Grad1_Layer5_CH1")
+        #if DEBUG: print("Read Output_Grad1_Layer5_CH1")
 
         Output_Grad2_Layer5_CH0 = Read_DDR(Rd_Address=0x8677D000,  End_Address=0x8678A000)
         Output_Grad2_Layer5_CH0 = data_32_to_16(Output_Grad2_Layer5_CH0)
-        #print("Read Output_Grad2_Layer5_CH0")
+        #if DEBUG: print("Read Output_Grad2_Layer5_CH0")
 
         Output_Grad2_Layer5_CH1 = Read_DDR(Rd_Address=0x9677D000,  End_Address=0x9678A000)
         Output_Grad2_Layer5_CH1 = data_32_to_16(Output_Grad2_Layer5_CH1)
-        #print("Read Output_Grad2_Layer5_CH1")
+        #if DEBUG: print("Read Output_Grad2_Layer5_CH1")
 
         Output_Grad3_Layer5_CH0 = Read_DDR(Rd_Address=0x8678A000,  End_Address=0X86797000)
         Output_Grad3_Layer5_CH0 = data_32_to_16(Output_Grad3_Layer5_CH0)
-        #print("Read Output_Grad3_Layer5_CH0")
+        #if DEBUG: print("Read Output_Grad3_Layer5_CH0")
 
         Output_Grad3_Layer5_CH1 = Read_DDR(Rd_Address=0x9678A000,  End_Address=0x96797000)
         Output_Grad3_Layer5_CH1 = data_32_to_16(Output_Grad3_Layer5_CH1)
-        #print("Read Output_Grad3_Layer5_CH1")
+        #if DEBUG: print("Read Output_Grad3_Layer5_CH1")
 
         Output_Grad4_Layer5_CH0 = Read_DDR(Rd_Address=0x86797000,  End_Address=0x867A4000)
         Output_Grad4_Layer5_CH0 = data_32_to_16(Output_Grad4_Layer5_CH0)
-        #print("Read Output_Grad4_Layer5_CH0")
+        #if DEBUG: print("Read Output_Grad4_Layer5_CH0")
 
         Output_Grad4_Layer5_CH1 = Read_DDR(Rd_Address=0x96797000,  End_Address=0x967A4000)
         Output_Grad4_Layer5_CH1 = data_32_to_16(Output_Grad4_Layer5_CH1)
-        #print("Read Output_Grad4_Layer5_CH1")
+        #if DEBUG: print("Read Output_Grad4_Layer5_CH1")
 
         Output_Grad5_Layer5_CH0 = Read_DDR(Rd_Address=0x867A4000,  End_Address=0x867B1000)
         Output_Grad5_Layer5_CH0 = data_32_to_16(Output_Grad5_Layer5_CH0)
-        #print("Read Output_Grad5_Layer5_CH0")
+        #if DEBUG: print("Read Output_Grad5_Layer5_CH0")
 
         Output_Grad5_Layer5_CH1 = Read_DDR(Rd_Address=0x967A4000,  End_Address=0x967B1000)
         Output_Grad5_Layer5_CH1 = data_32_to_16(Output_Grad5_Layer5_CH1)
-        #print("Read Output_Grad5_Layer5_CH1")
+        #if DEBUG: print("Read Output_Grad5_Layer5_CH1")
 
         Output_Grad6_Layer5_CH0 = Read_DDR(Rd_Address=0x867B1000,  End_Address=0x867BE000)
         Output_Grad6_Layer5_CH0 = data_32_to_16(Output_Grad6_Layer5_CH0)
-        #print("Read Output_Grad6_Layer5_CH0")
+        #if DEBUG: print("Read Output_Grad6_Layer5_CH0")
 
         Output_Grad6_Layer5_CH1 = Read_DDR(Rd_Address=0x967B1000,  End_Address=0x967BE000)
         Output_Grad6_Layer5_CH1 = data_32_to_16(Output_Grad6_Layer5_CH1)
-        #print("Read Output_Grad6_Layer5_CH1")
+        #if DEBUG: print("Read Output_Grad6_Layer5_CH1")
 
         Output_Grad7_Layer5_CH0 = Read_DDR(Rd_Address=0x867BE000,  End_Address=0x867CB000)
         Output_Grad7_Layer5_CH0 = data_32_to_16(Output_Grad7_Layer5_CH0)
-        #print("Read Output_Grad7_Layer5_CH0")
+        #if DEBUG: print("Read Output_Grad7_Layer5_CH0")
 
         Output_Grad7_Layer5_CH1 = Read_DDR(Rd_Address=0x967BE000,  End_Address=0x967CB000)
         Output_Grad7_Layer5_CH1 = data_32_to_16(Output_Grad7_Layer5_CH1)
-        #print("Read Output_Grad7_Layer5_CH1")
+        #if DEBUG: print("Read Output_Grad7_Layer5_CH1")
 
         Output_Grad8_Layer5_CH0 = Read_DDR(Rd_Address=0x867CB000,  End_Address=0x867D8000)
         Output_Grad8_Layer5_CH0 = data_32_to_16(Output_Grad8_Layer5_CH0)
-        #print("Read Output_Grad8_Layer5_CH0")
+        #if DEBUG: print("Read Output_Grad8_Layer5_CH0")
 
         Output_Grad8_Layer5_CH1 = Read_DDR(Rd_Address=0x967CB000,  End_Address=0x967D8000)
         Output_Grad8_Layer5_CH1 = data_32_to_16(Output_Grad8_Layer5_CH1)
-        #print("Read Output_Grad8_Layer5_CH1")
+        #if DEBUG: print("Read Output_Grad8_Layer5_CH1")
         e = time.time()
-        print("Read OG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
         Output_Grad1_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer5_CH0, Output_Grad1_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
@@ -4643,7 +4749,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad7_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer5_CH0, Output_Grad7_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
         Output_Grad8_Layer5 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer5_CH0, Output_Grad8_Layer5_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Output_Grads_Layer5 = Output_Grad1_Layer5 + Output_Grad2_Layer5 + Output_Grad3_Layer5 + Output_Grad4_Layer5 + \
                                 Output_Grad5_Layer5 + Output_Grad6_Layer5 + Output_Grad7_Layer5 + Output_Grad8_Layer5    
@@ -4699,7 +4805,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking8_Layer4_CH1 = Read_DDR(Rd_Address=0x97E57000,  End_Address=0x97E64000)
         ReLu_Marking8_Layer4_CH1_256 = data_32_to_16(ReLu_Marking8_Layer4_CH1)
         e = time.time()
-        print("Read RM DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read RM DDR & 32bit to 16bit : ",e-s)
 
         # ReLu Reordering
         s = time.time()
@@ -4712,7 +4818,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking7_Layer4 = Read_ReLu_Marking(ReLu_Marking7_Layer4_CH0_256, ReLu_Marking7_Layer4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
         ReLu_Marking8_Layer4 = Read_ReLu_Marking(ReLu_Marking8_Layer4_CH0_256, ReLu_Marking8_Layer4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=13, Layer8=False)
         e = time.time()
-        print("ReLu Convert : ",e-s)
+        if DEBUG: print("ReLu Convert : ",e-s)
 
         ReLu_Marking_Layer4 = ReLu_Marking1_Layer4 + ReLu_Marking2_Layer4 + ReLu_Marking3_Layer4 + ReLu_Marking4_Layer4 + ReLu_Marking5_Layer4 + \
                                 ReLu_Marking6_Layer4 + ReLu_Marking7_Layer4 + ReLu_Marking8_Layer4
@@ -4729,7 +4835,7 @@ class YOLOv2_Tiny_FPGA(object):
         grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_4, dL_dbeta_4, avg_pc_4, backward_const_4 = backward_LightNorm(grad_maxpool_output, layer4_cache)
         e = time.time()
-        print("Software : ",e-s)
+        if DEBUG: print("Software : ",e-s)
 
         '''
         save_weights(ReLu_Marking_Layer4,"/home/msis/Desktop/pcie_python/GUI_list/result/ReLu_Marking_Layer4.txt")
@@ -4746,13 +4852,13 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         avg_pc_4, backward_const_4 = Mean_Var_Dec2Bfloat(avg_pc_4, backward_const_4, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
 
         # Weight_Backward_Layer4 for Soft2Hardware
         s = time.time()
         Weight_Backward_Layer4 = Weight_Hardware_Backward_ReOrdering_OtherLayer(256, 128, data.Weight_Bfloat[4], backward_const_4, avg_pc_4)
         e =time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
 
 
         # Break 256To32 and Flip the Data: 
@@ -4760,14 +4866,14 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Backward_Layer4_CH0 = data_256_32(Weight_Backward_Layer4[0])
         Weight_Backward_Layer4_CH1 = data_256_32(Weight_Backward_Layer4[1])
         e = time.time()
-        print("256bit to 32bit : ",e-s)
+        if DEBUG: print("256bit to 32bit : ",e-s)
 
         # Write Weight For Backward into DDR
         s = time.time()
         Write_DDR(Weight_Backward_Layer4_CH0,Wr_Address=0x82380000)
         Write_DDR(Weight_Backward_Layer4_CH1,Wr_Address=0x92380000)
         e = time.time()
-        print("Write DDR : ",e-s)
+        if DEBUG: print("Write DDR : ",e-s)
 
         # Gradient of Beta Calculation:
         # Beta_Gradient_Layer5 = (Output_Grad_Layer5).sum(dim=(0, 2, 3), keepdim=True)
@@ -4776,69 +4882,69 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Gradient1_Layer5_CH0 = Read_DDR(Rd_Address=0x8EFDC000,  End_Address=0x8F0FC000)
         Weight_Gradient1_Layer5_CH0_256 = data_32_to_16(Weight_Gradient1_Layer5_CH0)
-        #print("Weight_Gradient1_Layer5_CH0 : ", len(Weight_Gradient1_Layer5_CH0))   
+        #if DEBUG: print("Weight_Gradient1_Layer5_CH0 : ", len(Weight_Gradient1_Layer5_CH0))   
 
         Weight_Gradient2_Layer5_CH0 = Read_DDR(Rd_Address=0x8F0FC000,  End_Address=0x8F21C000)
         Weight_Gradient2_Layer5_CH0_256 = data_32_to_16(Weight_Gradient2_Layer5_CH0)
-        #print("Weight_Gradient2_Layer5_CH0 : ", len(Weight_Gradient2_Layer5_CH0))    
+        #if DEBUG: print("Weight_Gradient2_Layer5_CH0 : ", len(Weight_Gradient2_Layer5_CH0))    
 
         Weight_Gradient3_Layer5_CH0 = Read_DDR(Rd_Address=0x8F21C000,  End_Address=0x8F33C000)
         Weight_Gradient3_Layer5_CH0_256 = data_32_to_16(Weight_Gradient3_Layer5_CH0)
-        #print("Weight_Gradient3_Layer5_CH0 : ", len(Weight_Gradient3_Layer5_CH0)) 
+        #if DEBUG: print("Weight_Gradient3_Layer5_CH0 : ", len(Weight_Gradient3_Layer5_CH0)) 
 
         Weight_Gradient4_Layer5_CH0 = Read_DDR(Rd_Address=0x8F33C000,  End_Address=0x8F45C000)
         Weight_Gradient4_Layer5_CH0_256 = data_32_to_16(Weight_Gradient4_Layer5_CH0)
-        #print("Weight_Gradient4_Layer5_CH0 : ", len(Weight_Gradient4_Layer5_CH0)) 
+        #if DEBUG: print("Weight_Gradient4_Layer5_CH0 : ", len(Weight_Gradient4_Layer5_CH0)) 
 
         Weight_Gradient5_Layer5_CH0 = Read_DDR(Rd_Address=0x8F45C000,  End_Address=0x8F57C000)
         Weight_Gradient5_Layer5_CH0_256 = data_32_to_16(Weight_Gradient5_Layer5_CH0)
-        #print("Weight_Gradient5_Layer5_CH0 : ", len(Weight_Gradient5_Layer5_CH0)) 
+        #if DEBUG: print("Weight_Gradient5_Layer5_CH0 : ", len(Weight_Gradient5_Layer5_CH0)) 
 
         Weight_Gradient6_Layer5_CH0 = Read_DDR(Rd_Address=0x8F57C000,  End_Address=0x8F69C000)
         Weight_Gradient6_Layer5_CH0_256 = data_32_to_16(Weight_Gradient6_Layer5_CH0)
-        #print("Weight_Gradient6_Layer5_CH0 : ", len(Weight_Gradient6_Layer5_CH0)) 
+        #if DEBUG: print("Weight_Gradient6_Layer5_CH0 : ", len(Weight_Gradient6_Layer5_CH0)) 
 
         Weight_Gradient7_Layer5_CH0 = Read_DDR(Rd_Address=0x8F69C000,  End_Address=0x8F7BC000)
         Weight_Gradient7_Layer5_CH0_256 = data_32_to_16(Weight_Gradient7_Layer5_CH0)
-        #print("Weight_Gradient7_Layer5_CH0 : ", len(Weight_Gradient7_Layer5_CH0)) 
+        #if DEBUG: print("Weight_Gradient7_Layer5_CH0 : ", len(Weight_Gradient7_Layer5_CH0)) 
 
         Weight_Gradient8_Layer5_CH0 = Read_DDR(Rd_Address=0x8F7BC000,  End_Address=0x8F8DC000)
         Weight_Gradient8_Layer5_CH0_256 = data_32_to_16(Weight_Gradient8_Layer5_CH0)
-        #print("Weight_Gradient8_Layer5_CH0 : ", len(Weight_Gradient8_Layer5_CH0)) 
+        #if DEBUG: print("Weight_Gradient8_Layer5_CH0 : ", len(Weight_Gradient8_Layer5_CH0)) 
 
         Weight_Gradient1_Layer5_CH1 = Read_DDR(Rd_Address=0x9EFDC000,  End_Address=0x9F0FC000)
         Weight_Gradient1_Layer5_CH1_256 = data_32_to_16(Weight_Gradient1_Layer5_CH1)
-        #print("Weight_Gradient1_Layer5_CH1 : ", len(Weight_Gradient1_Layer5_CH1)) 
+        #if DEBUG: print("Weight_Gradient1_Layer5_CH1 : ", len(Weight_Gradient1_Layer5_CH1)) 
 
         Weight_Gradient2_Layer5_CH1 = Read_DDR(Rd_Address=0x9F0FC000,  End_Address=0x9F21C000)
         Weight_Gradient2_Layer5_CH1_256 = data_32_to_16(Weight_Gradient2_Layer5_CH1)
-        #print("Weight_Gradient2_Layer5_CH1 : ", len(Weight_Gradient2_Layer5_CH1)) 
+        #if DEBUG: print("Weight_Gradient2_Layer5_CH1 : ", len(Weight_Gradient2_Layer5_CH1)) 
 
         Weight_Gradient3_Layer5_CH1 = Read_DDR(Rd_Address=0x9F21C000,  End_Address=0x9F33C000)
         Weight_Gradient3_Layer5_CH1_256 = data_32_to_16(Weight_Gradient3_Layer5_CH1)
-        #print("Weight_Gradient3_Layer5_CH1 : ", len(Weight_Gradient3_Layer5_CH1)) 
+        #if DEBUG: print("Weight_Gradient3_Layer5_CH1 : ", len(Weight_Gradient3_Layer5_CH1)) 
 
         Weight_Gradient4_Layer5_CH1 = Read_DDR(Rd_Address=0x9F33C000,  End_Address=0x9F45C000)
         Weight_Gradient4_Layer5_CH1_256 = data_32_to_16(Weight_Gradient4_Layer5_CH1)
-        #print("Weight_Gradient4_Layer5_CH1 : ", len(Weight_Gradient4_Layer5_CH1)) 
+        #if DEBUG: print("Weight_Gradient4_Layer5_CH1 : ", len(Weight_Gradient4_Layer5_CH1)) 
 
         Weight_Gradient5_Layer5_CH1 = Read_DDR(Rd_Address=0x9F45C000,  End_Address=0x9F57C000)
         Weight_Gradient5_Layer5_CH1_256 = data_32_to_16(Weight_Gradient5_Layer5_CH1)
-        #print("Weight_Gradient5_Layer5_CH1 : ", len(Weight_Gradient5_Layer5_CH1)) 
+        #if DEBUG: print("Weight_Gradient5_Layer5_CH1 : ", len(Weight_Gradient5_Layer5_CH1)) 
 
         Weight_Gradient6_Layer5_CH1 = Read_DDR(Rd_Address=0x9F57C000,  End_Address=0x9F69C000)
         Weight_Gradient6_Layer5_CH1_256 = data_32_to_16(Weight_Gradient6_Layer5_CH1)
-        #print("Weight_Gradient6_Layer5_CH1 : ", len(Weight_Gradient6_Layer5_CH1)) 
+        #if DEBUG: print("Weight_Gradient6_Layer5_CH1 : ", len(Weight_Gradient6_Layer5_CH1)) 
 
         Weight_Gradient7_Layer5_CH1 = Read_DDR(Rd_Address=0x9F69C000,  End_Address=0x9F7BC000)
         Weight_Gradient7_Layer5_CH1_256 = data_32_to_16(Weight_Gradient7_Layer5_CH1)
-        #print("Weight_Gradient7_Layer5_CH1 : ", len(Weight_Gradient7_Layer5_CH1)) 
+        #if DEBUG: print("Weight_Gradient7_Layer5_CH1 : ", len(Weight_Gradient7_Layer5_CH1)) 
 
         Weight_Gradient8_Layer5_CH1 = Read_DDR(Rd_Address=0x9F7BC000,  End_Address=0x9F8DC000)
         Weight_Gradient8_Layer5_CH1_256 = data_32_to_16(Weight_Gradient8_Layer5_CH1)
-        #print("Weight_Gradient8_Layer5_CH1 : ", len(Weight_Gradient8_Layer5_CH1)) 
+        #if DEBUG: print("Weight_Gradient8_Layer5_CH1 : ", len(Weight_Gradient8_Layer5_CH1)) 
         e = time.time()
-        print("Read DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
 
         '''
         test_out = 'Weight_Result/Weight_Gradient1_Layer5_CH0.txt'
@@ -4964,7 +5070,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient7_Layer5 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient7_Layer5_CH0_256, Weight_Gradient7_Layer5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, In_CH=256, Layer8=False)
         Weight_Gradient8_Layer5 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient8_Layer5_CH0_256, Weight_Gradient8_Layer5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, In_CH=256, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Weight_Gradient_Layer5 = [Weight_Gradient1_Layer5, Weight_Gradient2_Layer5, Weight_Gradient3_Layer5, Weight_Gradient4_Layer5, Weight_Gradient5_Layer5, 
                                 Weight_Gradient6_Layer5, Weight_Gradient7_Layer5, Weight_Gradient8_Layer5]
@@ -4973,10 +5079,10 @@ class YOLOv2_Tiny_FPGA(object):
 
         layer5_end = time.time()
         process_time = layer5_end - layer5_start
-        print("Layer5 Process Time : ", process_time)
+        if DEBUG: print("Layer5 Process Time : ", process_time)
 
         resume()
-        #print(irq_val)    
+        #if DEBUG: print(irq_val)    
 
         #################################################
         #             Backward Layer 4 Start            #
@@ -4989,69 +5095,69 @@ class YOLOv2_Tiny_FPGA(object):
         # Read Gradient of Output After ReLU Backward: 
         Output_Grad1_Layer4_CH0 = Read_DDR(Rd_Address=0x86360000,  End_Address=0x8637A000)
         Output_Grad1_Layer4_CH0 = data_32_to_16(Output_Grad1_Layer4_CH0)
-        #print("Read Output_Grad1_Layer4_CH0")
+        #if DEBUG: print("Read Output_Grad1_Layer4_CH0")
 
         Output_Grad1_Layer4_CH1 = Read_DDR(Rd_Address=0x96360000,  End_Address=0x9637A000)
         Output_Grad1_Layer4_CH1 = data_32_to_16(Output_Grad1_Layer4_CH1)
-        #print("Read Output_Grad1_Layer4_CH1")
+        #if DEBUG: print("Read Output_Grad1_Layer4_CH1")
 
         Output_Grad2_Layer4_CH0 = Read_DDR(Rd_Address=0x8637A000,  End_Address=0x86394000)
         Output_Grad2_Layer4_CH0 = data_32_to_16(Output_Grad2_Layer4_CH0)
-        #print("Read Output_Grad2_Layer4_CH0")
+        #if DEBUG: print("Read Output_Grad2_Layer4_CH0")
 
         Output_Grad2_Layer4_CH1 = Read_DDR(Rd_Address=0x9637A000,  End_Address=0x96394000)
         Output_Grad2_Layer4_CH1 = data_32_to_16(Output_Grad2_Layer4_CH1)
-        #print("Read Output_Grad2_Layer4_CH1")
+        #if DEBUG: print("Read Output_Grad2_Layer4_CH1")
 
         Output_Grad3_Layer4_CH0 = Read_DDR(Rd_Address=0x86394000,  End_Address=0x863AE000)
         Output_Grad3_Layer4_CH0 = data_32_to_16(Output_Grad3_Layer4_CH0)
-        #print("Read Output_Grad3_Layer4_CH0")
+        #if DEBUG: print("Read Output_Grad3_Layer4_CH0")
 
         Output_Grad3_Layer4_CH1 = Read_DDR(Rd_Address=0x96394000,  End_Address=0x963AE000)
         Output_Grad3_Layer4_CH1 = data_32_to_16(Output_Grad3_Layer4_CH1)
-        #print("Read Output_Grad3_Layer4_CH1")
+        #if DEBUG: print("Read Output_Grad3_Layer4_CH1")
 
         Output_Grad4_Layer4_CH0 = Read_DDR(Rd_Address=0x863AE000,  End_Address=0x863C8000)
         Output_Grad4_Layer4_CH0 = data_32_to_16(Output_Grad4_Layer4_CH0)
-        #print("Read Output_Grad4_Layer4_CH0")
+        #if DEBUG: print("Read Output_Grad4_Layer4_CH0")
 
         Output_Grad4_Layer4_CH1 = Read_DDR(Rd_Address=0x963AE000,  End_Address=0x963C8000)
         Output_Grad4_Layer4_CH1 = data_32_to_16(Output_Grad4_Layer4_CH1)
-        #print("Read Output_Grad4_Layer4_CH1")
+        #if DEBUG: print("Read Output_Grad4_Layer4_CH1")
 
         Output_Grad5_Layer4_CH0 = Read_DDR(Rd_Address=0x863C8000,  End_Address=0x863E2000)
         Output_Grad5_Layer4_CH0 = data_32_to_16(Output_Grad5_Layer4_CH0)
-        #print("Read Output_Grad5_Layer4_CH0")
+        #if DEBUG: print("Read Output_Grad5_Layer4_CH0")
 
         Output_Grad5_Layer4_CH1 = Read_DDR(Rd_Address=0x963C8000,  End_Address=0x963E2000)
         Output_Grad5_Layer4_CH1 = data_32_to_16(Output_Grad5_Layer4_CH1)
-        #print("Read Output_Grad5_Layer4_CH1")
+        #if DEBUG: print("Read Output_Grad5_Layer4_CH1")
 
         Output_Grad6_Layer4_CH0 = Read_DDR(Rd_Address=0x863E2000,  End_Address=0x863FC000)
         Output_Grad6_Layer4_CH0 = data_32_to_16(Output_Grad6_Layer4_CH0)
-        #print("Read Output_Grad6_Layer4_CH0")
+        #if DEBUG: print("Read Output_Grad6_Layer4_CH0")
 
         Output_Grad6_Layer4_CH1 = Read_DDR(Rd_Address=0x963E2000,  End_Address=0x963FC000)
         Output_Grad6_Layer4_CH1 = data_32_to_16(Output_Grad6_Layer4_CH1)
-        #print("Read Output_Grad6_Layer4_CH1")
+        #if DEBUG: print("Read Output_Grad6_Layer4_CH1")
 
         Output_Grad7_Layer4_CH0 = Read_DDR(Rd_Address=0x863FC000,  End_Address=0x86416000)
         Output_Grad7_Layer4_CH0 = data_32_to_16(Output_Grad7_Layer4_CH0)
-        #print("Read Output_Grad7_Layer4_CH0")
+        #if DEBUG: print("Read Output_Grad7_Layer4_CH0")
 
         Output_Grad7_Layer4_CH1 = Read_DDR(Rd_Address=0x963FC000,  End_Address=0x96416000)
         Output_Grad7_Layer4_CH1 = data_32_to_16(Output_Grad7_Layer4_CH1)
-        #print("Read Output_Grad7_Layer4_CH1")
+        #if DEBUG: print("Read Output_Grad7_Layer4_CH1")
 
         Output_Grad8_Layer4_CH0 = Read_DDR(Rd_Address=0x86416000,  End_Address=0x86430000)
         Output_Grad8_Layer4_CH0 = data_32_to_16(Output_Grad8_Layer4_CH0)
-        #print("Read Output_Grad8_Layer4_CH0")
+        #if DEBUG: print("Read Output_Grad8_Layer4_CH0")
 
         Output_Grad8_Layer4_CH1 = Read_DDR(Rd_Address=0x96416000,  End_Address=0x96430000)
         Output_Grad8_Layer4_CH1 = data_32_to_16(Output_Grad8_Layer4_CH1)
-        #print("Read Output_Grad8_Layer4_CH1")
+        #if DEBUG: print("Read Output_Grad8_Layer4_CH1")
         e = time.time()
-        print("Read OG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
         Output_Grad1_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer4_CH0, Output_Grad1_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
@@ -5063,7 +5169,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad7_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer4_CH0, Output_Grad7_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
         Output_Grad8_Layer4 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer4_CH0, Output_Grad8_Layer4_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
         e = time.time()
-        print("Bflaot to Dec : ",e-s)
+        if DEBUG: print("Bflaot to Dec : ",e-s)
         
         Output_Grads_Layer4 = Output_Grad1_Layer4 + Output_Grad2_Layer4 + Output_Grad3_Layer4 + Output_Grad4_Layer4 + \
                                 Output_Grad5_Layer4 + Output_Grad6_Layer4 + Output_Grad7_Layer4 + Output_Grad8_Layer4    
@@ -5119,7 +5225,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking8_Layer3_CH1 = Read_DDR(Rd_Address=0x97DE2000,  End_Address=0x97DFC000)
         ReLu_Marking8_Layer3_CH1_256 = data_32_to_16(ReLu_Marking8_Layer3_CH1)
         e = time.time()
-        print("Read RM DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read RM DDR & 32bit to 16bit : ",e-s)
 
         # ReLu Reordering
         s = time.time()
@@ -5132,7 +5238,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking7_Layer3 = Read_ReLu_Marking(ReLu_Marking7_Layer3_CH0_256, ReLu_Marking7_Layer3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
         ReLu_Marking8_Layer3 = Read_ReLu_Marking(ReLu_Marking8_Layer3_CH0_256, ReLu_Marking8_Layer3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=26, Layer8=False)
         e = time.time()
-        print("ReLu Reordering : ",e-s)
+        if DEBUG: print("ReLu Reordering : ",e-s)
 
         ReLu_Marking_Layer3 = ReLu_Marking1_Layer3 + ReLu_Marking2_Layer3 + ReLu_Marking3_Layer3 + ReLu_Marking4_Layer3 + ReLu_Marking5_Layer3 + \
                                 ReLu_Marking6_Layer3 + ReLu_Marking7_Layer3 + ReLu_Marking8_Layer3
@@ -5149,20 +5255,20 @@ class YOLOv2_Tiny_FPGA(object):
         grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_3, dL_dbeta_3, avg_pc_3, backward_const_3 = backward_LightNorm(grad_maxpool_output, layer3_cache)
         e = time.time()
-        print("Software : ",e-s)
+        if DEBUG: print("Software : ",e-s)
 
         # avg_pc_3 = avg_pc_3.squeeze()
         # backward_const_3 = backward_const_3.squeeze()
         s = time.time()
         avg_pc_3, backward_const_3 = Mean_Var_Dec2Bfloat(avg_pc_3, backward_const_3, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
 
         # Weight_Backward_Layer3 for Soft2Hardware
         s = time.time()
         Weight_Backward_Layer3 = Weight_Hardware_Backward_ReOrdering_OtherLayer(128, 64, data.Weight_Bfloat[3], backward_const_3, avg_pc_3)
         e = time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
 
 
         # Break 256To32 and Flip the Data: 
@@ -5170,14 +5276,14 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Backward_Layer3_CH0 = data_256_32(Weight_Backward_Layer3[0])
         Weight_Backward_Layer3_CH1 = data_256_32(Weight_Backward_Layer3[1])
         e = time.time()
-        print("256bit to 32bit : ",e-s)
+        if DEBUG: print("256bit to 32bit : ",e-s)
 
         # Write Weight For Backward into DDR
         s = time.time()
         Write_DDR(Weight_Backward_Layer3_CH0,Wr_Address=0x823D0000)
         Write_DDR(Weight_Backward_Layer3_CH1,Wr_Address=0x923D0000)
         e = time.time()
-        print("Write DDR : ",e-s)
+        if DEBUG: print("Write DDR : ",e-s)
 
 
         # Gradient of Beta Calculation:
@@ -5187,69 +5293,69 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Gradient1_Layer4_CH0 = Read_DDR(Rd_Address=0x8F8DC000,  End_Address=0x8F924000)
         Weight_Gradient1_Layer4_CH0_256 = data_32_to_16(Weight_Gradient1_Layer4_CH0)
-        #print("Weight_Gradient1_Layer4_CH0 : ", len(Weight_Gradient1_Layer4_CH0))   
+        #if DEBUG: print("Weight_Gradient1_Layer4_CH0 : ", len(Weight_Gradient1_Layer4_CH0))   
 
         Weight_Gradient2_Layer4_CH0 = Read_DDR(Rd_Address=0x8F924000,  End_Address=0x8F96C000)
         Weight_Gradient2_Layer4_CH0_256 = data_32_to_16(Weight_Gradient2_Layer4_CH0)
-        #print("Weight_Gradient2_Layer4_CH0 : ", len(Weight_Gradient2_Layer4_CH0))    
+        #if DEBUG: print("Weight_Gradient2_Layer4_CH0 : ", len(Weight_Gradient2_Layer4_CH0))    
 
         Weight_Gradient3_Layer4_CH0 = Read_DDR(Rd_Address=0x8F96C000,  End_Address=0x8F9B4000)
         Weight_Gradient3_Layer4_CH0_256 = data_32_to_16(Weight_Gradient3_Layer4_CH0)
-        #print("Weight_Gradient3_Layer4_CH0 : ", len(Weight_Gradient3_Layer4_CH0)) 
+        #if DEBUG: print("Weight_Gradient3_Layer4_CH0 : ", len(Weight_Gradient3_Layer4_CH0)) 
 
         Weight_Gradient4_Layer4_CH0 = Read_DDR(Rd_Address=0x8F9B4000,  End_Address=0x8F9FC000)
         Weight_Gradient4_Layer4_CH0_256 = data_32_to_16(Weight_Gradient4_Layer4_CH0)
-        #print("Weight_Gradient4_Layer4_CH0 : ", len(Weight_Gradient4_Layer4_CH0)) 
+        #if DEBUG: print("Weight_Gradient4_Layer4_CH0 : ", len(Weight_Gradient4_Layer4_CH0)) 
 
         Weight_Gradient5_Layer4_CH0 = Read_DDR(Rd_Address=0x8F9FC000,  End_Address=0x8FA44000)
         Weight_Gradient5_Layer4_CH0_256 = data_32_to_16(Weight_Gradient5_Layer4_CH0)
-        #print("Weight_Gradient5_Layer4_CH0 : ", len(Weight_Gradient5_Layer4_CH0)) 
+        #if DEBUG: print("Weight_Gradient5_Layer4_CH0 : ", len(Weight_Gradient5_Layer4_CH0)) 
 
         Weight_Gradient6_Layer4_CH0 = Read_DDR(Rd_Address=0x8FA44000,  End_Address=0x8FA8C000)
         Weight_Gradient6_Layer4_CH0_256 = data_32_to_16(Weight_Gradient6_Layer4_CH0)
-        #print("Weight_Gradient6_Layer4_CH0 : ", len(Weight_Gradient6_Layer4_CH0)) 
+        #if DEBUG: print("Weight_Gradient6_Layer4_CH0 : ", len(Weight_Gradient6_Layer4_CH0)) 
 
         Weight_Gradient7_Layer4_CH0 = Read_DDR(Rd_Address=0x8FA8C000,  End_Address=0x8FAD4000)
         Weight_Gradient7_Layer4_CH0_256 = data_32_to_16(Weight_Gradient7_Layer4_CH0)
-        #print("Weight_Gradient7_Layer4_CH0 : ", len(Weight_Gradient7_Layer4_CH0)) 
+        #if DEBUG: print("Weight_Gradient7_Layer4_CH0 : ", len(Weight_Gradient7_Layer4_CH0)) 
 
         Weight_Gradient8_Layer4_CH0 = Read_DDR(Rd_Address=0x8FAD4000,  End_Address=0x8FB1C000)
         Weight_Gradient8_Layer4_CH0_256 = data_32_to_16(Weight_Gradient8_Layer4_CH0)
-        #print("Weight_Gradient8_Layer4_CH0 : ", len(Weight_Gradient8_Layer4_CH0)) 
+        #if DEBUG: print("Weight_Gradient8_Layer4_CH0 : ", len(Weight_Gradient8_Layer4_CH0)) 
 
         Weight_Gradient1_Layer4_CH1 = Read_DDR(Rd_Address=0x9F8DC000,  End_Address=0x9F924000)
         Weight_Gradient1_Layer4_CH1_256 = data_32_to_16(Weight_Gradient1_Layer4_CH1)
-        #print("Weight_Gradient1_Layer4_CH1 : ", len(Weight_Gradient1_Layer4_CH1)) 
+        #if DEBUG: print("Weight_Gradient1_Layer4_CH1 : ", len(Weight_Gradient1_Layer4_CH1)) 
 
         Weight_Gradient2_Layer4_CH1 = Read_DDR(Rd_Address=0x9F924000,  End_Address=0x9F96C000)
         Weight_Gradient2_Layer4_CH1_256 = data_32_to_16(Weight_Gradient2_Layer4_CH1)
-        #print("Weight_Gradient2_Layer4_CH1 : ", len(Weight_Gradient2_Layer4_CH1)) 
+        #if DEBUG: print("Weight_Gradient2_Layer4_CH1 : ", len(Weight_Gradient2_Layer4_CH1)) 
 
         Weight_Gradient3_Layer4_CH1 = Read_DDR(Rd_Address=0x9F96C000,  End_Address=0x9F9B4000)
         Weight_Gradient3_Layer4_CH1_256 = data_32_to_16(Weight_Gradient3_Layer4_CH1)
-        #print("Weight_Gradient3_Layer4_CH1 : ", len(Weight_Gradient3_Layer4_CH1)) 
+        #if DEBUG: print("Weight_Gradient3_Layer4_CH1 : ", len(Weight_Gradient3_Layer4_CH1)) 
 
         Weight_Gradient4_Layer4_CH1 = Read_DDR(Rd_Address=0x9F9B4000,  End_Address=0x9F9FC000)
         Weight_Gradient4_Layer4_CH1_256 = data_32_to_16(Weight_Gradient4_Layer4_CH1)
-        #print("Weight_Gradient4_Layer4_CH1 : ", len(Weight_Gradient4_Layer4_CH1)) 
+        #if DEBUG: print("Weight_Gradient4_Layer4_CH1 : ", len(Weight_Gradient4_Layer4_CH1)) 
 
         Weight_Gradient5_Layer4_CH1 = Read_DDR(Rd_Address=0x9F9FC000,  End_Address=0x9FA44000)
         Weight_Gradient5_Layer4_CH1_256 = data_32_to_16(Weight_Gradient5_Layer4_CH1)
-        #print("Weight_Gradient5_Layer4_CH1 : ", len(Weight_Gradient5_Layer4_CH1)) 
+        #if DEBUG: print("Weight_Gradient5_Layer4_CH1 : ", len(Weight_Gradient5_Layer4_CH1)) 
 
         Weight_Gradient6_Layer4_CH1 = Read_DDR(Rd_Address=0x9FA44000,  End_Address=0x9FA8C000)
         Weight_Gradient6_Layer4_CH1_256 = data_32_to_16(Weight_Gradient6_Layer4_CH1)
-        #print("Weight_Gradient6_Layer4_CH1 : ", len(Weight_Gradient6_Layer4_CH1)) 
+        #if DEBUG: print("Weight_Gradient6_Layer4_CH1 : ", len(Weight_Gradient6_Layer4_CH1)) 
 
         Weight_Gradient7_Layer4_CH1 = Read_DDR(Rd_Address=0x9FA8C000,  End_Address=0x9FAD4000)
         Weight_Gradient7_Layer4_CH1_256 = data_32_to_16(Weight_Gradient7_Layer4_CH1)
-        #print("Weight_Gradient7_Layer4_CH1 : ", len(Weight_Gradient7_Layer4_CH1)) 
+        #if DEBUG: print("Weight_Gradient7_Layer4_CH1 : ", len(Weight_Gradient7_Layer4_CH1)) 
 
         Weight_Gradient8_Layer4_CH1 = Read_DDR(Rd_Address=0x9FAD4000,  End_Address=0x9FB1C000)
         Weight_Gradient8_Layer4_CH1_256 = data_32_to_16(Weight_Gradient8_Layer4_CH1)
-        #print("Weight_Gradient8_Layer4_CH1 : ", len(Weight_Gradient8_Layer4_CH1)) 
+        #if DEBUG: print("Weight_Gradient8_Layer4_CH1 : ", len(Weight_Gradient8_Layer4_CH1)) 
         e = time.time()
-        print("Read WG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read WG DDR & 32bit to 16bit : ",e-s)
 
         '''
         test_out = 'Weight_Result/Weight_Gradient1_Layer4_CH0.txt'
@@ -5375,7 +5481,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient7_Layer4 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient7_Layer4_CH0_256, Weight_Gradient7_Layer4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, In_CH=128, Layer8=False)
         Weight_Gradient8_Layer4 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient8_Layer4_CH0_256, Weight_Gradient8_Layer4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, In_CH=128, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
 
         Weight_Gradient_Layer4 = [Weight_Gradient1_Layer4, Weight_Gradient2_Layer4, Weight_Gradient3_Layer4, Weight_Gradient4_Layer4, Weight_Gradient5_Layer4, 
                                 Weight_Gradient6_Layer4, Weight_Gradient7_Layer4, Weight_Gradient8_Layer4]
@@ -5383,7 +5489,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient_Layer4 = torch.tensor([float(value) for value in Weight_Gradient_Layer4], dtype=torch.float32).reshape(256, 128, 3, 3)   
 
         Blayer4_end = time.time()
-        print("Layer4 Process Time : ",Blayer4_end-Blayer4_start)
+        if DEBUG: print("Layer4 Process Time : ",Blayer4_end-Blayer4_start)
 
         resume()
 
@@ -5444,7 +5550,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad8_Layer3_CH1 = Read_DDR(Rd_Address=0x95CAC000,  End_Address=0x95CE0000)
         Output_Grad8_Layer3_CH1 = data_32_to_16(Output_Grad8_Layer3_CH1)
         e = time.time()
-        print("Read OG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
         Output_Grad1_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer3_CH0, Output_Grad1_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
@@ -5456,7 +5562,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad7_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer3_CH0, Output_Grad7_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
         Output_Grad8_Layer3 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer3_CH0, Output_Grad8_Layer3_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
         e = time.time()
-        print("Bflaot to Dec : ",e-s)
+        if DEBUG: print("Bflaot to Dec : ",e-s)
         
         Output_Grads_Layer3 = Output_Grad1_Layer3 + Output_Grad2_Layer3 + Output_Grad3_Layer3 + Output_Grad4_Layer3 + \
                                 Output_Grad5_Layer3 + Output_Grad6_Layer3 + Output_Grad7_Layer3 + Output_Grad8_Layer3    
@@ -5512,7 +5618,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking8_Layer2_CH1 = Read_DDR(Rd_Address=0x97CF8000,  End_Address=0x97D2C000)
         ReLu_Marking8_Layer2_CH1_256 = data_32_to_16(ReLu_Marking8_Layer2_CH1)
         e = time.time()
-        print("Read RM DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read RM DDR & 32bit to 16bit : ",e-s)
 
         # ReLu Reordering
         s = time.time()
@@ -5525,7 +5631,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking7_Layer2 = Read_ReLu_Marking(ReLu_Marking7_Layer2_CH0_256, ReLu_Marking7_Layer2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
         ReLu_Marking8_Layer2 = Read_ReLu_Marking(ReLu_Marking8_Layer2_CH0_256, ReLu_Marking8_Layer2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=52, Layer8=False)
         e = time.time()
-        print("ReLu Reordering : ",e-s)
+        if DEBUG: print("ReLu Reordering : ",e-s)
 
         ReLu_Marking_Layer2 = ReLu_Marking1_Layer2 + ReLu_Marking2_Layer2 + ReLu_Marking3_Layer2 + ReLu_Marking4_Layer2 + ReLu_Marking5_Layer2 + \
                                 ReLu_Marking6_Layer2 + ReLu_Marking7_Layer2 + ReLu_Marking8_Layer2
@@ -5542,34 +5648,34 @@ class YOLOv2_Tiny_FPGA(object):
         grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_2, dL_dbeta_2, avg_pc_2, backward_const_2 = backward_LightNorm(grad_maxpool_output, layer2_cache)
         e = time.time()
-        print("Software : ",e-s)
+        if DEBUG: print("Software : ",e-s)
 
         # avg_pc_2 = avg_pc_2.squeeze()
         # backward_const_2 = backward_const_2.squeeze()
         s = time.time()
         avg_pc_2, backward_const_2 = Mean_Var_Dec2Bfloat(avg_pc_2, backward_const_2, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
 
         # Weight_Backward_Layer2 for Soft2Hardware
         s = time.time()
         Weight_Backward_Layer2 = Weight_Hardware_Backward_ReOrdering_OtherLayer(64, 32, data.Weight_Bfloat[2], backward_const_2, avg_pc_2)
         e = time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
 
         # Break 256To32 and Flip the Data: 
         s = time.time()
         Weight_Backward_Layer2_CH0 = data_256_32(Weight_Backward_Layer2[0])
         Weight_Backward_Layer2_CH1 = data_256_32(Weight_Backward_Layer2[1])
         e = time.time()
-        print("256bit to 32bit : ",e-s)
+        if DEBUG: print("256bit to 32bit : ",e-s)
 
         # Write Weight For Backward into DDR
         s = time.time()
         Write_DDR(Weight_Backward_Layer2_CH0,Wr_Address=0x823E4000)
         Write_DDR(Weight_Backward_Layer2_CH1,Wr_Address=0x923E4000)
         e = time.time()
-        print("Write DDR : ",e-s)
+        if DEBUG: print("Write DDR : ",e-s)
 
 
         # Gradient of Beta Calculation:
@@ -5579,69 +5685,69 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Gradient1_Layer3_CH0 = Read_DDR(Rd_Address=0x8FB1C000,  End_Address=0x8FB2E000)
         Weight_Gradient1_Layer3_CH0_256 = data_32_to_16(Weight_Gradient1_Layer3_CH0)
-        #print("Weight_Gradient1_Layer3_CH0 : ", len(Weight_Gradient1_Layer3_CH0))   
+        #if DEBUG: print("Weight_Gradient1_Layer3_CH0 : ", len(Weight_Gradient1_Layer3_CH0))   
 
         Weight_Gradient2_Layer3_CH0 = Read_DDR(Rd_Address=0x8FB2E000,  End_Address=0x8FB40000)
         Weight_Gradient2_Layer3_CH0_256 = data_32_to_16(Weight_Gradient2_Layer3_CH0)
-        #print("Weight_Gradient2_Layer3_CH0 : ", len(Weight_Gradient2_Layer3_CH0))    
+        #if DEBUG: print("Weight_Gradient2_Layer3_CH0 : ", len(Weight_Gradient2_Layer3_CH0))    
 
         Weight_Gradient3_Layer3_CH0 = Read_DDR(Rd_Address=0x8FB40000,  End_Address=0x8FB52000)
         Weight_Gradient3_Layer3_CH0_256 = data_32_to_16(Weight_Gradient3_Layer3_CH0)
-        #print("Weight_Gradient3_Layer3_CH0 : ", len(Weight_Gradient3_Layer3_CH0)) 
+        #if DEBUG: print("Weight_Gradient3_Layer3_CH0 : ", len(Weight_Gradient3_Layer3_CH0)) 
 
         Weight_Gradient4_Layer3_CH0 = Read_DDR(Rd_Address=0x8FB52000,  End_Address=0x8FB64000)
         Weight_Gradient4_Layer3_CH0_256 = data_32_to_16(Weight_Gradient4_Layer3_CH0)
-        #print("Weight_Gradient4_Layer3_CH0 : ", len(Weight_Gradient4_Layer3_CH0)) 
+        #if DEBUG: print("Weight_Gradient4_Layer3_CH0 : ", len(Weight_Gradient4_Layer3_CH0)) 
 
         Weight_Gradient5_Layer3_CH0 = Read_DDR(Rd_Address=0x8FB64000,  End_Address=0x8FB76000)
         Weight_Gradient5_Layer3_CH0_256 = data_32_to_16(Weight_Gradient5_Layer3_CH0)
-        #print("Weight_Gradient5_Layer3_CH0 : ", len(Weight_Gradient5_Layer3_CH0)) 
+        #if DEBUG: print("Weight_Gradient5_Layer3_CH0 : ", len(Weight_Gradient5_Layer3_CH0)) 
 
         Weight_Gradient6_Layer3_CH0 = Read_DDR(Rd_Address=0x8FB76000,  End_Address=0x8FB88000)
         Weight_Gradient6_Layer3_CH0_256 = data_32_to_16(Weight_Gradient6_Layer3_CH0)
-        #print("Weight_Gradient6_Layer3_CH0 : ", len(Weight_Gradient6_Layer3_CH0)) 
+        #if DEBUG: print("Weight_Gradient6_Layer3_CH0 : ", len(Weight_Gradient6_Layer3_CH0)) 
 
         Weight_Gradient7_Layer3_CH0 = Read_DDR(Rd_Address=0x8FB88000,  End_Address=0x8FB9A000)
         Weight_Gradient7_Layer3_CH0_256 = data_32_to_16(Weight_Gradient7_Layer3_CH0)
-        #print("Weight_Gradient7_Layer3_CH0 : ", len(Weight_Gradient7_Layer3_CH0)) 
+        #if DEBUG: print("Weight_Gradient7_Layer3_CH0 : ", len(Weight_Gradient7_Layer3_CH0)) 
 
         Weight_Gradient8_Layer3_CH0 = Read_DDR(Rd_Address=0x8FB9A000,  End_Address=0x8FBAC000)
         Weight_Gradient8_Layer3_CH0_256 = data_32_to_16(Weight_Gradient8_Layer3_CH0)
-        #print("Weight_Gradient8_Layer3_CH0 : ", len(Weight_Gradient8_Layer3_CH0)) 
+        #if DEBUG: print("Weight_Gradient8_Layer3_CH0 : ", len(Weight_Gradient8_Layer3_CH0)) 
 
         Weight_Gradient1_Layer3_CH1 = Read_DDR(Rd_Address=0x9FB1C000,  End_Address=0x9FB2E000)
         Weight_Gradient1_Layer3_CH1_256 = data_32_to_16(Weight_Gradient1_Layer3_CH1)
-        #print("Weight_Gradient1_Layer3_CH1 : ", len(Weight_Gradient1_Layer3_CH1)) 
+        #if DEBUG: print("Weight_Gradient1_Layer3_CH1 : ", len(Weight_Gradient1_Layer3_CH1)) 
 
         Weight_Gradient2_Layer3_CH1 = Read_DDR(Rd_Address=0x9FB2E000,  End_Address=0x9FB40000)
         Weight_Gradient2_Layer3_CH1_256 = data_32_to_16(Weight_Gradient2_Layer3_CH1)
-        #print("Weight_Gradient2_Layer3_CH1 : ", len(Weight_Gradient2_Layer3_CH1)) 
+        #if DEBUG: print("Weight_Gradient2_Layer3_CH1 : ", len(Weight_Gradient2_Layer3_CH1)) 
 
         Weight_Gradient3_Layer3_CH1 = Read_DDR(Rd_Address=0x9FB40000,  End_Address=0x9FB52000)
         Weight_Gradient3_Layer3_CH1_256 = data_32_to_16(Weight_Gradient3_Layer3_CH1)
-        #print("Weight_Gradient3_Layer3_CH1 : ", len(Weight_Gradient3_Layer3_CH1)) 
+        #if DEBUG: print("Weight_Gradient3_Layer3_CH1 : ", len(Weight_Gradient3_Layer3_CH1)) 
 
         Weight_Gradient4_Layer3_CH1 = Read_DDR(Rd_Address=0x9FB52000,  End_Address=0x9FB64000)
         Weight_Gradient4_Layer3_CH1_256 = data_32_to_16(Weight_Gradient4_Layer3_CH1)
-        #print("Weight_Gradient4_Layer3_CH1 : ", len(Weight_Gradient4_Layer3_CH1)) 
+        #if DEBUG: print("Weight_Gradient4_Layer3_CH1 : ", len(Weight_Gradient4_Layer3_CH1)) 
 
         Weight_Gradient5_Layer3_CH1 = Read_DDR(Rd_Address=0x9FB64000,  End_Address=0x9FB76000)
         Weight_Gradient5_Layer3_CH1_256 = data_32_to_16(Weight_Gradient5_Layer3_CH1)
-        #print("Weight_Gradient5_Layer3_CH1 : ", len(Weight_Gradient5_Layer3_CH1)) 
+        #if DEBUG: print("Weight_Gradient5_Layer3_CH1 : ", len(Weight_Gradient5_Layer3_CH1)) 
 
         Weight_Gradient6_Layer3_CH1 = Read_DDR(Rd_Address=0x9FB76000,  End_Address=0x9FB88000)
         Weight_Gradient6_Layer3_CH1_256 = data_32_to_16(Weight_Gradient6_Layer3_CH1)
-        #print("Weight_Gradient6_Layer3_CH1 : ", len(Weight_Gradient6_Layer3_CH1)) 
+        #if DEBUG: print("Weight_Gradient6_Layer3_CH1 : ", len(Weight_Gradient6_Layer3_CH1)) 
 
         Weight_Gradient7_Layer3_CH1 = Read_DDR(Rd_Address=0x9FB88000,  End_Address=0x9FB9A000)
         Weight_Gradient7_Layer3_CH1_256 = data_32_to_16(Weight_Gradient7_Layer3_CH1)
-        #print("Weight_Gradient7_Layer3_CH1 : ", len(Weight_Gradient7_Layer3_CH1)) 
+        #if DEBUG: print("Weight_Gradient7_Layer3_CH1 : ", len(Weight_Gradient7_Layer3_CH1)) 
 
         Weight_Gradient8_Layer3_CH1 = Read_DDR(Rd_Address=0x9FB9A000,  End_Address=0x9FBAC000)
         Weight_Gradient8_Layer3_CH1_256 = data_32_to_16(Weight_Gradient8_Layer3_CH1)
-        #print("Weight_Gradient8_Layer3_CH1 : ", len(Weight_Gradient8_Layer3_CH1)) 
+        #if DEBUG: print("Weight_Gradient8_Layer3_CH1 : ", len(Weight_Gradient8_Layer3_CH1)) 
         e = time.time()
-        print("Read WG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read WG DDR & 32bit to 16bit : ",e-s)
 
         '''
         test_out = 'Weight_Result/Weight_Gradient1_Layer3_CH0.txt'
@@ -5767,7 +5873,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient7_Layer3 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient7_Layer3_CH0_256, Weight_Gradient7_Layer3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, In_CH=64, Layer8=False)
         Weight_Gradient8_Layer3 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient8_Layer3_CH0_256, Weight_Gradient8_Layer3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, In_CH=64, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Weight_Gradient_Layer3 = [Weight_Gradient1_Layer3, Weight_Gradient2_Layer3, Weight_Gradient3_Layer3, Weight_Gradient4_Layer3, Weight_Gradient5_Layer3, 
                                 Weight_Gradient6_Layer3, Weight_Gradient7_Layer3, Weight_Gradient8_Layer3]
@@ -5775,10 +5881,10 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient_Layer3 = torch.tensor([float(value) for value in Weight_Gradient_Layer3], dtype=torch.float32).reshape(128, 64, 3, 3)   
 
         Blayer3_end = time.time()
-        print("Layer3 Process Time : ",Blayer3_end-Blayer3_start)
+        if DEBUG: print("Layer3 Process Time : ",Blayer3_end-Blayer3_start)
 
         resume()
-        #print(irq_val)
+        #if DEBUG: print(irq_val)
 
         #################################################
         #             Backward Layer 2 Start            #
@@ -5837,7 +5943,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad8_Layer2_CH1 = Read_DDR(Rd_Address=0x94DD8000,  End_Address=0x94E40000)
         Output_Grad8_Layer2_CH1 = data_32_to_16(Output_Grad8_Layer2_CH1)
         e = time.time()
-        print("Read OG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
         Output_Grad1_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer2_CH0, Output_Grad1_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
@@ -5849,7 +5955,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad7_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer2_CH0, Output_Grad7_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
         Output_Grad8_Layer2 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer2_CH0, Output_Grad8_Layer2_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Output_Grads_Layer2 = Output_Grad1_Layer2 + Output_Grad2_Layer2 + Output_Grad3_Layer2 + Output_Grad4_Layer2 + \
                                 Output_Grad5_Layer2 + Output_Grad6_Layer2 + Output_Grad7_Layer2 + Output_Grad8_Layer2    
@@ -5905,7 +6011,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking8_Layer1_CH1 = Read_DDR(Rd_Address=0x97B24000,  End_Address=0x97B8C000)
         ReLu_Marking8_Layer1_CH1_256 = data_32_to_16(ReLu_Marking8_Layer1_CH1)
         e= time.time()
-        print("Read RM DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read RM DDR & 32bit to 16bit : ",e-s)
 
         # ReLu Reordering
         s = time.time()
@@ -5918,7 +6024,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking7_Layer1 = Read_ReLu_Marking(ReLu_Marking7_Layer1_CH0_256, ReLu_Marking7_Layer1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
         ReLu_Marking8_Layer1 = Read_ReLu_Marking(ReLu_Marking8_Layer1_CH0_256, ReLu_Marking8_Layer1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=104, Layer8=False)
         e = time.time()
-        print("ReLu Reordering : ",e-s)
+        if DEBUG: print("ReLu Reordering : ",e-s)
 
         ReLu_Marking_Layer1 = ReLu_Marking1_Layer1 + ReLu_Marking2_Layer1 + ReLu_Marking3_Layer1 + ReLu_Marking4_Layer1 + ReLu_Marking5_Layer1 + \
                                 ReLu_Marking6_Layer1 + ReLu_Marking7_Layer1 + ReLu_Marking8_Layer1
@@ -5934,34 +6040,34 @@ class YOLOv2_Tiny_FPGA(object):
         grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_1, dL_dbeta_1, avg_pc_1, backward_const_1 = backward_LightNorm(grad_maxpool_output, layer1_cache)
         e = time.time()
-        print("Software : ",e-s)
+        if DEBUG: print("Software : ",e-s)
 
         # avg_pc_1 = avg_pc_1.squeeze()
         # backward_const_1 = backward_const_1.squeeze()
         s = time.time()
         avg_pc_1, backward_const_1 = Mean_Var_Dec2Bfloat(avg_pc_1, backward_const_1, Exponent_Bits, Mantissa_Bits)
         e = time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
 
         # Weight_Backward_Layer1 for Soft2Hardware
         s = time.time()
         Weight_Backward_Layer1 = Weight_Hardware_Backward_ReOrdering_OtherLayer(32, 16, data.Weight_Bfloat[1], backward_const_1, avg_pc_1)
         e = time.time()
-        print("Weight Reordering : ",e-s)
+        if DEBUG: print("Weight Reordering : ",e-s)
 
         # Break 256To32 and Flip the Data: 
         s = time.time()
         Weight_Backward_Layer1_CH0 = data_256_32(Weight_Backward_Layer1[0])
         Weight_Backward_Layer1_CH1 = data_256_32(Weight_Backward_Layer1[1])
         e = time.time()
-        print("256bit to 32bit : ",e-s)
+        if DEBUG: print("256bit to 32bit : ",e-s)
 
         # Write Weight For Backward into DDR
         s = time.time()
         Write_DDR(Weight_Backward_Layer1_CH0,Wr_Address=0x823E9000)
         Write_DDR(Weight_Backward_Layer1_CH1,Wr_Address=0x923E9000)
         e = time.time()
-        print("Write DDR : ",e-s)
+        if DEBUG: print("Write DDR : ",e-s)
 
 
         # Gradient of Beta Calculation:
@@ -5971,69 +6077,69 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Gradient1_Layer2_CH0 = Read_DDR(Rd_Address=0x8FBAC000,  End_Address=0x8FBB0800)
         Weight_Gradient1_Layer2_CH0_256 = data_32_to_16(Weight_Gradient1_Layer2_CH0)
-        #print("Weight_Gradient1_Layer2_CH0 : ", len(Weight_Gradient1_Layer2_CH0))   
+        #if DEBUG: print("Weight_Gradient1_Layer2_CH0 : ", len(Weight_Gradient1_Layer2_CH0))   
 
         Weight_Gradient2_Layer2_CH0 = Read_DDR(Rd_Address=0x8FBB0800,  End_Address=0x8FBB5000)
         Weight_Gradient2_Layer2_CH0_256 = data_32_to_16(Weight_Gradient2_Layer2_CH0)
-        #print("Weight_Gradient2_Layer2_CH0 : ", len(Weight_Gradient2_Layer2_CH0))    
+        #if DEBUG: print("Weight_Gradient2_Layer2_CH0 : ", len(Weight_Gradient2_Layer2_CH0))    
 
         Weight_Gradient3_Layer2_CH0 = Read_DDR(Rd_Address=0x8FBB5000,  End_Address=0x8FBB9800)
         Weight_Gradient3_Layer2_CH0_256 = data_32_to_16(Weight_Gradient3_Layer2_CH0)
-        #print("Weight_Gradient3_Layer2_CH0 : ", len(Weight_Gradient3_Layer2_CH0)) 
+        #if DEBUG: print("Weight_Gradient3_Layer2_CH0 : ", len(Weight_Gradient3_Layer2_CH0)) 
 
         Weight_Gradient4_Layer2_CH0 = Read_DDR(Rd_Address=0x8FBB9800,  End_Address=0x8FBBE000)
         Weight_Gradient4_Layer2_CH0_256 = data_32_to_16(Weight_Gradient4_Layer2_CH0)
-        #print("Weight_Gradient4_Layer2_CH0 : ", len(Weight_Gradient4_Layer2_CH0)) 
+        #if DEBUG: print("Weight_Gradient4_Layer2_CH0 : ", len(Weight_Gradient4_Layer2_CH0)) 
 
         Weight_Gradient5_Layer2_CH0 = Read_DDR(Rd_Address=0x8FBBE000,  End_Address=0x8FBC2800)
         Weight_Gradient5_Layer2_CH0_256 = data_32_to_16(Weight_Gradient5_Layer2_CH0)
-        #print("Weight_Gradient5_Layer2_CH0 : ", len(Weight_Gradient5_Layer2_CH0)) 
+        #if DEBUG: print("Weight_Gradient5_Layer2_CH0 : ", len(Weight_Gradient5_Layer2_CH0)) 
 
         Weight_Gradient6_Layer2_CH0 = Read_DDR(Rd_Address=0x8FBC2800,  End_Address=0x8FBC7000)
         Weight_Gradient6_Layer2_CH0_256 = data_32_to_16(Weight_Gradient6_Layer2_CH0)
-        #print("Weight_Gradient6_Layer2_CH0 : ", len(Weight_Gradient6_Layer2_CH0)) 
+        #if DEBUG: print("Weight_Gradient6_Layer2_CH0 : ", len(Weight_Gradient6_Layer2_CH0)) 
 
         Weight_Gradient7_Layer2_CH0 = Read_DDR(Rd_Address=0x8FBC7000,  End_Address=0x8FBCB800)
         Weight_Gradient7_Layer2_CH0_256 = data_32_to_16(Weight_Gradient7_Layer2_CH0)
-        #print("Weight_Gradient7_Layer2_CH0 : ", len(Weight_Gradient7_Layer2_CH0)) 
+        #if DEBUG: print("Weight_Gradient7_Layer2_CH0 : ", len(Weight_Gradient7_Layer2_CH0)) 
 
         Weight_Gradient8_Layer2_CH0 = Read_DDR(Rd_Address=0x8FBCB800,  End_Address=0x8FBD0000)
         Weight_Gradient8_Layer2_CH0_256 = data_32_to_16(Weight_Gradient8_Layer2_CH0)
-        #print("Weight_Gradient8_Layer2_CH0 : ", len(Weight_Gradient8_Layer2_CH0)) 
+        #if DEBUG: print("Weight_Gradient8_Layer2_CH0 : ", len(Weight_Gradient8_Layer2_CH0)) 
 
         Weight_Gradient1_Layer2_CH1 = Read_DDR(Rd_Address=0x9FBAC000,  End_Address=0x9FBB0800)
         Weight_Gradient1_Layer2_CH1_256 = data_32_to_16(Weight_Gradient1_Layer2_CH1)
-        #print("Weight_Gradient1_Layer2_CH1 : ", len(Weight_Gradient1_Layer2_CH1)) 
+        #if DEBUG: print("Weight_Gradient1_Layer2_CH1 : ", len(Weight_Gradient1_Layer2_CH1)) 
 
         Weight_Gradient2_Layer2_CH1 = Read_DDR(Rd_Address=0x9FBB0800,  End_Address=0x9FBB5000)
         Weight_Gradient2_Layer2_CH1_256 = data_32_to_16(Weight_Gradient2_Layer2_CH1)
-        #print("Weight_Gradient2_Layer2_CH1 : ", len(Weight_Gradient2_Layer2_CH1)) 
+        #if DEBUG: print("Weight_Gradient2_Layer2_CH1 : ", len(Weight_Gradient2_Layer2_CH1)) 
 
         Weight_Gradient3_Layer2_CH1 = Read_DDR(Rd_Address=0x9FBB5000,  End_Address=0x9FBB9800)
         Weight_Gradient3_Layer2_CH1_256 = data_32_to_16(Weight_Gradient3_Layer2_CH1)
-        #print("Weight_Gradient3_Layer2_CH1 : ", len(Weight_Gradient3_Layer2_CH1)) 
+        #if DEBUG: print("Weight_Gradient3_Layer2_CH1 : ", len(Weight_Gradient3_Layer2_CH1)) 
 
         Weight_Gradient4_Layer2_CH1 = Read_DDR(Rd_Address=0x9FBB9800,  End_Address=0x9FBBE000)
         Weight_Gradient4_Layer2_CH1_256 = data_32_to_16(Weight_Gradient4_Layer2_CH1)
-        #print("Weight_Gradient4_Layer2_CH1 : ", len(Weight_Gradient4_Layer2_CH1)) 
+        #if DEBUG: print("Weight_Gradient4_Layer2_CH1 : ", len(Weight_Gradient4_Layer2_CH1)) 
 
         Weight_Gradient5_Layer2_CH1 = Read_DDR(Rd_Address=0x9FBBE000,  End_Address=0x9FBC2800)
         Weight_Gradient5_Layer2_CH1_256 = data_32_to_16(Weight_Gradient5_Layer2_CH1)
-        #print("Weight_Gradient5_Layer2_CH1 : ", len(Weight_Gradient5_Layer2_CH1)) 
+        #if DEBUG: print("Weight_Gradient5_Layer2_CH1 : ", len(Weight_Gradient5_Layer2_CH1)) 
 
         Weight_Gradient6_Layer2_CH1 = Read_DDR(Rd_Address=0x9FBC2800,  End_Address=0x9FBC7000)
         Weight_Gradient6_Layer2_CH1_256 = data_32_to_16(Weight_Gradient6_Layer2_CH1)
-        #print("Weight_Gradient6_Layer2_CH1 : ", len(Weight_Gradient6_Layer2_CH1)) 
+        #if DEBUG: print("Weight_Gradient6_Layer2_CH1 : ", len(Weight_Gradient6_Layer2_CH1)) 
 
         Weight_Gradient7_Layer2_CH1 = Read_DDR(Rd_Address=0x9FBC7000,  End_Address=0x9FBCB800)
         Weight_Gradient7_Layer2_CH1_256 = data_32_to_16(Weight_Gradient7_Layer2_CH1)
-        #print("Weight_Gradient7_Layer2_CH1 : ", len(Weight_Gradient7_Layer2_CH1)) 
+        #if DEBUG: print("Weight_Gradient7_Layer2_CH1 : ", len(Weight_Gradient7_Layer2_CH1)) 
 
         Weight_Gradient8_Layer2_CH1 = Read_DDR(Rd_Address=0x9FBCB800,  End_Address=0x9FBD0000)
         Weight_Gradient8_Layer2_CH1_256 = data_32_to_16(Weight_Gradient8_Layer2_CH1)
-        #print("Weight_Gradient8_Layer2_CH1 : ", len(Weight_Gradient8_Layer2_CH1)) 
+        #if DEBUG: print("Weight_Gradient8_Layer2_CH1 : ", len(Weight_Gradient8_Layer2_CH1)) 
         e =time.time()
-        print("Read WG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read WG DDR & 32bit to 16bit : ",e-s)
 
         '''
         test_out = 'Weight_Result/Weight_Gradient1_Layer2_CH0.txt'
@@ -6159,7 +6265,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient7_Layer2 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient7_Layer2_CH0_256, Weight_Gradient7_Layer2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, In_CH=32, Layer8=False)
         Weight_Gradient8_Layer2 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient8_Layer2_CH0_256, Weight_Gradient8_Layer2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, In_CH=32, Layer8=False)
         e = time.time()
-        print("Bflaot to Dec : ",e-s)
+        if DEBUG: print("Bflaot to Dec : ",e-s)
         
         Weight_Gradient_Layer2 = [Weight_Gradient1_Layer2, Weight_Gradient2_Layer2, Weight_Gradient3_Layer2, Weight_Gradient4_Layer2, Weight_Gradient5_Layer2, 
                                 Weight_Gradient6_Layer2, Weight_Gradient7_Layer2, Weight_Gradient8_Layer2]
@@ -6167,10 +6273,10 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient_Layer2 = torch.tensor([float(value) for value in Weight_Gradient_Layer2], dtype=torch.float32).reshape(64, 32, 3, 3)   
 
         Blayer2_end = time.time()
-        print("Layer2 Process Time : ",Blayer2_end-Blayer2_start)
+        if DEBUG: print("Layer2 Process Time : ",Blayer2_end-Blayer2_start)
 
         resume()
-        #print(irq_val)
+        #if DEBUG: print(irq_val)
 
         #################################################
         #             Backward Layer 1 Start            #
@@ -6229,7 +6335,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad8_Layer1_CH1 = Read_DDR(Rd_Address=0x943B0000,  End_Address=0x94480000)
         Output_Grad8_Layer1_CH1 = data_32_to_16(Output_Grad8_Layer1_CH1)
         e = time.time()
-        print("Read OG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read OG DDR & 32bit to 16bit : ",e-s)
 
         s = time.time()
         Output_Grad1_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad1_Layer1_CH0, Output_Grad1_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
@@ -6241,7 +6347,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad7_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad7_Layer1_CH0, Output_Grad7_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
         Output_Grad8_Layer1 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer1_CH0, Output_Grad8_Layer1_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Output_Grads_Layer1 = Output_Grad1_Layer1 + Output_Grad2_Layer1 + Output_Grad3_Layer1 + Output_Grad4_Layer1 + \
                                 Output_Grad5_Layer1 + Output_Grad6_Layer1 + Output_Grad7_Layer1 + Output_Grad8_Layer1    
@@ -6297,7 +6403,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking8_Layer0_CH1 = Read_DDR(Rd_Address=0x9777C000,  End_Address=0x9784C000)
         ReLu_Marking8_Layer0_CH1_256 = data_32_to_16(ReLu_Marking8_Layer0_CH1)
         e = time.time()
-        print("Read RM DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read RM DDR & 32bit to 16bit : ",e-s)
 
         # ReLu Reordering
         s = time.time()
@@ -6310,7 +6416,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking7_Layer0 = Read_ReLu_Marking(ReLu_Marking7_Layer0_CH0_256, ReLu_Marking7_Layer0_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
         ReLu_Marking8_Layer0 = Read_ReLu_Marking(ReLu_Marking8_Layer0_CH0_256, ReLu_Marking8_Layer0_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
         e = time.time()
-        print("ReLu Reordering : ",e-s)
+        if DEBUG: print("ReLu Reordering : ",e-s)
 
         ReLu_Marking_Layer0 = ReLu_Marking1_Layer0 + ReLu_Marking2_Layer0 + ReLu_Marking3_Layer0 + ReLu_Marking4_Layer0 + ReLu_Marking5_Layer0 + \
                                 ReLu_Marking6_Layer0 + ReLu_Marking7_Layer0 + ReLu_Marking8_Layer0
@@ -6327,36 +6433,36 @@ class YOLOv2_Tiny_FPGA(object):
         # grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_0, dL_dbeta_0, avg_pc_0, backward_const_0 = backward_LightNorm(grad_relu_output, layer0_cache)
         e = time.time()
-        print("Software : ",e-s)
+        if DEBUG: print("Software : ",e-s)
 
         # avg_pc_0 = avg_pc_0.squeeze()
         # backward_const_0 = backward_const_0.squeeze()
         s = time.time()
         avg_pc_0, backward_const_0 = Mean_Var_Dec2Bfloat(avg_pc_0, backward_const_0, Exponent_Bits, Mantissa_Bits)
         e= time.time()
-        print("Dec to Bfloat : ",e-s)
+        if DEBUG: print("Dec to Bfloat : ",e-s)
 
         # Weight_Backward_Layer0 for Soft2Hardware
         s = time.time()
         Weight_Backward_Layer0 = Weight_Hardware_Backward_ReOrdering_Layer0(16, 16, data.Weight_Bfloat[0], backward_const_0, avg_pc_0)
         e = time.time()
-        print("Weight Reordering : ",e-s)
-        #print("Weight_Backward_Layer0: " + str(len(Weight_Backward_Layer0[0])))
-        #print("Weight_Backward_Layer0: " + str(len(Weight_Backward_Layer0[1])))
+        if DEBUG: print("Weight Reordering : ",e-s)
+        #if DEBUG: print("Weight_Backward_Layer0: " + str(len(Weight_Backward_Layer0[0])))
+        #if DEBUG: print("Weight_Backward_Layer0: " + str(len(Weight_Backward_Layer0[1])))
 
         # Break 256To32 and Flip the Data: 
         s = time.time()
         Weight_Backward_Layer0_CH0 = data_256_32(Weight_Backward_Layer0[0])
         Weight_Backward_Layer0_CH1 = data_256_32(Weight_Backward_Layer0[1])
         e = time.time()
-        print("256bit to 32bit : ",e-s)
+        if DEBUG: print("256bit to 32bit : ",e-s)
 
         # Write Weight For Backward into DDR
         s = time.time()
         Write_DDR(Weight_Backward_Layer0_CH0,Wr_Address=0x823EA400)
         Write_DDR(Weight_Backward_Layer0_CH1,Wr_Address=0x923EA400)
         e = time.time()
-        print("Write DDR : ",e-s)
+        if DEBUG: print("Write DDR : ",e-s)
 
         # Gradient of Beta Calculation:
         # Beta_Gradient_Layer1 = (Output_Grad_Layer1).sum(dim=(0, 2, 3), keepdim=True)
@@ -6365,69 +6471,69 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Gradient1_Layer1_CH0 = Read_DDR(Rd_Address=0x8FBD0000,  End_Address=0x8FBD1200)
         Weight_Gradient1_Layer1_CH0_256 = data_32_to_16(Weight_Gradient1_Layer1_CH0)
-        #print("Weight_Gradient1_Layer1_CH0 : ", len(Weight_Gradient1_Layer1_CH0))   
+        #if DEBUG: print("Weight_Gradient1_Layer1_CH0 : ", len(Weight_Gradient1_Layer1_CH0))   
 
         Weight_Gradient2_Layer1_CH0 = Read_DDR(Rd_Address=0x8FBD1200,  End_Address=0x8FBD2400)
         Weight_Gradient2_Layer1_CH0_256 = data_32_to_16(Weight_Gradient2_Layer1_CH0)
-        #print("Weight_Gradient2_Layer1_CH0 : ", len(Weight_Gradient2_Layer1_CH0))    
+        #if DEBUG: print("Weight_Gradient2_Layer1_CH0 : ", len(Weight_Gradient2_Layer1_CH0))    
 
         Weight_Gradient3_Layer1_CH0 = Read_DDR(Rd_Address=0x8FBD2400,  End_Address=0x8FBD3600)
         Weight_Gradient3_Layer1_CH0_256 = data_32_to_16(Weight_Gradient3_Layer1_CH0)
-        #print("Weight_Gradient3_Layer1_CH0 : ", len(Weight_Gradient3_Layer1_CH0)) 
+        #if DEBUG: print("Weight_Gradient3_Layer1_CH0 : ", len(Weight_Gradient3_Layer1_CH0)) 
 
         Weight_Gradient4_Layer1_CH0 = Read_DDR(Rd_Address=0x8FBD3600,  End_Address=0x8FBD4800)
         Weight_Gradient4_Layer1_CH0_256 = data_32_to_16(Weight_Gradient4_Layer1_CH0)
-        #print("Weight_Gradient4_Layer1_CH0 : ", len(Weight_Gradient4_Layer1_CH0)) 
+        #if DEBUG: print("Weight_Gradient4_Layer1_CH0 : ", len(Weight_Gradient4_Layer1_CH0)) 
 
         Weight_Gradient5_Layer1_CH0 = Read_DDR(Rd_Address=0x8FBD4800,  End_Address=0x8FBD5A00)
         Weight_Gradient5_Layer1_CH0_256 = data_32_to_16(Weight_Gradient5_Layer1_CH0)
-        #print("Weight_Gradient5_Layer1_CH0 : ", len(Weight_Gradient5_Layer1_CH0)) 
+        #if DEBUG: print("Weight_Gradient5_Layer1_CH0 : ", len(Weight_Gradient5_Layer1_CH0)) 
 
         Weight_Gradient6_Layer1_CH0 = Read_DDR(Rd_Address=0x8FBD5A00,  End_Address=0x8FBD6C00)
         Weight_Gradient6_Layer1_CH0_256 = data_32_to_16(Weight_Gradient6_Layer1_CH0)
-        #print("Weight_Gradient6_Layer1_CH0 : ", len(Weight_Gradient6_Layer1_CH0)) 
+        #if DEBUG: print("Weight_Gradient6_Layer1_CH0 : ", len(Weight_Gradient6_Layer1_CH0)) 
 
         Weight_Gradient7_Layer1_CH0 = Read_DDR(Rd_Address=0x8FBD6C00,  End_Address=0x8FBD7E00)
         Weight_Gradient7_Layer1_CH0_256 = data_32_to_16(Weight_Gradient7_Layer1_CH0)
-        #print("Weight_Gradient7_Layer1_CH0 : ", len(Weight_Gradient7_Layer1_CH0)) 
+        #if DEBUG: print("Weight_Gradient7_Layer1_CH0 : ", len(Weight_Gradient7_Layer1_CH0)) 
 
         Weight_Gradient8_Layer1_CH0 = Read_DDR(Rd_Address=0x8FBD7E00,  End_Address=0x8FBD9000)
         Weight_Gradient8_Layer1_CH0_256 = data_32_to_16(Weight_Gradient8_Layer1_CH0)
-        #print("Weight_Gradient8_Layer1_CH0 : ", len(Weight_Gradient8_Layer1_CH0)) 
+        #if DEBUG: print("Weight_Gradient8_Layer1_CH0 : ", len(Weight_Gradient8_Layer1_CH0)) 
 
         Weight_Gradient1_Layer1_CH1 = Read_DDR(Rd_Address=0x9FBD0000,  End_Address=0x9FBD1200)
         Weight_Gradient1_Layer1_CH1_256 = data_32_to_16(Weight_Gradient1_Layer1_CH1)
-        #print("Weight_Gradient1_Layer1_CH1 : ", len(Weight_Gradient1_Layer1_CH1)) 
+        #if DEBUG: print("Weight_Gradient1_Layer1_CH1 : ", len(Weight_Gradient1_Layer1_CH1)) 
 
         Weight_Gradient2_Layer1_CH1 = Read_DDR(Rd_Address=0x9FBD1200,  End_Address=0x9FBD2400)
         Weight_Gradient2_Layer1_CH1_256 = data_32_to_16(Weight_Gradient2_Layer1_CH1)
-        #print("Weight_Gradient2_Layer1_CH1 : ", len(Weight_Gradient2_Layer1_CH1)) 
+        #if DEBUG: print("Weight_Gradient2_Layer1_CH1 : ", len(Weight_Gradient2_Layer1_CH1)) 
 
         Weight_Gradient3_Layer1_CH1 = Read_DDR(Rd_Address=0x9FBD2400,  End_Address=0x9FBD3600)
         Weight_Gradient3_Layer1_CH1_256 = data_32_to_16(Weight_Gradient3_Layer1_CH1)
-        #print("Weight_Gradient3_Layer1_CH1 : ", len(Weight_Gradient3_Layer1_CH1)) 
+        #if DEBUG: print("Weight_Gradient3_Layer1_CH1 : ", len(Weight_Gradient3_Layer1_CH1)) 
 
         Weight_Gradient4_Layer1_CH1 = Read_DDR(Rd_Address=0x9FBD3600,  End_Address=0x9FBD4800)
         Weight_Gradient4_Layer1_CH1_256 = data_32_to_16(Weight_Gradient4_Layer1_CH1)
-        #print("Weight_Gradient4_Layer1_CH1 : ", len(Weight_Gradient4_Layer1_CH1)) 
+        #if DEBUG: print("Weight_Gradient4_Layer1_CH1 : ", len(Weight_Gradient4_Layer1_CH1)) 
 
         Weight_Gradient5_Layer1_CH1 = Read_DDR(Rd_Address=0x9FBD4800,  End_Address=0x9FBD5A00)
         Weight_Gradient5_Layer1_CH1_256 = data_32_to_16(Weight_Gradient5_Layer1_CH1)
-        #print("Weight_Gradient5_Layer1_CH1 : ", len(Weight_Gradient5_Layer1_CH1)) 
+        #if DEBUG: print("Weight_Gradient5_Layer1_CH1 : ", len(Weight_Gradient5_Layer1_CH1)) 
 
         Weight_Gradient6_Layer1_CH1 = Read_DDR(Rd_Address=0x9FBD5A00,  End_Address=0x9FBD6C00)
         Weight_Gradient6_Layer1_CH1_256 = data_32_to_16(Weight_Gradient6_Layer1_CH1)
-        #print("Weight_Gradient6_Layer1_CH1 : ", len(Weight_Gradient6_Layer1_CH1)) 
+        #if DEBUG: print("Weight_Gradient6_Layer1_CH1 : ", len(Weight_Gradient6_Layer1_CH1)) 
 
         Weight_Gradient7_Layer1_CH1 = Read_DDR(Rd_Address=0x9FBD6C00,  End_Address=0x9FBD7E00)
         Weight_Gradient7_Layer1_CH1_256 = data_32_to_16(Weight_Gradient7_Layer1_CH1)
-        #print("Weight_Gradient7_Layer1_CH1 : ", len(Weight_Gradient7_Layer1_CH1)) 
+        #if DEBUG: print("Weight_Gradient7_Layer1_CH1 : ", len(Weight_Gradient7_Layer1_CH1)) 
 
         Weight_Gradient8_Layer1_CH1 = Read_DDR(Rd_Address=0x9FBD7E00,  End_Address=0x9FBD9000)
         Weight_Gradient8_Layer1_CH1_256 = data_32_to_16(Weight_Gradient8_Layer1_CH1)
-        #print("Weight_Gradient8_Layer1_CH1 : ", len(Weight_Gradient8_Layer1_CH1)) 
+        #if DEBUG: print("Weight_Gradient8_Layer1_CH1 : ", len(Weight_Gradient8_Layer1_CH1)) 
         e = time.time()
-        print("Read WG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read WG DDR & 32bit to 16bit : ",e-s)
 
         '''
         test_out = 'Weight_Result/Weight_Gradient1_Layer1_CH0.txt'
@@ -6553,7 +6659,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient7_Layer1 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient7_Layer1_CH0_256, Weight_Gradient7_Layer1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, In_CH=16, Layer8=False)
         Weight_Gradient8_Layer1 = Read_WeightGradient_Bfloat2Dec(Weight_Gradient8_Layer1_CH0_256, Weight_Gradient8_Layer1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, In_CH=16, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         Weight_Gradient_Layer1 = [Weight_Gradient1_Layer1, Weight_Gradient2_Layer1, Weight_Gradient3_Layer1, Weight_Gradient4_Layer1, Weight_Gradient5_Layer1, 
                                 Weight_Gradient6_Layer1, Weight_Gradient7_Layer1, Weight_Gradient8_Layer1]
@@ -6561,7 +6667,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient_Layer1 = torch.tensor([float(value) for value in Weight_Gradient_Layer1], dtype=torch.float32).reshape(32, 16, 3, 3)   
 
         Blayer1_end = time.time()
-        print("Layer1 Process Time : ",Blayer1_end-Blayer1_start)
+        if DEBUG: print("Layer1 Process Time : ",Blayer1_end-Blayer1_start)
 
         resume()
 
@@ -6646,69 +6752,69 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Gradient1_Layer0_CH0 = Read_DDR(Rd_Address=0x8FBD9000,  End_Address=0x8FBD9900)
         Weight_Gradient1_Layer0_CH0_256 = data_32_to_16(Weight_Gradient1_Layer0_CH0)
-        #print("Weight_Gradient1_Layer0_CH0 : ", len(Weight_Gradient1_Layer0_CH0))   
+        #if DEBUG: print("Weight_Gradient1_Layer0_CH0 : ", len(Weight_Gradient1_Layer0_CH0))   
 
         Weight_Gradient2_Layer0_CH0 = Read_DDR(Rd_Address=0x8FBD9900,  End_Address=0x8FBDA200)
         Weight_Gradient2_Layer0_CH0_256 = data_32_to_16(Weight_Gradient2_Layer0_CH0)
-        #print("Weight_Gradient2_Layer0_CH0 : ", len(Weight_Gradient2_Layer0_CH0))    
+        #if DEBUG: print("Weight_Gradient2_Layer0_CH0 : ", len(Weight_Gradient2_Layer0_CH0))    
 
         Weight_Gradient3_Layer0_CH0 = Read_DDR(Rd_Address=0x8FBDA200,  End_Address=0x8FBDAB00)
         Weight_Gradient3_Layer0_CH0_256 = data_32_to_16(Weight_Gradient3_Layer0_CH0)
-        #print("Weight_Gradient3_Layer0_CH0 : ", len(Weight_Gradient3_Layer0_CH0)) 
+        #if DEBUG: print("Weight_Gradient3_Layer0_CH0 : ", len(Weight_Gradient3_Layer0_CH0)) 
 
         Weight_Gradient4_Layer0_CH0 = Read_DDR(Rd_Address=0x8FBDAB00,  End_Address=0x8FBDB400)
         Weight_Gradient4_Layer0_CH0_256 = data_32_to_16(Weight_Gradient4_Layer0_CH0)
-        #print("Weight_Gradient4_Layer0_CH0 : ", len(Weight_Gradient4_Layer0_CH0)) 
+        #if DEBUG: print("Weight_Gradient4_Layer0_CH0 : ", len(Weight_Gradient4_Layer0_CH0)) 
 
         Weight_Gradient5_Layer0_CH0 = Read_DDR(Rd_Address=0x8FBDB400,  End_Address=0x8FBDBD00)
         Weight_Gradient5_Layer0_CH0_256 = data_32_to_16(Weight_Gradient5_Layer0_CH0)
-        #print("Weight_Gradient5_Layer0_CH0 : ", len(Weight_Gradient5_Layer0_CH0)) 
+        #if DEBUG: print("Weight_Gradient5_Layer0_CH0 : ", len(Weight_Gradient5_Layer0_CH0)) 
 
         Weight_Gradient6_Layer0_CH0 = Read_DDR(Rd_Address=0x8FBDBD00,  End_Address=0x8FBDC600)
         Weight_Gradient6_Layer0_CH0_256 = data_32_to_16(Weight_Gradient6_Layer0_CH0)
-        #print("Weight_Gradient6_Layer0_CH0 : ", len(Weight_Gradient6_Layer0_CH0)) 
+        #if DEBUG: print("Weight_Gradient6_Layer0_CH0 : ", len(Weight_Gradient6_Layer0_CH0)) 
 
         Weight_Gradient7_Layer0_CH0 = Read_DDR(Rd_Address=0x8FBDC600,  End_Address=0x8FBDCF00)
         Weight_Gradient7_Layer0_CH0_256 = data_32_to_16(Weight_Gradient7_Layer0_CH0)
-        #print("Weight_Gradient7_Layer0_CH0 : ", len(Weight_Gradient7_Layer0_CH0)) 
+        #if DEBUG: print("Weight_Gradient7_Layer0_CH0 : ", len(Weight_Gradient7_Layer0_CH0)) 
 
         Weight_Gradient8_Layer0_CH0 = Read_DDR(Rd_Address=0x8FBDCF00,  End_Address=0x8FBDD800)
         Weight_Gradient8_Layer0_CH0_256 = data_32_to_16(Weight_Gradient8_Layer0_CH0)
-        #print("Weight_Gradient8_Layer0_CH0 : ", len(Weight_Gradient8_Layer0_CH0)) 
+        #if DEBUG: print("Weight_Gradient8_Layer0_CH0 : ", len(Weight_Gradient8_Layer0_CH0)) 
 
         Weight_Gradient1_Layer0_CH1 = Read_DDR(Rd_Address=0x9FBD9000,  End_Address=0x9FBD9900)
         Weight_Gradient1_Layer0_CH1_256 = data_32_to_16(Weight_Gradient1_Layer0_CH1)
-        #print("Weight_Gradient1_Layer0_CH1 : ", len(Weight_Gradient1_Layer0_CH1)) 
+        #if DEBUG: print("Weight_Gradient1_Layer0_CH1 : ", len(Weight_Gradient1_Layer0_CH1)) 
 
         Weight_Gradient2_Layer0_CH1 = Read_DDR(Rd_Address=0x9FBD9900,  End_Address=0x9FBDA200)
         Weight_Gradient2_Layer0_CH1_256 = data_32_to_16(Weight_Gradient2_Layer0_CH1)
-        #print("Weight_Gradient2_Layer0_CH1 : ", len(Weight_Gradient2_Layer0_CH1)) 
+        #if DEBUG: print("Weight_Gradient2_Layer0_CH1 : ", len(Weight_Gradient2_Layer0_CH1)) 
 
         Weight_Gradient3_Layer0_CH1 = Read_DDR(Rd_Address=0x9FBDA200,  End_Address=0x9FBDAB00)
         Weight_Gradient3_Layer0_CH1_256 = data_32_to_16(Weight_Gradient3_Layer0_CH1)
-        #print("Weight_Gradient3_Layer0_CH1 : ", len(Weight_Gradient3_Layer0_CH1)) 
+        #if DEBUG: print("Weight_Gradient3_Layer0_CH1 : ", len(Weight_Gradient3_Layer0_CH1)) 
 
         Weight_Gradient4_Layer0_CH1 = Read_DDR(Rd_Address=0x9FBDAB00,  End_Address=0x9FBDB400)
         Weight_Gradient4_Layer0_CH1_256 = data_32_to_16(Weight_Gradient4_Layer0_CH1)
-        #print("Weight_Gradient4_Layer0_CH1 : ", len(Weight_Gradient4_Layer0_CH1)) 
+        #if DEBUG: print("Weight_Gradient4_Layer0_CH1 : ", len(Weight_Gradient4_Layer0_CH1)) 
 
         Weight_Gradient5_Layer0_CH1 = Read_DDR(Rd_Address=0x9FBDB400,  End_Address=0x9FBDBD00)
         Weight_Gradient5_Layer0_CH1_256 = data_32_to_16(Weight_Gradient5_Layer0_CH1)
-        #print("Weight_Gradient5_Layer0_CH1 : ", len(Weight_Gradient5_Layer0_CH1)) 
+        #if DEBUG: print("Weight_Gradient5_Layer0_CH1 : ", len(Weight_Gradient5_Layer0_CH1)) 
 
         Weight_Gradient6_Layer0_CH1 = Read_DDR(Rd_Address=0x9FBDBD00,  End_Address=0x9FBDC600)
         Weight_Gradient6_Layer0_CH1_256 = data_32_to_16(Weight_Gradient6_Layer0_CH1)
-        #print("Weight_Gradient6_Layer0_CH1 : ", len(Weight_Gradient6_Layer0_CH1)) 
+        #if DEBUG: print("Weight_Gradient6_Layer0_CH1 : ", len(Weight_Gradient6_Layer0_CH1)) 
 
         Weight_Gradient7_Layer0_CH1 = Read_DDR(Rd_Address=0x9FBDC600,  End_Address=0x9FBDCF00)
         Weight_Gradient7_Layer0_CH1_256 = data_32_to_16(Weight_Gradient7_Layer0_CH1)
-        #print("Weight_Gradient7_Layer0_CH1 : ", len(Weight_Gradient7_Layer0_CH1)) 
+        #if DEBUG: print("Weight_Gradient7_Layer0_CH1 : ", len(Weight_Gradient7_Layer0_CH1)) 
 
         Weight_Gradient8_Layer0_CH1 = Read_DDR(Rd_Address=0x9FBDCF00,  End_Address=0x9FBDD800)
         Weight_Gradient8_Layer0_CH1_256 = data_32_to_16(Weight_Gradient8_Layer0_CH1)
-        #print("Weight_Gradient8_Layer0_CH1 : ", len(Weight_Gradient8_Layer0_CH1)) 
+        #if DEBUG: print("Weight_Gradient8_Layer0_CH1 : ", len(Weight_Gradient8_Layer0_CH1)) 
         e = time.time()
-        print("Read WG DDR & 32bit to 16bit : ",e-s)
+        if DEBUG: print("Read WG DDR & 32bit to 16bit : ",e-s)
 
         '''
         test_out = 'Weight_Result/Weight_Gradient1_Layer0_CH0.txt'
@@ -6834,7 +6940,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient7_Layer0 = Read_WeightGradient_Bfloat2Dec_Layer0(Weight_Gradient7_Layer0_CH0_256, Weight_Gradient7_Layer0_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, In_CH=16, Layer8=False)
         Weight_Gradient8_Layer0 = Read_WeightGradient_Bfloat2Dec_Layer0(Weight_Gradient8_Layer0_CH0_256, Weight_Gradient8_Layer0_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, In_CH=16, Layer8=False)
         e = time.time()
-        print("Bfloat to Dec : ",e-s)
+        if DEBUG: print("Bfloat to Dec : ",e-s)
         
         s = time.time()
         Weight_Gradient_Layer0 = [Weight_Gradient1_Layer0, Weight_Gradient2_Layer0, Weight_Gradient3_Layer0, Weight_Gradient4_Layer0, Weight_Gradient5_Layer0, 
@@ -6842,7 +6948,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient_Layer0 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer0)]   
         Weight_Gradient_Layer0 = torch.tensor([float(value) for value in Weight_Gradient_Layer0], dtype=torch.float32).reshape(16, 3, 3, 3)   
         e = time.time()
-        print("reshape : ",e-s)
+        if DEBUG: print("reshape : ",e-s)
 
         # Gradient Value for Weight Update
         Weight_Gradient = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, Weight_Gradient_Layer4,
@@ -6855,10 +6961,22 @@ class YOLOv2_Tiny_FPGA(object):
                         dL_dgamma_5, dL_dgamma_6, dL_dgamma_7]
 
         Blayer1_end = time.time()
-        print("Layer0 Process Time : ",Blayer1_end-Blayer1_start)
+        if DEBUG: print("Layer0 Process Time : ",Blayer1_end-Blayer1_start)
 
         # pdb.set_trace() 
         resume()
+        
+        
+        if DEBUG2: print("Weight_Gradient : ", Weight_Gradient[0][0])
+
+        if DEBUG2: print("Bias_Grad   : ", Bias_Grad[0])
+
+        if DEBUG2: print("Beta_Gradient   : ", Beta_Gradient[0])
+
+        if DEBUG2: print("Gamma_Gradient  : ", Gamma_Gradient[0])
+        
+        import pdb
+        pdb.set_trace()
         
         return Weight_Gradient, Bias_Grad, Beta_Gradient, Gamma_Gradient
     
@@ -6867,9 +6985,23 @@ class YOLOv2_Tiny_FPGA(object):
         # Pre-Processing Class Initialization
         # global Weight_Bfloat, Bias_Bfloat, Beta_Bfloat, Gamma_Bfloat, Running_Mean_Bfloat, Running_Var_Bfloat
 
-            
         data.Weight_Bfloat, data.Bias_Bfloat, data.Beta_Bfloat, data.Gamma_Bfloat, data.Running_Mean_Bfloat, data.Running_Var_Bfloat = self.PreProcessing.Weight_Converted_Func(\
             data.Weight_Dec, data.Bias_Dec, data.Beta_Dec, data.Gamma_Dec, data.Running_Mean_Dec, data.Running_Var_Dec)  
+        
+        if DEBUG2: print("Weight_Dec : ", data.Weight_Dec[0][0])
+        if DEBUG2: print("Weight_Dec : ", data.Weight_Bfloat[0][0])
+
+        if DEBUG2: print("Bias_Dec   : ", data.Bias_Dec[0])
+        if DEBUG2: print("Bias_Dec   : ", data.Bias_Bfloat[0])
+
+        if DEBUG2: print("Beta_Dec   : ", data.Beta_Dec[0])
+        if DEBUG2: print("Beta_Dec   : ", data.Beta_Bfloat[0])
+
+        if DEBUG2: print("Gamma_Dec  : ", data.Gamma_Dec[0])
+        if DEBUG2: print("Gamma_Dec  : ", data.Gamma_Bfloat[0])
+
+        
+        
         s = time.time()
         Weight_1st_Layer0 = New_Weight_Hardware_ReOrdering_Layer0(16,       16,   data.Weight_Bfloat[0], ['0000']*16, ['0000']*16, ['0000']*16, Iteration="1")
         Weight_1st_Layer1 = New_Weight_Hardware_ReOrdering_OtherLayer(  32, 16,   data.Weight_Bfloat[1], ['0000']*32, ['0000']*32, ['0000']*32, Iteration="1")
@@ -6881,7 +7013,12 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_1st_Layer7 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 1024, data.Weight_Bfloat[7], ['0000']*1024, ['0000']*1024, ['0000']*1024, Iteration="1")
         Weight_1st_Layer8 = New_Weight_Hardware_ReOrdering_Layer8(     128, 1024, data.Weight_Bfloat[8], data.Bias_Bfloat)
         e = time.time()
-        print("Weight Ordering : ",e-s)
+        if DEBUG: print("Weight Ordering : ",e-s)
+        
+        Save_File(data.Weight_Dec[0], "result/Weight_0")
+        
+        Save_File(data.Weight_Dec[8], "result/Weight_8")
+        
         # List for Each DDR Channels: 
         Weight_1st_CH0 = Weight_1st_Layer0[0] + Weight_1st_Layer1[0] + Weight_1st_Layer2[0] + Weight_1st_Layer3[0] + Weight_1st_Layer4[0] + \
                         Weight_1st_Layer5[0] + Weight_1st_Layer6[0] + Weight_1st_Layer7[0] + Weight_1st_Layer8[0]
@@ -6893,21 +7030,25 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_1st_CH0 = data_256_32(Weight_1st_CH0)
         Weight_1st_CH1 = data_256_32(Weight_1st_CH1)
         e = time.time()
-        print("256bit to 32bit Convert :",e-s) 
+        if DEBUG: print("256bit to 32bit Convert :",e-s) 
                         
         # Write Weights into DDR: 
         s = time.time()
         Write_DDR(Weight_1st_CH0, Wr_Address=0x80000000)
         Write_DDR(Weight_1st_CH1, Wr_Address=0x90000000)    
         e = time.time()
-        print("Write Weight : ",e-s)
+        if DEBUG: print("Write Weight : ",e-s)
 
-    def Write_Image(self,data):
+    def Write_Image(self, data):
         # Pre-Processing Class Initialization
         # global Weight_Bfloat, Bias_Bfloat, Beta_Bfloat, Gamma_Bfloat, Running_Mean_Bfloat, Running_Var_Bfloat
 
         s = time.time()
         image = self.PreProcessing.Image_Converted_Func(data.im_data)
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.imshow(data.im_data[0].permute(1,2,0).numpy().astype(np.uint8))
+        # plt.show()
         Image1 = Fmap_Hardware_ReOrdering_Layer0(16, image[0])
         Image2 = Fmap_Hardware_ReOrdering_Layer0(16, image[1])
         Image3 = Fmap_Hardware_ReOrdering_Layer0(16, image[2])
@@ -6917,7 +7058,7 @@ class YOLOv2_Tiny_FPGA(object):
         Image7 = Fmap_Hardware_ReOrdering_Layer0(16, image[6])
         Image8 = Fmap_Hardware_ReOrdering_Layer0(16, image[7])
         e = time.time()
-        print("Fmap Ordering : ",e-s)
+        if DEBUG: print("Fmap Ordering : ",e-s)
         
         Images_CH0 = Image1[0] + Image2[0] + Image3[0] + Image4[0] + Image5[0] + Image6[0] + Image7[0] + Image8[0]
         Images_CH1 = Image1[1] + Image2[1] + Image3[1] + Image4[1] + Image5[1] + Image6[1] + Image7[1] + Image8[1]
@@ -6927,21 +7068,138 @@ class YOLOv2_Tiny_FPGA(object):
         Images_CH0 = data_256_32(Images_CH0)
         Images_CH1 = data_256_32(Images_CH1)
         e = time.time()
-        print("256bit to 32 bit Convert : ",e-s)
-        
-        test_out = 'result/Image.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in data.im_data:
-                test_output.write(str(item) + "\n")
-        test_output.close()    
-        
-    
+        if DEBUG: print("256bit to 32 bit Convert : ",e-s)
+       
         # Write Images into DDR: 
         s = time.time()
         Write_DDR(Images_CH0, Wr_Address=0x82400000)
         Write_DDR(Images_CH1, Wr_Address=0x92400000)  
         e = time.time()
-        print("Write Image : ",e-s)
+        if DEBUG: print("Write Image : ",e-s)
+        
+        '''
+        Im0_ch0 = Read_DDR(Rd_Address=0x82400000, End_Address=0X82740000)
+        Im0_ch0 = data_32_to_16(Im0_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im0_ch1 = Read_DDR(Rd_Address=0x92400000, End_Address=0X92740000)
+        Im0_ch1 = data_32_to_16(Im0_ch1)
+        
+        Image0 = Read_OutFmap_Bfloat2Dec(Im0_ch0, Im0_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+        # if DEBUG: print(len(Image0))
+
+        # Image0 = torch.tensor([float(value) for value in Image0], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im1_ch0 = Read_DDR(Rd_Address=0X82740000, End_Address=0X82A80000)
+        Im1_ch0 = data_32_to_16(Im1_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im1_ch1 = Read_DDR(Rd_Address=0x92740000, End_Address=0X92A80000)
+        Im1_ch1 = data_32_to_16(Im1_ch1)
+        
+        Image1 = Read_OutFmap_Bfloat2Dec(Im1_ch0, Im1_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image1 = torch.tensor([float(value) for value in Image1], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im2_ch0 = Read_DDR(Rd_Address=0X82A80000, End_Address=0X82DC0000)
+        Im2_ch0 = data_32_to_16(Im2_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im2_ch1 = Read_DDR(Rd_Address=0X92A80000, End_Address=0X92DC0000)
+        Im2_ch1 = data_32_to_16(Im2_ch1)
+        
+        Image2 = Read_OutFmap_Bfloat2Dec(Im2_ch0, Im2_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image2 = torch.tensor([float(value) for value in Image2], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im3_ch0 = Read_DDR(Rd_Address=0X82DC0000, End_Address=0X83100000)
+        Im3_ch0 = data_32_to_16(Im3_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im3_ch1 = Read_DDR(Rd_Address=0X92DC0000, End_Address=0X93100000)
+        Im3_ch1 = data_32_to_16(Im3_ch1)
+        
+        Image3 = Read_OutFmap_Bfloat2Dec(Im3_ch0, Im3_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image3 = torch.tensor([float(value) for value in Image3], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im4_ch0 = Read_DDR(Rd_Address=0X83100000, End_Address=0X83440000)
+        Im4_ch0 = data_32_to_16(Im4_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im4_ch1 = Read_DDR(Rd_Address=0X93100000, End_Address=0X93440000)
+        Im4_ch1 = data_32_to_16(Im4_ch1)
+        
+        Image4 = Read_OutFmap_Bfloat2Dec(Im4_ch0, Im4_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image4 = torch.tensor([float(value) for value in Image4], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im5_ch0 = Read_DDR(Rd_Address=0X83440000, End_Address=0X83780000)
+        Im5_ch0 = data_32_to_16(Im5_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im5_ch1 = Read_DDR(Rd_Address=0X93440000, End_Address=0X93780000)
+        Im5_ch1 = data_32_to_16(Im5_ch1)
+        
+        Image5 = Read_OutFmap_Bfloat2Dec(Im5_ch0, Im5_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image5 = torch.tensor([float(value) for value in Image5], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im6_ch0 = Read_DDR(Rd_Address=0X83780000, End_Address=0X83AC0000)
+        Im6_ch0 = data_32_to_16(Im6_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im6_ch1 = Read_DDR(Rd_Address=0X93780000, End_Address=0X93AC0000)
+        Im6_ch1 = data_32_to_16(Im6_ch1)
+        
+        Image6 = Read_OutFmap_Bfloat2Dec(Im6_ch0, Im6_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image6 = torch.tensor([float(value) for value in Image6], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        Im7_ch0 = Read_DDR(Rd_Address=0X83AC0000, End_Address=0X83E00000)
+        Im7_ch0 = data_32_to_16(Im7_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Im7_ch1 = Read_DDR(Rd_Address=0X93AC0000, End_Address=0X93E00000)
+        Im7_ch1 = data_32_to_16(Im7_ch1)
+        
+        Image7 = Read_OutFmap_Bfloat2Dec(Im7_ch0, Im7_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
+
+        # Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).reshape(1, 16, 416, 416)
+        
+        # Image = Image0 + Image1 + Image2 + Image3 + Image4 + Image5 + Image6 + Image7
+        Image0 = Image0[0:3*1*416*416]
+        Image1 = Image1[0:3*1*416*416]
+        Image2 = Image2[0:3*1*416*416]
+        Image3 = Image3[0:3*1*416*416]
+        Image4 = Image4[0:3*1*416*416]
+        Image5 = Image5[0:3*1*416*416]
+        Image6 = Image6[0:3*1*416*416]
+        Image7 = Image7[0:3*1*416*416]
+        
+        
+        Image0 = torch.tensor([float(value) for value in Image0], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image1 = torch.tensor([float(value) for value in Image1], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image2 = torch.tensor([float(value) for value in Image2], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image3 = torch.tensor([float(value) for value in Image3], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image4 = torch.tensor([float(value) for value in Image4], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image5 = torch.tensor([float(value) for value in Image5], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image6 = torch.tensor([float(value) for value in Image6], dtype=torch.float32).reshape(1, 3, 416, 416)
+        Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).reshape(1, 3, 416, 416)
+        
+        
+        Save_File(Image0, "result/Image0")
+        Save_File(Image1, "result/Image1")
+        Save_File(Image2, "result/Image2")
+        Save_File(Image3, "result/Image3")
+        Save_File(Image4, "result/Image4")
+        Save_File(Image5, "result/Image5")
+        Save_File(Image6, "result/Image6")
+        Save_File(Image7, "result/Image7")
+        '''
+        # save_txt("Input_Image", Image, module="Conv", layer_no=0, save_txt=True, phase="Forward")
+        
+        
 
 
     def Write_Image_Test(self):
