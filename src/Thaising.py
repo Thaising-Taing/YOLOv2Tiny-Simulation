@@ -94,7 +94,7 @@ class Simulation(object):
         
         mean, var = Cal_mean_var.forward(temp_Out[4])
         
-        Out4, cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], Beta_Tensor[4],
+        Out4, cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], wwwwwww[4],
                                                                 conv_param, running_mean[4], running_var[4],
                                                                 mean, var, self.Mode, pool_param_stride2)
         # Layer5: Conv-BN-ReLU

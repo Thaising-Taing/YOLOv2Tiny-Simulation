@@ -768,16 +768,15 @@ class App(customtkinter.CTk):
         self.Create_Output_Dir()
         self.Load_Weights()
         self.Load_Dataset()
-        self.Check_mAP()
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.train_data_iter = iter(self.small_train_dataloader)
+            self.data_iter = iter(self.small_train_dataloader)
             self.Adjust_Learning_Rate()
             
             for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-                # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+                # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
                 
                 self.Before_Forward() ######################### - Individual Functions
@@ -805,11 +804,11 @@ class App(customtkinter.CTk):
         self.Load_Dataset()
 
         self.whole_process_start = time.time()
-        self.train_data_iter = iter(self.small_test_dataloader)
+        self.data_iter = iter(self.small_test_dataloader)
         
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-            # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
+            # self.im_data, self.gt_boxes, gt_classes, self.num_obj = next(self.data_iter)
+            # self.Save_File(next(self.self.data_iter), "Dataset/Dataset/default_data.pickle")
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
@@ -822,7 +821,7 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
         self.Show_Text(f"Inference is finished.")
         
-    def Run_Validation(self):
+    # def Run_Validation(self):
         self.Train.configure(state="disabled")
         self.Infer.configure(state="disabled")
         self.Infer.configure(fg_color='green')
@@ -834,23 +833,35 @@ class App(customtkinter.CTk):
         self.Create_Output_Dir()
         self.Load_Weights()
         self.Load_Dataset()
+        
+        # For validation
+        self.img_id = -1
+        self.val_imdb = get_imdb("voc_2007_test")
+        self.all_boxes = [[[] for _ in range(len(self.val_imdb.image_index))] for _ in range(self.val_imdb.num_classes)]
 
         self.whole_process_start = time.time()
-        self.train_data_iter = iter(self.small_test_dataloader)
-        
+        self.data_iter = iter(self.small_test_dataloader)
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.train_data_iter)
-            # self.Save_File(next(self.train_data_iter), "Dataset/Dataset/default_data.pickle")
-            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+            # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
             self.Before_Forward() ######################### - Individual Functions
             self.Forward() ################################ - Individual Functions
             self.Validate()
-              
-        self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
-        self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
-        self.Show_Text(f"Inference is finished.")
+        
+        
+        with open(os.path.join(self.args.output_dir, 'detections.pkl'), 'wb') as f:
+            pickle.dump(self.all_boxes, f, pickle.HIGHEST_PROTOCOL)
+
+        # map = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
+        map = self.val_imdb.evaluate_detections_with_train(self.all_boxes, output_dir=self.args.output_dir)
+        # return map   
+        
+        # self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
+        # self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
+        # self.Show_Text(f"Inference is finished.")
         
     def Stop_Process(self):
         self.Train.configure(state="normal")
@@ -1289,6 +1300,39 @@ class App(customtkinter.CTk):
         delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
         
         return delta_pred, conf_pred, class_pred   
+
+    def Validate(self):
+        if self.mode == "Pytorch"   : _data = self.Pytorch
+        if self.mode == "Python"    : _data = self.Python
+        if self.mode == "Simulation": _data = self.Sim
+        if self.mode == "FPGA"      : _data = self.FPGA
+        
+        out_batch = _data.out
+        
+        self.Show_Text(f"Validate - {self.mode} - {self.batch} - {out_batch.shape}")
+        
+        for i, (img,out) in enumerate(zip(_data.image,out_batch)):
+            self.img_id += 1
+            _img = img.cpu().detach().numpy().astype(np.uint8)
+            _img = np.transpose(_img, (1,2,0))
+            
+            im_info = dict()
+            im_info['height'], im_info['width'], _  = _img.shape
+            
+            yolo_output = self.reshape_outputs(out)
+            yolo_output = [item[0].data for item in yolo_output]
+                
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            
+            if len(detections) > 0:
+                for cls in range(len(self.classes)):
+                    inds = torch.nonzero(detections[:, -1] == cls).view(-1)
+                    if inds.numel() > 0:
+                        cls_det = torch.zeros((inds.numel(), 5))
+                        cls_det[:, :4] = detections[inds, :4]
+                        cls_det[:, 4] = detections[inds, 4] * detections[inds, 5]
+                        self.all_boxes[cls][self.img_id] = cls_det.cpu().numpy()
+                    
 
 if __name__ == "__main__":
     app = App()

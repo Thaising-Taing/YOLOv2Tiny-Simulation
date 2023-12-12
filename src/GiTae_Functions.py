@@ -462,8 +462,8 @@ class YOLOv2_Tiny_FPGA(object):
         self.app_instance = app_instance    
         self.custom_model = Yolov2()
         self.custom_optimizer = optim.SGD(self.custom_model.parameters(), lr=0.001, momentum=0.001, weight_decay=0.001)
-
-        
+        self.PreProcessing = app_instance.PreProcessing  
+                
     def Forward(self, data):
         global layer0_cache, layer1_cache, layer2_cache, layer3_cache, layer4_cache, layer5_cache, layer6_cache, layer7_cache
         start = time.time()
@@ -6867,13 +6867,8 @@ class YOLOv2_Tiny_FPGA(object):
         # Pre-Processing Class Initialization
         # global Weight_Bfloat, Bias_Bfloat, Beta_Bfloat, Gamma_Bfloat, Running_Mean_Bfloat, Running_Var_Bfloat
 
-        
-        PreProcessing = Pre_Processing(Mode              =   data.Mode,
-                                    Brain_Floating_Point =   data.Brain_Floating_Point,
-                                    Exponent_Bits        =   data.Exponent_Bits,
-                                    Mantissa_Bits        =   data.Mantissa_Bits)   
             
-        data.Weight_Bfloat, data.Bias_Bfloat, data.Beta_Bfloat, data.Gamma_Bfloat, data.Running_Mean_Bfloat, data.Running_Var_Bfloat = PreProcessing.Weight_Converted_Func(\
+        data.Weight_Bfloat, data.Bias_Bfloat, data.Beta_Bfloat, data.Gamma_Bfloat, data.Running_Mean_Bfloat, data.Running_Var_Bfloat = self.PreProcessing.Weight_Converted_Func(\
             data.Weight_Dec, data.Bias_Dec, data.Beta_Dec, data.Gamma_Dec, data.Running_Mean_Dec, data.Running_Var_Dec)  
         s = time.time()
         Weight_1st_Layer0 = New_Weight_Hardware_ReOrdering_Layer0(16,       16,   data.Weight_Bfloat[0], ['0000']*16, ['0000']*16, ['0000']*16, Iteration="1")
@@ -6911,14 +6906,8 @@ class YOLOv2_Tiny_FPGA(object):
         # Pre-Processing Class Initialization
         # global Weight_Bfloat, Bias_Bfloat, Beta_Bfloat, Gamma_Bfloat, Running_Mean_Bfloat, Running_Var_Bfloat
 
-        
-        PreProcessing = Pre_Processing(Mode              =   data.Mode,
-                                    Brain_Floating_Point =   data.Brain_Floating_Point,
-                                    Exponent_Bits        =   data.Exponent_Bits,
-                                    Mantissa_Bits        =   data.Mantissa_Bits)    
-
         s = time.time()
-        image = PreProcessing.Image_Converted_Func(data.im_data)
+        image = self.PreProcessing.Image_Converted_Func(data.im_data)
         Image1 = Fmap_Hardware_ReOrdering_Layer0(16, image[0])
         Image2 = Fmap_Hardware_ReOrdering_Layer0(16, image[1])
         Image3 = Fmap_Hardware_ReOrdering_Layer0(16, image[2])
@@ -6959,13 +6948,7 @@ class YOLOv2_Tiny_FPGA(object):
         # Pre-Processing Class Initialization
         # global Weight_Bfloat, Bias_Bfloat, Beta_Bfloat, Gamma_Bfloat, Running_Mean_Bfloat, Running_Var_Bfloat
 
-        
-        PreProcessing = Pre_Processing(Mode              =   self.Mode,
-                                    Brain_Floating_Point =   self.Brain_Floating_Point,
-                                    Exponent_Bits        =   self.Exponent_Bits,
-                                    Mantissa_Bits        =   self.Mantissa_Bits)  
-     
-        image = PreProcessing.Image_Converted_Func_Test(self.Image)
+        image = self.PreProcessing.Image_Converted_Func_Test(self.Image)
         Image1 = Fmap_Hardware_ReOrdering_Layer0(16, image[0])
         Image2 = Fmap_Hardware_ReOrdering_Layer0(16, image[1])
         Image3 = Fmap_Hardware_ReOrdering_Layer0(16, image[2])
