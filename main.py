@@ -808,6 +808,7 @@ class App(customtkinter.CTk):
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+                self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
@@ -1372,7 +1373,12 @@ class App(customtkinter.CTk):
                         cls_det[:, :4] = detections[inds, :4]
                         cls_det[:, 4] = detections[inds, 4] * detections[inds, 5]
                         self.all_boxes[cls][self.img_id] = cls_det.cpu().numpy()
-                    
+            
+    def show_image(self, img):
+        img = img.permute(1,2,0).numpy().astype(np.uint8)
+        plt.figure()
+        plt.imshow(img)
+        plt.show()
 
 if __name__ == "__main__":
     app = App()
