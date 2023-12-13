@@ -305,67 +305,83 @@ class Shoaib_Code(object):
 
             elif name == "bn1.weight": 
                 param.data = Gamma_WeightBN[0]
-                param.grad = gGamma_WeightBN[0]
+                try: param.grad = gGamma_WeightBN[0]
+                except: param.grad = gGamma_WeightBN[0].view(-1)
 
             elif name == "bn2.weight": 
                 param.data = Gamma_WeightBN[1]
-                param.grad = gGamma_WeightBN[1]
+                try: param.grad = gGamma_WeightBN[1]
+                except: param.grad = gGamma_WeightBN[1].view(-1)
 
             elif name == "bn3.weight": 
                 param.data = Gamma_WeightBN[2]
-                param.grad = gGamma_WeightBN[2]
+                try: param.grad = gGamma_WeightBN[2]
+                except: param.grad = gGamma_WeightBN[2].view(-1)
 
             elif name == "bn4.weight": 
                 param.data = Gamma_WeightBN[3]
-                param.grad = gGamma_WeightBN[3]
+                try: param.grad = gGamma_WeightBN[3]
+                except: param.grad = gGamma_WeightBN[3].view(-1)
 
             elif name == "bn5.weight": 
                 param.data = Gamma_WeightBN[4]
-                param.grad = gGamma_WeightBN[4]
+                try: param.grad = gGamma_WeightBN[4]
+                except: param.grad = gGamma_WeightBN[4].view(-1)
 
             elif name == "bn6.weight": 
                 param.data = Gamma_WeightBN[5]
-                param.grad = gGamma_WeightBN[5]
+                try: param.grad = gGamma_WeightBN[5]
+                except: param.grad = gGamma_WeightBN[5].view(-1)
 
             elif name == "bn7.weight": 
                 param.data = Gamma_WeightBN[6]
-                param.grad = gGamma_WeightBN[6]
+                try: param.grad = gGamma_WeightBN[6]
+                except: param.grad = gGamma_WeightBN[6].view(-1)
 
             elif name == "bn8.weight": 
                 param.data = Gamma_WeightBN[7]
-                param.grad = gGamma_WeightBN[7]
+                try: param.grad = gGamma_WeightBN[7]
+                except: param.grad = gGamma_WeightBN[7].view(-1)
 
             elif name == "bn1.bias": 
                 param.data = BetaBN[0]
-                param.grad = gBetaBN[0]
+                try: param.grad = gBetaBN[0]
+                except: param.grad = gBetaBN[0].view(-1)
 
             elif name == "bn2.bias": 
                 param.data = BetaBN[1]
-                param.grad = gBetaBN[1]
+                try: param.grad = gBetaBN[1]
+                except: param.grad = gBetaBN[1].view(-1)
 
             elif name == "bn3.bias": 
                 param.data = BetaBN[2]
-                param.grad = gBetaBN[2]
+                try: param.grad = gBetaBN[2]
+                except: param.grad = gBetaBN[2].view(-1)
 
             elif name == "bn4.bias": 
                 param.data = BetaBN[3]
-                param.grad = gBetaBN[3]
+                try: param.grad = gBetaBN[3]
+                except: param.grad = gBetaBN[3].view(-1)
 
             elif name == "bn5.bias": 
                 param.data = BetaBN[4]
-                param.grad = gBetaBN[4]
+                try: param.grad = gBetaBN[4]
+                except: param.grad = gBetaBN[4].view(-1)
 
             elif name == "bn6.bias": 
                 param.data = BetaBN[5]
-                param.grad = gBetaBN[5]
+                try: param.grad = gBetaBN[5]
+                except: param.grad = gBetaBN[5].view(-1)
 
             elif name == "bn7.bias": 
                 param.data = BetaBN[6]
-                param.grad = gBetaBN[6]
+                try: param.grad = gBetaBN[6]
+                except: param.grad = gBetaBN[6].view(-1)
 
             elif name == "bn8.bias": 
                 param.data = BetaBN[7]
-                param.grad = gBetaBN[7]
+                try: param.grad = gBetaBN[7]
+                except: param.grad = gBetaBN[7].view(-1)
 
             elif name == "conv9.0.bias": 
                 param.data = Bias
@@ -404,7 +420,7 @@ class Shoaib_Code(object):
         """
         
         Weight,   Bias,  Gamma_WeightBN,  BetaBN = Inputs    # Gamma is weight for BN, Beta is Bias for BN
-        
+                
         for name, param in self.custom_model.named_parameters():
             if name == "conv1.weight": 
                 Weight[0] = param.data

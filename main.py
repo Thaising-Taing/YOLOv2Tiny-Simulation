@@ -45,9 +45,10 @@ from Weight_Update_Algorithm.yolov2_tiny import *
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
-from Wathna_pytorch import Pytorch
-from Wathna_python import Python
-from Thaising import Simulation
+from Wathna_pytorch import Pytorch 
+from Wathna_python import Python # one iteration
+from Thaising_PyTorch import Simulation
+# from Thaising_Python import Simulation
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -196,14 +197,23 @@ class App(customtkinter.CTk):
                                                     )
         self.Load_Data.place(x=10, y=100)
         
-        self.Load_Microcode = customtkinter.CTkButton(self.left_frame, 
-                                                    text="Load Microcode",
-                                                    command=self.Load_Microcode_click, 
+        self.Load_Microcode_Train = customtkinter.CTkButton(self.left_frame, 
+                                                    text="Microcode Train",
+                                                    command=self.Load_Microcode_Train_click, 
                                                     width=button_width, 
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Load_Microcode.place(x=10, y=150)
+        self.Load_Microcode_Train.place(x=10, y=150)
+        
+        self.Load_Microcode_Infer = customtkinter.CTkButton(self.left_frame, 
+                                                    text="Microcode Infer",
+                                                    command=self.Load_Microcode_Infer_click, 
+                                                    width=button_width, 
+                                                    height=button_height,
+                                                    state='disabled'
+                                                    )
+        self.Load_Microcode_Infer.place(x=10, y=200)
 
         self.Train= customtkinter.CTkButton(        self.left_frame, 
                                                     text="Train ",
@@ -212,7 +222,7 @@ class App(customtkinter.CTk):
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Train .place(x=10, y=200)
+        self.Train .place(x=10, y=250)
         
         self.Infer = customtkinter.CTkButton(       self.left_frame, 
                                                     text="Infer",
@@ -221,7 +231,7 @@ class App(customtkinter.CTk):
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Infer.place(x=10, y=250)
+        self.Infer.place(x=10, y=300)
 
         self.Stop = customtkinter.CTkButton(        self.left_frame, 
                                                     text="Stop",
@@ -230,7 +240,7 @@ class App(customtkinter.CTk):
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Stop.place(x=10, y=300)
+        self.Stop.place(x=10, y=350)
         
         # self.Reset = customtkinter.CTkButton(        self.left_frame, 
         #                                             text="Reset",
@@ -540,7 +550,8 @@ class App(customtkinter.CTk):
         
         self.Load_PCIe.configure(state="normal")
         self.Load_Data.configure(state="normal")
-        self.Load_Microcode.configure(state="normal")
+        self.Load_Microcode_Train.configure(state="normal")
+        self.Load_Microcode_Infer.configure(state="normal")
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
         self.Stop.configure(state="normal")
@@ -570,14 +581,16 @@ class App(customtkinter.CTk):
         
         self.Load_PCIe.configure(state="disabled")
         self.Load_Data.configure(state="disabled")
-        self.Load_Microcode.configure(state="disabled")
+        self.Load_Microcode_Train.configure(state="disabled")
+        self.Load_Microcode_Infer.configure(state="disabled")
         self.Train.configure(state="disabled")
         self.Infer.configure(state="disabled")
         self.Stop.configure(state="disabled")
         
         self.Load_PCIe.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Load_Data.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Load_Microcode.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Load_Microcode_Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Load_Microcode_Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
@@ -735,7 +748,7 @@ class App(customtkinter.CTk):
 
         print("Write Done!")
 
-    def Load_Microcode_click(self):
+    def Load_Microcode_Train_click(self):
         self.Show_Text(f"Load Microcode to FPGA.")
         
         self.d = Device("0000:08:00.0")
@@ -744,6 +757,24 @@ class App(customtkinter.CTk):
 
         # microcode = Microcode("src/GiTae/Forward.txt") 
         microcode = Microcode("src/GiTae/MICROCODE.txt")
+        
+
+        for i in range (0, len(microcode)):
+            self.bar.write(0x4, microcode[i]) # wr mic
+            self.bar.write(0x8, i) # wr addr
+            self.bar.write(0x0, 0x00000012) # wr en
+            self.bar.write(0x0, 0x00000010) # wr en low
+        print("mic write done")    
+        
+    def Load_Microcode_Infer_click(self):
+        self.Show_Text(f"Load Microcode to FPGA.")
+        
+        self.d = Device("0000:08:00.0")
+        self.bar = self.d.bar[0]
+        #self.textbox.insert("0.0", "CTkTextbox\n\n" )
+
+        microcode = Microcode("src/GiTae/Forward.txt") 
+        # microcode = Microcode("src/GiTae/MICROCODE.txt")
         
 
         for i in range (0, len(microcode)):
@@ -787,7 +818,7 @@ class App(customtkinter.CTk):
                 self.Weight_Update() 
             self.Check_mAP()
         #     self.Save_Pickle()
-        self.Post_Epoch()
+        # self.Post_Epoch()
         self.Show_Text(f"Training is finished")
 
     def Run_Infer(self):
@@ -804,16 +835,16 @@ class App(customtkinter.CTk):
         self.Load_Dataset()
 
         self.whole_process_start = time.time()
-        self.data_iter = iter(self.small_test_dataloader)
+        self.data_iter = iter(self.test_dataloader)
         
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
-            # self.im_data, self.gt_boxes, gt_classes, self.num_obj = next(self.data_iter)
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
             # self.Save_File(next(self.self.data_iter), "Dataset/Dataset/default_data.pickle")
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
             self.Before_Forward() ######################### - Individual Functions
-            self.Forward() ################################ - Individual Functions
+            self.Forward_Infer() ################################ - Individual Functions
             self.Visualize()
             # self.Visualize_All()
               
@@ -911,7 +942,7 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=100, type=int)
+                            default=1, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
@@ -980,7 +1011,7 @@ class App(customtkinter.CTk):
                                             Brain_Floating_Point =   self.Brain_Floating_Point,
                                             Exponent_Bits        =   self.Exponent_Bits,
                                             Mantissa_Bits        =   self.Mantissa_Bits)
-        self.Weight, self.Bias, self.Beta, self.Gamma, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
+        self.Weight, self.Bias, self.Gamma, self.Beta, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
         
         # Initialize Pre-Trained Weight
         self.Shoaib = Shoaib_Code(  Weight_Dec=self.Weight, 
@@ -996,11 +1027,12 @@ class App(customtkinter.CTk):
         
         # Loading Weight From pth File
         self.loaded_weights = self.Shoaib.load_weights()
+        Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec = self.loaded_weights
         
         if self.mode == "Pytorch":      self.Pytorch.load_weights(self.loaded_weights)
         if self.mode == "Python":       self.Python.load_weights(self.loaded_weights)
-        if self.mode == "Simulation":   self.update_weights(self.loaded_weights)
-        if self.mode == "FPGA":         self.update_weights(self.loaded_weights)
+        if self.mode == "Simulation":   self.Sim.load_weights(self.loaded_weights)
+        if self.mode == "FPGA":         self.FPGA.load_weights(self.loaded_weights)
         e = time.time()
         print("WeightLoader : ",e-s)
 
@@ -1032,7 +1064,7 @@ class App(customtkinter.CTk):
         self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch_test  = int(len(self.small_test_dataset) / self.args.batch_size)
+        self.iters_per_epoch_test  = int(len(self.test_dataloader) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # learning_rate = 0.001
@@ -1057,6 +1089,12 @@ class App(customtkinter.CTk):
         if self.mode == "Simulation": self.Sim.Forward(self)
         if self.mode == "FPGA"      : self.FPGA.Forward(self)
     
+    def Forward_Infer(self):
+        if self.mode == "Pytorch"   : self.Pytorch.Forward(self)
+        if self.mode == "Python"    : self.Python.Forward(self)
+        if self.mode == "Simulation": self.Sim.Forward(self)
+        if self.mode == "FPGA"      : self.FPGA.Forward_Inference(self)
+    
     def Calculate_Loss(self):
         if self.mode == "Pytorch"   : self.Pytorch.Calculate_Loss(self)
         if self.mode == "Python"    : self.Python.Calculate_Loss(self)
@@ -1075,6 +1113,10 @@ class App(customtkinter.CTk):
         if self.mode == "Simulation": self.Sim.Backward(self)
         if self.mode == "FPGA"      : self.FPGA.Backward(self)
 
+    def save_pickle(self, Pickle_Path, Pickle_Data):
+        with open(Pickle_Path, 'wb') as handle:
+            pickle.dump(Pickle_Data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+
     def Weight_Update(self):
         if self.mode == "Pytorch"   : _data = self.Pytorch
         if self.mode == "Python"    : _data = self.Python
@@ -1085,9 +1127,16 @@ class App(customtkinter.CTk):
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
+
+        self.save_pickle("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After", _data.Weight[0])
+        self.save_pickle("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After", _data.Beta[0])
+        self.save_pickle("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After", _data.Gamma[0])
+    
         
-        if self.mode == "Pytorch"   : self.Pytorch.load_weights(new_weights)
-        if self.mode == "Python"    : self.Pytorch.load_weights(new_weights)
+        if self.mode == "Pytorch"    : self.Pytorch.load_weights(new_weights)
+        if self.mode == "Python"     : self.Python.load_weights(new_weights)
+        if self.mode == "Simulation" : self.Sim.load_weights(new_weights)
+        if self.mode == "FPGA"       : self.FPGA.load_weights(new_weights)
             
         [self.Weight, self.Bias, self.Gamma, self.Beta] = new_weights
 

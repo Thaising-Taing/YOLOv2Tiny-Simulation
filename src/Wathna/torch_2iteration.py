@@ -474,7 +474,7 @@ class DeepConvNetTorch(object):
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
-        
+        print(temp_Out[0][0][0][0][0:5])
         mean, var = Cal_mean_var.forward(temp_Out[0], layer_no=0, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
 
         Out[0], cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(X,
@@ -2337,8 +2337,8 @@ class Torch_SpatialBatchNorm(object):
             dL_dxi[idx[0], idx[1], idx[2], idx[3]] -= grad_output[idx[0], idx[1], idx[2], idx[3]] #dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
         #dL_dxi_max = dL_dxi + dL_dxmax
         #dL_dxi_min = dL_dxi + dL_dxmin
-        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=False)
-        dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=False)
+        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
+        dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
         #for idx in max_index:
         #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
         #for idx in min_index:
