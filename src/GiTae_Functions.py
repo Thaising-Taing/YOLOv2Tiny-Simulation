@@ -7023,7 +7023,7 @@ class YOLOv2_Tiny_FPGA(object):
         e = time.time()
         if DEBUG: print("Write Image : ",e-s)
         
-        '''
+        
         Im0_ch0 = Read_DDR(Rd_Address=0x82400000, End_Address=0X82740000)
         Im0_ch0 = data_32_to_16(Im0_ch0)
         #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
@@ -7142,7 +7142,7 @@ class YOLOv2_Tiny_FPGA(object):
         if DEBUG2 : Save_File(Image5, "result/Image5")
         if DEBUG2 : Save_File(Image6, "result/Image6")
         if DEBUG2 : Save_File(Image7, "result/Image7")
-        '''
+        
         # save_txt("Input_Image", Image, module="Conv", layer_no=0, save_txt=True, phase="Forward")
         
         
