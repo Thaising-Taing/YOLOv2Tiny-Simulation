@@ -474,7 +474,7 @@ class DeepConvNetTorch(object):
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
-        
+        print(temp_Out[0][0][0][0][0:5])
         mean, var = Cal_mean_var.forward(temp_Out[0], layer_no=0, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
 
         Out[0], cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(X,

@@ -97,6 +97,14 @@ class Simulation(object):
                             Exponent_Bits        =   self.Exponent_Bits,
                             Mantissa_Bits        =   self.Mantissa_Bits)
         
+    def load_weights(self, values):
+        if len(values)>4:
+            [self.Weight,     self.Bias,     self.Gamma,     self.Beta,     self.Running_Mean    , self.Running_Var    ] = values
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec] = values
+        else:
+            [self.Weight,     self.Bias,     self.Gamma,     self.Beta     ] = values
+            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec ] = values
+
     def Forward(self, data):
         
         self.gt_boxes       = data.gt_boxes  
@@ -104,21 +112,22 @@ class Simulation(object):
         self.num_boxes      = data.num_obj 
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
+        self.im_data        = data.im_data
         
-        self.Weight           = data.Weight_Dec
-        self.Bias             = data.Bias_Dec
-        self.Gamma            = data.Gamma_Dec
-        self.Beta             = data.Beta_Dec
-        self.Running_Mean_Dec = data.Running_Mean_Dec
-        self.Running_Var_Dec  = data.Running_Var_Dec
+        # self.Weight           = data.Weight_Dec
+        # self.Bias             = data.Bias_Dec
+        # self.Gamma            = data.Gamma_Dec
+        # self.Beta             = data.Beta_Dec
+        # self.Running_Mean_Dec = data.Running_Mean_Dec
+        # self.Running_Var_Dec  = data.Running_Var_Dec
         
-        im_data             = data.im_data
-        Weight_Tensor       = data.Weight_Dec
-        Gamma_Tensor        = data.Gamma_Dec
-        Beta_Tensor         = data.Beta_Dec
-        bias                = data.Bias_Dec
-        running_mean        = data.Running_Mean_Dec
-        running_var         = data.Running_Var_Dec
+        im_data             = self.im_data
+        Weight_Tensor       = self.Weight_Dec
+        Gamma_Tensor        = self.Gamma_Dec
+        Beta_Tensor         = self.Beta_Dec
+        bias                = self.Bias_Dec
+        running_mean        = self.Running_Mean_Dec
+        running_var         = self.Running_Var_Dec
         filter_size     = 3
         conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
         pool_param_stride2 = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
@@ -127,13 +136,19 @@ class Simulation(object):
         temp_cache = {}
 
         # Layer0: Conv-BN-ReLU-Pool
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Input_Image.pickle", self.im_data)
         temp_Out[0], temp_cache['0'] = Python_Conv_Pool.forward(im_data, Weight_Tensor[0], conv_param, pool_param_stride2)
-
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Output_1st_Iter_Layer0.pickle", temp_Out[0])
         mean, var = Cal_mean_var.forward(temp_Out[0])
         
         Out0, cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.forward(im_data, Weight_Tensor[0], Gamma_Tensor[0],
                                                                 Beta_Tensor[0], conv_param, running_mean[0], 
                                                                 running_var[0], mean, var, pool_param_stride2)
+        
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Output_2nd_Iter_Layer0.pickle", Out0)
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Weight_Layer0_Before.pickle", Weight_Tensor[0])
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Beta_Layer0_Before.pickle", Beta_Tensor[0])
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Gamma_Layer0_Before.pickle", Gamma_Tensor[0])
         
         # Layer1: Conv-BN-ReLU-Pool
         temp_Out[1], temp_cache['1'] = Python_Conv.forward(Out0, Weight_Tensor[1], conv_param)
@@ -200,17 +215,20 @@ class Simulation(object):
         # Layer8: ConvWB
         conv_param['pad'] = 0
         Out8, cache['8'] = Python_ConvB.forward(Out7, Weight_Tensor[8], bias, conv_param)
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Output_last_layer.pickle", Out8)
         Output_Image = Out8
         self.Output_Image, self.cache = Output_Image, cache 
         # return Output_Image, cache
         
     def Calculate_Loss(self,data):
         self.Loss, self.Loss_Gradient = loss(out=self.Output_Image, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_boxes)
-        
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Loss_Gradient.pickle", self.Loss_Gradient)
+
     def Backward(self,data):
         # Add By Thaising
         Loss_Gradient, cache = self.Loss_Gradient, self.cache
         Input_Grad_Layer8, Weight_Gradient_Layer8, Bias_Grad  = Python_ConvB.backward(Loss_Gradient, cache['8'])
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Output_Layer8_Backward.pickle", Input_Grad_Layer8)
         Input_Grad_Layer7, Weight_Gradient_Layer7, Gamma_Gradient_Layer7, Beta_Gradient_Layer7  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer8, cache['7'])
         Input_Grad_Layer6, Weight_Gradient_Layer6, Gamma_Gradient_Layer6, Beta_Gradient_Layer6  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer7, cache['6'])
         Input_Grad_Layer5, Weight_Gradient_Layer5, Gamma_Gradient_Layer5, Beta_Gradient_Layer5  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer6, cache['5'])
@@ -219,7 +237,8 @@ class Simulation(object):
         Input_Grad_Layer2, Weight_Gradient_Layer2, Gamma_Gradient_Layer2, Beta_Gradient_Layer2  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer3, cache['2'])
         Input_Grad_Layer1, Weight_Gradient_Layer1, Gamma_Gradient_Layer1, Beta_Gradient_Layer1  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer2, cache['1'])
         Input_Grad_Layer0, Weight_Gradient_Layer0, Gamma_Gradient_Layer0, Beta_Gradient_Layer0  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer1, cache['0'])
-        
+        save_pickle("/home/msis/Desktop/Python/yolov2/Output_Pickle_Sim_Python/Output_Layer0_Backward.pickle", Input_Grad_Layer0)
+
         # Gradient Value for Weight Update
         self.gWeight = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 
                         Weight_Gradient_Layer4, Weight_Gradient_Layer5, Weight_Gradient_Layer6, Weight_Gradient_Layer7, 

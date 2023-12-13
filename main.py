@@ -47,8 +47,8 @@ from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 from Wathna_pytorch import Pytorch 
 from Wathna_python import Python # one iteration
-# from Thaising_PyTorch import Simulation
-from Thaising_Python import Simulation
+from Thaising_PyTorch import Simulation
+# from Thaising_Python import Simulation
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -818,7 +818,7 @@ class App(customtkinter.CTk):
                 self.Weight_Update() 
             self.Check_mAP()
         #     self.Save_Pickle()
-        self.Post_Epoch()
+        # self.Post_Epoch()
         self.Show_Text(f"Training is finished")
 
     def Run_Infer(self):
@@ -942,7 +942,7 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=100, type=int)
+                            default=1, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
@@ -1113,6 +1113,10 @@ class App(customtkinter.CTk):
         if self.mode == "Simulation": self.Sim.Backward(self)
         if self.mode == "FPGA"      : self.FPGA.Backward(self)
 
+    def save_pickle(self, Pickle_Path, Pickle_Data):
+        with open(Pickle_Path, 'wb') as handle:
+            pickle.dump(Pickle_Data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+
     def Weight_Update(self):
         if self.mode == "Pytorch"   : _data = self.Pytorch
         if self.mode == "Python"    : _data = self.Python
@@ -1123,6 +1127,10 @@ class App(customtkinter.CTk):
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
+
+        self.save_pickle("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After", _data.Weight[0])
+        self.save_pickle("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After", _data.Beta[0])
+        self.save_pickle("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After", _data.Gamma[0])
     
         
         if self.mode == "Pytorch"    : self.Pytorch.load_weights(new_weights)
