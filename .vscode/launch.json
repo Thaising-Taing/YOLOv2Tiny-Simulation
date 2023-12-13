@@ -13,6 +13,17 @@
 			"justMyCode": false,
 			// "sudo": true,
 
+		},
+
+		{
+			"name": "Histogram",
+			"type": "python",
+			"request": "launch",
+			"program": "Histogram_SimvsFPGA.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			// "sudo": true,
+
 		}
 	]
 }

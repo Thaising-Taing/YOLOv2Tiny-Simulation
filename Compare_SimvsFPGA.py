@@ -17,7 +17,7 @@ if __name__=="__main__":
     print(Input_Image_Sim.shape)
     Input_Image_FPGA_List = []
     for i in range(8):
-        images = load_pickle(f"/home/msis/Desktop/Python/yolov2/Output_FPGA/Image/Image{i}")
+        images = load_pickle(f"/home/msis/Desktop/Python/yolov2/Output_FPGA/Image{i}")
         Input_Image_FPGA_List.append(images)
     
     # Check the shapes of images in Input_Image_FPGA_List
