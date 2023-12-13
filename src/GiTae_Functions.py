@@ -903,25 +903,92 @@ class YOLOv2_Tiny_FPGA(object):
         # self.app_instance .change_color(self.app_instance.L2_IRQ_canvas, self.app_instance.L2_IRQ, "green") 
         # Layer 1
         
-        test0 = Read_DDR(Rd_Address=0X84480000, End_Address=0X84550000)
-        test0 = data_32_to_16(test0)
+        Image0_2nd_ch0 = Read_DDR(Rd_Address=0X84480000, End_Address=0X84550000)
+        Image0_2nd_ch0 = data_32_to_16(Image0_2nd_ch0)
         #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
 
-        test1 = Read_DDR(Rd_Address=0X94480000, End_Address=0X94550000)
-        test1 = data_32_to_16(test1)
+        Image0_2nd_ch1 = Read_DDR(Rd_Address=0X94480000, End_Address=0X94550000)
+        Image0_2nd_ch1 = data_32_to_16(Image0_2nd_ch1)
         
-        iter_result_2nd = Read_OutFmap_Bfloat2Dec(test0, test1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Image0_2nd_result = Read_OutFmap_Bfloat2Dec(Image0_2nd_ch0, Image0_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
 
-        iter_result_2nd = torch.tensor([float(value) for value in iter_result_2nd], dtype=torch.float32).reshape(1, 16, 208, 208)
+        Image1_2nd_ch0 = Read_DDR(Rd_Address=0X84550000, End_Address=0X84620000)
+        Image1_2nd_ch0 = data_32_to_16(Image1_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image1_2nd_ch1 = Read_DDR(Rd_Address=0X94550000, End_Address=0X94620000)
+        Image1_2nd_ch1 = data_32_to_16(Image1_2nd_ch1)
         
-        test_out = 'result/layer0_2nd.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in iter_result_2nd:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
+        Image1_2nd_result = Read_OutFmap_Bfloat2Dec(Image1_2nd_ch0, Image1_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image2_2nd_ch0 = Read_DDR(Rd_Address=0X84620000, End_Address=0X846F0000)
+        Image2_2nd_ch0 = data_32_to_16(Image2_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image2_2nd_ch1 = Read_DDR(Rd_Address=0X94620000, End_Address=0X946F0000)
+        Image2_2nd_ch1 = data_32_to_16(Image2_2nd_ch1)
         
-        if DEBUG2 : Save_File(iter_result_2nd, "result/iter_result_2nd")
+        Image2_2nd_result = Read_OutFmap_Bfloat2Dec(Image2_2nd_ch0, Image2_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image3_2nd_ch0 = Read_DDR(Rd_Address=0X846F0000, End_Address=0X847C0000)
+        Image3_2nd_ch0 = data_32_to_16(Image3_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image3_2nd_ch1 = Read_DDR(Rd_Address=0X946F0000, End_Address=0X947C0000)
+        Image3_2nd_ch1 = data_32_to_16(Image3_2nd_ch1)
+        
+        Image3_2nd_result = Read_OutFmap_Bfloat2Dec(Image3_2nd_ch0, Image3_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image4_2nd_ch0 = Read_DDR(Rd_Address=0X847C0000, End_Address=0X84890000)
+        Image4_2nd_ch0 = data_32_to_16(Image4_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image4_2nd_ch1 = Read_DDR(Rd_Address=0X947C0000, End_Address=0X94890000)
+        Image4_2nd_ch1 = data_32_to_16(Image4_2nd_ch1)
+        
+        Image4_2nd_result = Read_OutFmap_Bfloat2Dec(Image4_2nd_ch0, Image4_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+        
+        Image5_2nd_ch0 = Read_DDR(Rd_Address=0X84890000, End_Address=0X84960000)
+        Image5_2nd_ch0 = data_32_to_16(Image5_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image5_2nd_ch1 = Read_DDR(Rd_Address=0X94890000, End_Address=0X94960000)
+        Image5_2nd_ch1 = data_32_to_16(Image5_2nd_ch1)
+        
+        Image5_2nd_result = Read_OutFmap_Bfloat2Dec(Image5_2nd_ch0, Image5_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image6_2nd_ch0 = Read_DDR(Rd_Address=0X84960000, End_Address=0X84A30000)
+        Image6_2nd_ch0 = data_32_to_16(Image6_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image6_2nd_ch1 = Read_DDR(Rd_Address=0X94960000, End_Address=0X94A30000)
+        Image6_2nd_ch1 = data_32_to_16(Image6_2nd_ch1)
+        
+        Image6_2nd_result = Read_OutFmap_Bfloat2Dec(Image6_2nd_ch0, Image6_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image7_2nd_ch0 = Read_DDR(Rd_Address=0X84A30000, End_Address=0X84B00000)
+        Image7_2nd_ch0 = data_32_to_16(Image7_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image7_2nd_ch1 = Read_DDR(Rd_Address=0X94A30000, End_Address=0X94B00000)
+        Image7_2nd_ch1 = data_32_to_16(Image7_2nd_ch1)
+        
+        Image7_2nd_result = Read_OutFmap_Bfloat2Dec(Image7_2nd_ch0, Image7_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image_2nd_result = Image0_2nd_result + Image1_2nd_result + Image2_2nd_result + Image3_2nd_result + Image4_2nd_result + Image5_2nd_result +\
+                           Image6_2nd_result + Image7_2nd_result
+        
+        Image_2nd_result = torch.tensor([float(value) for value in Image_2nd_result], dtype=torch.float32).reshape(8, 16, 208, 208)
+        
+        Save_File(Image0_2nd_result, "result/Image0_2nd_result")
+        Save_File(Image1_2nd_result, "result/Image1_2nd_result")
+        Save_File(Image2_2nd_result, "result/Image2_2nd_result")
+        Save_File(Image3_2nd_result, "result/Image3_2nd_result")
+        Save_File(Image4_2nd_result, "result/Image4_2nd_result")
+        Save_File(Image5_2nd_result, "result/Image5_2nd_result")
+        Save_File(Image6_2nd_result, "result/Image6_2nd_result")
+        Save_File(Image7_2nd_result, "result/Image7_2nd_result")
+        Save_File(Image_2nd_result, "result/Image_2nd_result")
         
         
         layer1_start = time.time()
@@ -3887,6 +3954,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad_Layer7 = torch.tensor([float(value) for value in Output_Grads_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
         e = time.time()
         if DEBUG: print("Read_OutFmap_Bfloat2Dec Time : ", e-s)
+        if DEBUG2 : Save_File(Output_Grad_Layer7, "result/Out_layer7_Backward")
 
         # BReLu Marking
         s = time.time()
