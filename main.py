@@ -45,10 +45,9 @@ from Weight_Update_Algorithm.yolov2_tiny import *
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
-from Wathna_pytorch import Pytorch 
-from Wathna_python import Python # one iteration
-from Thaising_PyTorch import Simulation
-# from Thaising_Python import Simulation
+from Wathna_pytorch import Pytorch
+from Wathna_python import Python
+from Thaising import Simulation
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -809,7 +808,7 @@ class App(customtkinter.CTk):
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
-                self.show_image(self.im_data[5])
+                self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
@@ -839,9 +838,9 @@ class App(customtkinter.CTk):
         self.data_iter = iter(self.test_dataloader)
         
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
-            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
             # self.Save_File(next(self.self.data_iter), "Dataset/Dataset/default_data.pickle")
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
             self.Before_Forward() ######################### - Individual Functions
@@ -927,7 +926,7 @@ class App(customtkinter.CTk):
         
         
     # Training Helper Functions
-    def Save_File(self, path, data):
+    def Save_File(self, data, path):
         with open(path, 'wb') as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
@@ -943,7 +942,7 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=1, type=int)
+                            default=100, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
@@ -1124,9 +1123,7 @@ class App(customtkinter.CTk):
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
-        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After", _data.Weight[0])
-        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After", _data.Beta[0])
-        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After", _data.Gamma[0])
+    
         
         if self.mode == "Pytorch"    : self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"     : self.Python.load_weights(new_weights)
@@ -1186,10 +1183,11 @@ class App(customtkinter.CTk):
         if self.mode == "Simulation": _data = self.Sim
         if self.mode == "FPGA"      : _data = self.FPGA
         
-        if self.mode == "Pytorch"   : self.Save_File("output_of_forward_Pytorch.pickle"     , _data.out)
-        if self.mode == "Python"    : self.Save_File("output_of_forward_Python.pickle"      , _data.out)
-        if self.mode == "Simulation": self.Save_File("output_of_forward_Simulation.pickle"  , _data.out)
-        if self.mode == "FPGA"      : self.Save_File("output_of_forward_FPGA.pickle"        , _data.out)
+        if self.mode == "Pytorch"   : self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
+        if self.mode == "Python"    : self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
+        if self.mode == "Simulation": self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
+        if self.mode == "FPGA"      : self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
+        
         
         out_batch = _data.out
         
@@ -1205,7 +1203,7 @@ class App(customtkinter.CTk):
             yolo_output = self.reshape_outputs(out)
             yolo_output = [item[0].data for item in yolo_output]
                 
-            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.4, nms_threshold=0.4)
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
             
             if len(detections) > 0:
                 det_boxes = detections[:, :5].cpu().numpy()
