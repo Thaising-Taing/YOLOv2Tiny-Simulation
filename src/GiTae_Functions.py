@@ -3088,12 +3088,13 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Image8 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image8_CH0_256, Layer8_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits)
         Output_Layer8 = Output_Image1 + Output_Image2 + Output_Image3 + Output_Image4 + \
                         Output_Image5 + Output_Image6 + Output_Image7 + Output_Image8
-                        
-        if DEBUG2 : Save_File(Output_Layer8, "result/Output_last_layer")                
 
         Float_OutputImage = [np.float32(x) for x in Output_Layer8]
         Float_OutputImage = Float_OutputImage[0:(8*125*(13**2))]
         Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
+        
+        if DEBUG2 : Save_File(Output_Layer8, "result/Output_last_layer")   
+        
         return Output_Layer8
 
 
