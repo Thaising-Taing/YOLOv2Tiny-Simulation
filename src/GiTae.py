@@ -140,12 +140,11 @@ class FPGA(object):
         # return Bias_Grad
         self.out = self.Output_Layer8
         
-        
     def Calculate_Loss(self,data):                 
         self.Loss, self.Loss_Gradient = self.YOLOv2TinyFPGA.Post_Processing(data, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
         if DEBUG2: Save_File(self.Loss_Gradient, "result/loss_gradient")
+
     def Before_Backward(self,data):
-        pass
         self.YOLOv2TinyFPGA.Pre_Processing_Backward(self, self.Loss_Gradient)
 
     def Backward(self,data):
