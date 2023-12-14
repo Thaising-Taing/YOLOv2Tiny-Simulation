@@ -835,11 +835,11 @@ class App(customtkinter.CTk):
         self.Load_Dataset()
 
         self.whole_process_start = time.time()
-        self.data_iter = iter(self.test_dataloader)
+        self.data_iter = iter(self.train_dataloader)
         
-        for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
+        for step in tqdm(range(self.iters_per_epoch_train), desc=f"Inference", total=self.iters_per_epoch_train):
             # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-            # self.Save_File(next(self.self.data_iter), "Dataset/Dataset/default_data.pickle")
+            # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
