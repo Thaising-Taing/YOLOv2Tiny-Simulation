@@ -191,6 +191,7 @@ def augment_img(img, boxes, gt_classes):
     # img = np.array(img).astype(np.float32)
     boxes = np.copy(boxes).astype(np.float32)
 
+    
     for i in range(5):
         img_t, boxes_t = random_scale_translation(img.copy(), boxes.copy(), jitter=cfg.jitter)
         keep = (boxes_t[:, 0] != boxes_t[:, 2]) & (boxes_t[:, 1] != boxes_t[:, 3])
