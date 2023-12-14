@@ -7,7 +7,7 @@ from Pre_Processing_Scratch.Pre_Processing import *
 
 from GiTae_Functions import *
 DEBUG = True
-DEBUG2 = False
+DEBUG2 = True
 
 def Save_File(data, path):
     with open(path, 'wb') as handle:
@@ -133,7 +133,7 @@ class FPGA(object):
         if DEBUG: print("Start NPU")
         s = time.time()
         self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward_Inference(data)
-        # Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
+        Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
         e = time.time()
         if DEBUG: print("Forward Process Time : ",e-s)
         # self.change_color_red()

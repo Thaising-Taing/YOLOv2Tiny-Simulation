@@ -41,6 +41,7 @@ from torch.utils.data import DataLoader
 import pickle
 from Post_Processing_Scratch.Post_Processing_2Iterations_Training_Inference import *
 from Detection.Detection import *
+
 from Weight_Update_Algorithm.weight_update import *
 from Weight_Update_Algorithm.yolov2_tiny import *
 
@@ -48,7 +49,7 @@ from GiTae_Functions import *
 
 MAX_LINE_LENGTH = 1000
 DEBUG = False
-DEBUG2 = False
+DEBUG2 = True
 
 def save_txt(fname, data, module=[], layer_no=[], save_txt=False, save_hex=False, phase=[]):
     # if DEBUG: print(f"Type of data: {type(data)}")
@@ -781,7 +782,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
         
-        if DEBUG2 : Save_File(OutImage_1st_Layer0, "result/Output_1st_iter_layer0")
+        if DEBUG2 : Save_File(OutImage_1st_Layer0, "result/Layer_0_Forward_1st_Iteration")
         
         if DEBUG: print(OutImage_1st_Layer0[0][0][0][0:5])
         
@@ -794,9 +795,9 @@ class YOLOv2_Tiny_FPGA(object):
         Beta_Layer0 = data.Beta_Dec[0]
         Gamma_Layer0 = data.Gamma_Dec[0]
 
-        if DEBUG2 : Save_File(data.Beta_Dec[0], "result/Beta_Layer0_Before")  
-        if DEBUG2 : Save_File(data.Gamma_Dec[0], "result/Gamma_Layer0_Before")    
-        if DEBUG2 : Save_File(data.Weight_Dec[0], "result/weight_Layer0_Before")        
+        if DEBUG2 : Save_File(data.Beta_Dec[0],   "result/Layer_0_Forward_Beta_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Gamma_Dec[0],  "result/Layer_0_Forward_Gamma_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Weight_Dec[0], "result/Layer_0_Forward_weight_Before_Weight_Update")
 
         # layer0 Caches: 
         layer0_cache = BN(OutImage_1st_Layer0, Gamma_Layer0, Beta_Layer0)
@@ -980,15 +981,19 @@ class YOLOv2_Tiny_FPGA(object):
         
         Image_2nd_result = torch.tensor([float(value) for value in Image_2nd_result], dtype=torch.float32).reshape(8, 16, 208, 208)
         
-        Save_File(Image0_2nd_result, "result/Image0_2nd_result")
-        Save_File(Image1_2nd_result, "result/Image1_2nd_result")
-        Save_File(Image2_2nd_result, "result/Image2_2nd_result")
-        Save_File(Image3_2nd_result, "result/Image3_2nd_result")
-        Save_File(Image4_2nd_result, "result/Image4_2nd_result")
-        Save_File(Image5_2nd_result, "result/Image5_2nd_result")
-        Save_File(Image6_2nd_result, "result/Image6_2nd_result")
-        Save_File(Image7_2nd_result, "result/Image7_2nd_result")
-        Save_File(Image_2nd_result, "result/Image_2nd_result")
+        # Save_File(Image0_2nd_result, "result/Image0_2nd_result")
+        # Save_File(Image1_2nd_result, "result/Image1_2nd_result")
+        # Save_File(Image2_2nd_result, "result/Image2_2nd_result")
+        # Save_File(Image3_2nd_result, "result/Image3_2nd_result")
+        # Save_File(Image4_2nd_result, "result/Image4_2nd_result")
+        # Save_File(Image5_2nd_result, "result/Image5_2nd_result")
+        # Save_File(Image6_2nd_result, "result/Image6_2nd_result")
+        # Save_File(Image7_2nd_result, "result/Image7_2nd_result")
+        # Save_File(Image_2nd_result, "result/Image_2nd_result")
+        
+        _Out_2nd_Itr = [Image0_2nd_result, Image1_2nd_result, Image2_2nd_result, Image3_2nd_result, Image4_2nd_result, Image5_2nd_result, Image6_2nd_result, Image7_2nd_result]
+        if DEBUG2 : Save_File(_Out_2nd_Itr, "result/Layer_0_Forward_2nd_Iteration") 
+        
         
         
         layer1_start = time.time()
@@ -1193,33 +1198,11 @@ class YOLOv2_Tiny_FPGA(object):
         OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).reshape(8, 32, 208, 208)
         if DEBUG: print(OutImage_1st_Layer1[0][0][0][0:5])
         
-        test_out = '1st_iter_result/OutImage_1st_Layer1.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in OutImage_1st_Layer1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-
         # Mean, Var
         s = time.time()
         Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
         e = time.time()
         if DEBUG: print("Cacluate Mean & Var :",e-s)
-        
-        data_read_mean_var = "result/Mean_1st_Layer1.txt"
-        with open(data_read_mean_var, mode="w") as output_file:  
-            for sublist in Mean_1st_Layer1:
-                cleaned_sublist = [clean_string(item) for item in sublist]
-                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
-        output_file.close() 
-
-        data_read_mean_var = "result/Var_1st_Layer1.txt"
-        with open(data_read_mean_var, mode="w") as output_file:  
-            for sublist in Var_1st_Layer1:
-                cleaned_sublist = [clean_string(item) for item in sublist]
-                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
-        output_file.close()
         
         Beta_Layer1 = data.Beta_Dec[1]
         Gamma_Layer1 = data.Gamma_Dec[1]
@@ -3093,7 +3076,7 @@ class YOLOv2_Tiny_FPGA(object):
         Float_OutputImage = Float_OutputImage[0:(8*125*(13**2))]
         Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
         
-        if DEBUG2 : Save_File(Output_Layer8, "result/Output_last_layer")   
+        if DEBUG2 : Save_File(Output_Layer8, "result/Layer_8_Forward")   
         
         return Output_Layer8
 
@@ -3346,6 +3329,8 @@ class YOLOv2_Tiny_FPGA(object):
         Float_OutputImage = Float_OutputImage[0:(8*125*(13**2))]
         Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
         
+        if DEBUG2 : Save_File(Output_Layer8, "result/Layer_8_Forward")   
+        
         return Output_Layer8
 
     def Pre_Processing_Backward(self, data, Loss_Gradient):     
@@ -3452,6 +3437,8 @@ class YOLOv2_Tiny_FPGA(object):
     def Backward(self, data, Loss_Gradient):
         
         Bias_Grad = torch.sum(Loss_Gradient, dim=(0, 2, 3)) 
+        
+        if DEBUG2 : Save_File(Bias_Grad, "result/Layer_8_Backward_Bias_Gradient")   
          
         Blayer8_start = time.time()
         #################################################
@@ -3551,7 +3538,7 @@ class YOLOv2_Tiny_FPGA(object):
                                 Output_Grad5_Layer8 + Output_Grad6_Layer8 + Output_Grad7_Layer8 + Output_Grad8_Layer8    
         Output_Grad_Layer8 = torch.tensor([float(value) for value in Output_Grads_Layer8], dtype=torch.float32).reshape(8, 1024, 13, 13)
         
-        if DEBUG2 : Save_File(Output_Grad_Layer8, "result/Out_layer8_Backward")
+        if DEBUG2 : Save_File(Output_Grad_Layer8, "result/Layer_8_Backward_Input_Gradient")
 
         # BReLu Marking for Layer7
         s = time.time()
@@ -3640,6 +3627,10 @@ class YOLOv2_Tiny_FPGA(object):
         avg_pc_7, backward_const_7 = Mean_Var_Dec2Bfloat(avg_pc_7, backward_const_7, Exponent_Bits, Mantissa_Bits)
         e = time.time()
         if DEBUG: print("Dec to Bfloat : ",e-s)
+        
+        
+        if DEBUG2 : Save_File(dL_dgamma_7, "result/Layer_7_Backward_Gamma_Gradient")
+        if DEBUG2 : Save_File(dL_dbeta_7,  "result/Layer_7_Backward_Beta_Gradient")
 
         # Weight Gradient
         s = time.time()
@@ -3846,12 +3837,16 @@ class YOLOv2_Tiny_FPGA(object):
         
         Weight_Gradient_Layer8 = [Weight_Gradient1_Layer8, Weight_Gradient2_Layer8, Weight_Gradient3_Layer8, Weight_Gradient4_Layer8, Weight_Gradient5_Layer8, 
                                 Weight_Gradient6_Layer8, Weight_Gradient7_Layer8, Weight_Gradient8_Layer8]
+        
+        # if DEBUG2 : Save_File(Weight_Gradient_Layer8, "result/Layer_8_Backward_Weight_Gradient")
 
-        Weight_Gradient_Layer8 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer8)]
-
-
+        # Weight_Gradient_Layer8 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer8)]
+        Weight_Gradient_Layer8 = list(np.mean(np.array(Weight_Gradient_Layer8), axis=0))
+  
         Weight_Gradient_Layer8 = torch.tensor([float(value) for value in Weight_Gradient_Layer8], dtype=torch.float32).reshape(125, 1024, 1, 1)   
 
+        if DEBUG2 : Save_File(Weight_Gradient_Layer8, "result/Layer_8_Backward_Weight_Gradient")
+        
         # Backward_Const_List[7] = backward_const_7
         # Average_Per_Channel_List[7] = avg_pc_7
 
@@ -3955,7 +3950,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad_Layer7 = torch.tensor([float(value) for value in Output_Grads_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
         e = time.time()
         if DEBUG: print("Read_OutFmap_Bfloat2Dec Time : ", e-s)
-        if DEBUG2 : Save_File(Output_Grad_Layer7, "result/Out_layer7_Backward")
+        if DEBUG2 : Save_File(Output_Grad_Layer7, "result/Layer_7_Backward_Input_Gradient")
 
         # BReLu Marking
         s = time.time()
@@ -6366,7 +6361,7 @@ class YOLOv2_Tiny_FPGA(object):
                                 Output_Grad5_Layer1 + Output_Grad6_Layer1 + Output_Grad7_Layer1 + Output_Grad8_Layer1    
         Output_Grad_Layer1 = torch.tensor([float(value) for value in Output_Grads_Layer1], dtype=torch.float32).reshape(8, 16, 208, 208)
         
-        if DEBUG2 : Save_File(Output_Grad_Layer1, "result/Out_layer1_Backward")
+        if DEBUG2 : Save_File(Output_Grad_Layer1, "result/Layer_1_Backward_Input_Gradient")
 
         # BReLu Marking
         s = time.time()
@@ -6982,13 +6977,13 @@ class YOLOv2_Tiny_FPGA(object):
         resume()
         
         
-        if DEBUG2: print("Weight_Gradient : ", Weight_Gradient[0][0])
+        if DEBUG: print("Weight_Gradient : ", Weight_Gradient[0][0])
 
-        if DEBUG2: print("Bias_Grad   : ", Bias_Grad[0])
+        if DEBUG: print("Bias_Grad   : ", Bias_Grad[0])
 
-        if DEBUG2: print("Beta_Gradient   : ", Beta_Gradient[0])
+        if DEBUG: print("Beta_Gradient   : ", Beta_Gradient[0])
 
-        if DEBUG2: print("Gamma_Gradient  : ", Gamma_Gradient[0])
+        if DEBUG: print("Gamma_Gradient  : ", Gamma_Gradient[0])
         
         # import pdb
         # pdb.set_trace
@@ -7003,17 +6998,17 @@ class YOLOv2_Tiny_FPGA(object):
         data.Weight_Bfloat, data.Bias_Bfloat, data.Beta_Bfloat, data.Gamma_Bfloat, data.Running_Mean_Bfloat, data.Running_Var_Bfloat = self.PreProcessing.Weight_Converted_Func(\
             data.Weight_Dec, data.Bias_Dec, data.Beta_Dec, data.Gamma_Dec, data.Running_Mean_Dec, data.Running_Var_Dec)  
         
-        if DEBUG2: print("Weight_Dec : ", data.Weight_Dec[0][0])
-        if DEBUG2: print("Weight_Dec : ", data.Weight_Bfloat[0][0])
+        if DEBUG: print("Weight_Dec : ", data.Weight_Dec[0][0])
+        if DEBUG: print("Weight_Dec : ", data.Weight_Bfloat[0][0])
 
-        if DEBUG2: print("Bias_Dec   : ", data.Bias_Dec[0])
-        if DEBUG2: print("Bias_Dec   : ", data.Bias_Bfloat[0])
+        if DEBUG: print("Bias_Dec   : ", data.Bias_Dec[0])
+        if DEBUG: print("Bias_Dec   : ", data.Bias_Bfloat[0])
 
-        if DEBUG2: print("Beta_Dec   : ", data.Beta_Dec[0])
-        if DEBUG2: print("Beta_Dec   : ", data.Beta_Bfloat[0])
+        if DEBUG: print("Beta_Dec   : ", data.Beta_Dec[0])
+        if DEBUG: print("Beta_Dec   : ", data.Beta_Bfloat[0])
 
-        if DEBUG2: print("Gamma_Dec  : ", data.Gamma_Dec[0])
-        if DEBUG2: print("Gamma_Dec  : ", data.Gamma_Bfloat[0])
+        if DEBUG: print("Gamma_Dec  : ", data.Gamma_Dec[0])
+        if DEBUG: print("Gamma_Dec  : ", data.Gamma_Bfloat[0])
 
         
         
@@ -7029,10 +7024,6 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_1st_Layer8 = New_Weight_Hardware_ReOrdering_Layer8(     128, 1024, data.Weight_Bfloat[8], data.Bias_Bfloat)
         e = time.time()
         if DEBUG: print("Weight Ordering : ",e-s)
-        
-        if DEBUG2 : Save_File(data.Weight_Dec[0], "result/Weight_0")
-        
-        if DEBUG2 : Save_File(data.Weight_Dec[8], "result/Weight_8")
         
         # List for Each DDR Channels: 
         Weight_1st_CH0 = Weight_1st_Layer0[0] + Weight_1st_Layer1[0] + Weight_1st_Layer2[0] + Weight_1st_Layer3[0] + Weight_1st_Layer4[0] + \
@@ -7201,16 +7192,9 @@ class YOLOv2_Tiny_FPGA(object):
         Image5 = torch.tensor([float(value) for value in Image5], dtype=torch.float32).reshape(1, 3, 416, 416)
         Image6 = torch.tensor([float(value) for value in Image6], dtype=torch.float32).reshape(1, 3, 416, 416)
         Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).reshape(1, 3, 416, 416)
-        
-        
-        if DEBUG2 : Save_File(Image0, "result/Image0")
-        if DEBUG2 : Save_File(Image1, "result/Image1")
-        if DEBUG2 : Save_File(Image2, "result/Image2")
-        if DEBUG2 : Save_File(Image3, "result/Image3")
-        if DEBUG2 : Save_File(Image4, "result/Image4")
-        if DEBUG2 : Save_File(Image5, "result/Image5")
-        if DEBUG2 : Save_File(Image6, "result/Image6")
-        if DEBUG2 : Save_File(Image7, "result/Image7")
+
+        _Inputs = [Image0, Image1, Image2, Image3, Image4, Image5, Image6, Image7 ]
+        if DEBUG2 : Save_File(_Inputs, "result/Input_Data")
         
         # save_txt("Input_Image", Image, module="Conv", layer_no=0, save_txt=True, phase="Forward")
         
