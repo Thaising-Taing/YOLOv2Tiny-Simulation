@@ -11,6 +11,8 @@ import subprocess
 
 import warnings
 warnings.filterwarnings("ignore")
+from functools import lru_cache
+import numba
 
 from tkinter.constants import DISABLED, NORMAL 
 
@@ -211,55 +213,17 @@ def data_256_32(data_list):
 
 def data_32_to_16(data):
     data = flip_8_line(data)
+    
     hex_values = (hex(value)[2:].upper().zfill(8) for value in data)
     hex_strings = ''.join(hex_values)
     formatted_data = [hex_strings[i:i+4] for i in range(0, len(hex_strings), 4)]
     return formatted_data
 
+
 def clean_string(text):
     if isinstance(text, str):
         return text.replace('[', '').replace(']', '').replace("'", '')
     return text
-'''
-def backward_LightNorm(grad_output, cache):
-    X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
-    B, C, H, W = X.shape        
-    
-    #if DEBUG: print('grad_output', grad_output)
-    # if DEBUG: print(grad_output.shape)
-    dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
-
-    dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
-    dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
-
-    dL_dgamma = dL_dgamma.view(-1)
-    dL_dbeta = dL_dbeta.view(-1)
-    
-    #for idx in max_index:
-    #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-    #for idx in min_index:
-    
-    #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmin[0, idx[1], 0, 0] #dL_dxi_min[idx[0], idx[1], idx[2], idx[3]] #
-    dL_davg = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
-    
-    #hardware implementation
-    #average per channel
-    
-    avg_pc = (grad_output * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B*H*W) # write to file
-    # avg_pc = (grad_output).sum(dim=(0, 2, 3), keepdim=True) / (B*H*W) # write to file
-    dL_dxi_ = avg_pc + dL_dxi_hat
-    
-    # backward coefficient
-    # backward_const = -1 * scale * gamma.view(1, -1, 1, 1)   # write to file
-    backward_const = scale * gamma.view(1, -1, 1, 1)   # write to file
-
-     
-    #final output calculation
-    dL_dxi = dL_dxi_ * backward_const
-
-
-    return dL_dgamma, dL_dbeta, avg_pc, backward_const
-'''
 
 def backward_LightNorm(grad_output, cache):
     X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
@@ -417,8 +381,8 @@ def backward_MaxPool_Location(dout, Location, layer_no=[], save_txt=False, save_
 
 def check_irq_layer0():
     input_file_name = "/proc/interrupts"
-    output_file_name_1 = "interrupt.txt"
-    output_file_name_2 = "interrupt_old.txt"
+    output_file_name_1 = "src/GiTae/interrupt.txt"
+    output_file_name_2 = "src/GiTae/interrupt_old.txt"
     irq_val=0
     while irq_val == 0:                        
         if os.path.isfile(output_file_name_2):
@@ -494,8 +458,8 @@ def check_irq_layer0():
 
 def check_irq_otherlayer():
     input_file_name = "/proc/interrupts"
-    output_file_name_1 = "interrupt.txt"
-    output_file_name_2 = "interrupt_old.txt"
+    output_file_name_1 = "src/GiTae/interrupt.txt"
+    output_file_name_2 = "src/GiTae/interrupt_old.txt"
     irq_val=0
     while irq_val == 0:                        
         with open(input_file_name, "r") as input_file, \
@@ -547,12 +511,12 @@ def resume():
 
     bar.write(0x20, 0)
 
-def data_32_to_16(data):
-    data = flip_8_line(data)
-    hex_values = (hex(value)[2:].upper().zfill(8) for value in data)
-    hex_strings = ''.join(hex_values)
-    formatted_data = [hex_strings[i:i+4] for i in range(0, len(hex_strings), 4)]
-    return formatted_data
+# def data_32_to_16(data):
+#     data = flip_8_line(data)
+#     hex_values = (hex(value)[2:].upper().zfill(8) for value in data)
+#     hex_strings = ''.join(hex_values)
+#     formatted_data = [hex_strings[i:i+4] for i in range(0, len(hex_strings), 4)]
+#     return formatted_data
 
 class YOLOv2_Tiny_FPGA(object):
 
@@ -568,7 +532,7 @@ class YOLOv2_Tiny_FPGA(object):
         self.custom_model = Yolov2()
         self.custom_optimizer = optim.SGD(self.custom_model.parameters(), lr=0.001, momentum=0.001, weight_decay=0.001)
         self.PreProcessing = app_instance.PreProcessing  
-                
+               
     def Forward(self,data):
         global layer0_cache, layer1_cache, layer2_cache, layer3_cache, layer4_cache, layer5_cache, layer6_cache, layer7_cache     
         start = time.time()
@@ -576,7 +540,8 @@ class YOLOv2_Tiny_FPGA(object):
         #                Layer 0 Start                  #
         #################################################       
         # layer0 capture interrupt
-        check_irq_layer0()
+        # TODO: Moved check_irq func to main
+        # check_irq_layer0() 
         # self.app_instance.change_color(self.app_instance.L1_IRQ_canvas, self.app_instance.L1_IRQ, "green")
         global OutImage_1st_Layer0, OutImage_1st_Layer1, OutImage_1st_Layer2, OutImage_1st_Layer3, OutImage_1st_Layer4,\
         OutImage_1st_Layer5, OutImage_1st_Layer5, OutImage_1st_Layer7, OutImage_1st_Layer8, Output_Layer8, Bias_Grad
@@ -900,7 +865,7 @@ class YOLOv2_Tiny_FPGA(object):
         #                Layer 1 Start                  #
         #################################################
         # check Layer1 IRQ
-        check_irq_otherlayer()        
+        check_irq_otherlayer()     
         # self.app_instance .change_color(self.app_instance.L2_IRQ_canvas, self.app_instance.L2_IRQ, "green") 
         # Layer 1
         
@@ -1197,6 +1162,2774 @@ class YOLOv2_Tiny_FPGA(object):
 
         OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).reshape(8, 32, 208, 208)
         if DEBUG: print(OutImage_1st_Layer1[0][0][0][0:5])
+        
+        if DEBUG2 : Save_File(data.Beta_Dec[1],   "result/Layer_1_Forward_Beta_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Gamma_Dec[1],  "result/Layer_1_Forward_Gamma_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Weight_Dec[1], "result/Layer_1_Forward_weight_Before_Weight_Update")
+        
+        # Mean, Var
+        s = time.time()
+        Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
+        e = time.time()
+        if DEBUG: print("Cacluate Mean & Var :",e-s)
+        
+        Beta_Layer1 = data.Beta_Dec[1]
+        Gamma_Layer1 = data.Gamma_Dec[1]
+
+        layer1_cache = BN(OutImage_1st_Layer1, Gamma_Layer1, Beta_Layer1)
+
+        # Squeeze to remove the dimension but keeping the same data ordering
+        Var_1st_Layer1 = Var_1st_Layer1.squeeze() * Gamma_Layer1
+
+        s = time.time()
+        Mean_1st_Layer1, Var_1st_Layer1 = Mean_Var_Dec2Bfloat(Mean_1st_Layer1, Var_1st_Layer1, Exponent_Bits, Mantissa_Bits)
+        e = time.time()
+        if DEBUG: print("Dec to Bfloat :",e-s)
+        s = time.time()
+        Weight_2nd_Layer1 = New_Weight_Hardware_ReOrdering_OtherLayer(32, 16, data.Weight_Bfloat[1], Mean_1st_Layer1, Var_1st_Layer1, data.Beta_Bfloat[1], Iteration="2")
+        e = time.time()
+        if DEBUG: print("Weight Reordering :",e-s)
+
+        # Write DDR
+        s = time.time()
+        Write_DDR(data_256_32(Weight_2nd_Layer1[0]), Wr_Address=0x80000A00)
+        Write_DDR(data_256_32(Weight_2nd_Layer1[1]), Wr_Address=0x90000A00)
+        e = time.time()
+        if DEBUG: print("Write DDR & 256bit to 32 bit :",e-s)
+
+        layer1_end = time.time()
+        layer1_process = layer1_end - layer1_start
+        if DEBUG: print("Layer1 process time : ", layer1_process)
+
+        resume()
+
+        '''
+        d = Device("0000:08:00.0")
+        bar = d.bar[0]
+
+        data_read = open("result/layer1_slave.txt", mode="w+")
+        i=0
+        for i in range(0,16): 
+            Read_Data = bar.read(0X00 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+
+        d = Device("0000:08:00.0")
+        bar = d.bar[2]
+
+        data_read = open("result/layer1_result_ch0.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X5B40000-0X5800000)/4) ): 
+            Read_Data = bar.read(0X5800000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+
+        data_read = open("result/layer1_result_ch1.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X5B40000-0X5800000)/4) ): 
+            Read_Data = bar.read(0X15800000 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        data_read = open("result/layer1_location_result.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X7B8C000-0X784C000)/4) ): 
+            Read_Data = bar.read(0X784C000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")     
+        '''   
+
+        #################################################
+        #                Layer 2 Start                  #
+        #################################################
+        # check Layer2 IRQ
+        check_irq_otherlayer()
+        # self.app_instance .change_color(self.app_instance.L3_IRQ_canvas, self.app_instance.L3_IRQ, "green")
+        # Layer 2
+        layer2_start = time.time()
+        # Read DDR & Conver Format # 512MB
+        s = time.time()
+        Layer2_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x85B40000, End_Address=0x85C10000)
+        Layer2_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image1_CH0))   
+        #if DEBUG: print("ch0 image 1 : ", len(Layer2_1st_Iter_Image1_CH0))     
+
+        Layer2_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x85C10000, End_Address=0x85CE0000)
+        Layer2_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer2_1st_Iter_Image2_CH0))
+        
+        Layer2_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x85CE0000, End_Address=0x85DB0000)
+        Layer2_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer2_1st_Iter_Image3_CH0))
+
+        Layer2_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x85DB0000, End_Address=0x85E80000)
+        Layer2_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer2_1st_Iter_Image4_CH0))
+
+        Layer2_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x85E80000, End_Address=0x85F50000)
+        Layer2_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer2_1st_Iter_Image5_CH0))
+
+        Layer2_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x85F50000, End_Address=0x86020000)
+        Layer2_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer2_1st_Iter_Image6_CH0))
+
+        Layer2_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x86020000, End_Address=0x860F0000)
+        Layer2_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer2_1st_Iter_Image7_CH0))
+
+        Layer2_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x860F0000, End_Address=0x861C0000)
+        Layer2_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer2_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer2_1st_Iter_Image8_CH0))
+
+
+        Layer2_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x95B40000, End_Address=0x95C10000)
+        Layer2_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer2_1st_Iter_Image1_CH1))
+
+        Layer2_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x95C10000, End_Address=0x95CE0000)
+        Layer2_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer2_1st_Iter_Image2_CH1))
+
+        Layer2_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x95CE0000, End_Address=0x95DB0000)
+        Layer2_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer2_1st_Iter_Image3_CH1))
+
+        Layer2_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x95DB0000, End_Address=0x95E80000)
+        Layer2_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer2_1st_Iter_Image4_CH1))
+
+        Layer2_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x95E80000, End_Address=0x95F50000)
+        Layer2_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer2_1st_Iter_Image5_CH1))
+
+        Layer2_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x95F50000, End_Address=0x96020000)
+        Layer2_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer2_1st_Iter_Image6_CH1))
+
+        Layer2_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x96020000, End_Address=0x960F0000)
+        Layer2_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer2_1st_Iter_Image7_CH1))
+
+        Layer2_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x960F0000, End_Address=0x961C0000)
+        Layer2_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer2_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer2_1st_Iter_Image8_CH1))
+        e = time.time()
+        if DEBUG: print("Read DDR & 32bit to 16bit :",e-s)
+
+        '''
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image1_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image1_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image1_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image1_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image2_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image2_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image2_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image3_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image3_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image3_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image3_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image4_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image4_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image4_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image4_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image5_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image5_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image5_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image5_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image6_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image6_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image6_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image6_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image7_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image7_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image7_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image7_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image8_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image8_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer2_1st_Iter_Image8_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer2_1st_Iter_Image8_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        '''
+
+        s = time.time()
+        Output_Image1_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image1_CH0_256, Layer2_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
+        Output_Image2_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image2_CH0_256, Layer2_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
+        Output_Image3_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image3_CH0_256, Layer2_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
+        Output_Image4_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image4_CH0_256, Layer2_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
+        Output_Image5_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image5_CH0_256, Layer2_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
+        Output_Image6_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image6_CH0_256, Layer2_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
+        Output_Image7_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image7_CH0_256, Layer2_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
+        Output_Image8_Layer2_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer2_1st_Iter_Image8_CH0_256, Layer2_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=64, Out_Size=104, Layer8=False)
+        e = time.time()
+        if DEBUG: print("Bfloat to Dec :",e-s)
+
+        OutImages_1st_Layer2 = Output_Image1_Layer2_1st_Iter + Output_Image2_Layer2_1st_Iter + Output_Image3_Layer2_1st_Iter + Output_Image4_Layer2_1st_Iter + \
+                            Output_Image5_Layer2_1st_Iter + Output_Image6_Layer2_1st_Iter + Output_Image7_Layer2_1st_Iter + Output_Image8_Layer2_1st_Iter    
+
+        OutImage_1st_Layer2 = torch.tensor([float(value) for value in OutImages_1st_Layer2], dtype=torch.float32).reshape(8, 64, 104, 104)
+        # Mean, Var
+        s = time.time()
+        Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
+        e = time.time()
+        if DEBUG: print("Calcuulate Mean & Var :",e-s)
+
+        Beta_Layer2 = data.Beta_Dec[2]
+        Gamma_Layer2 = data.Gamma_Dec[2]
+
+        layer2_cache = BN(OutImage_1st_Layer2, Gamma_Layer2, Beta_Layer2)
+
+        # Squeeze to remove the dimension but keeping the same data ordering
+        Var_1st_Layer2 = Var_1st_Layer2.squeeze() * Gamma_Layer2
+
+        s = time.time()
+        Mean_1st_Layer2, Var_1st_Layer2 = Mean_Var_Dec2Bfloat(Mean_1st_Layer2, Var_1st_Layer2, Exponent_Bits, Mantissa_Bits)
+        e = time.time()
+        if DEBUG: print("Dec to Bfloat :",e-s)
+        s = time.time()
+        Weight_2nd_Layer2 = New_Weight_Hardware_ReOrdering_OtherLayer(64, 32, data.Weight_Bfloat[2], Mean_1st_Layer2, Var_1st_Layer2, data.Beta_Bfloat[2], Iteration="2")
+        e = time.time()
+        if DEBUG: print("Weight Reordering :",e-s)
+
+        '''
+        data_read_mean_var = "result/layer2_mean_var.txt"
+        with open(data_read_mean_var, mode="w") as output_file:
+            for sublist in Weight_2nd_Layer2:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n")     
+        output_file.close()    
+        '''       
+
+        # Write DDR
+        s = time.time()
+        Write_DDR(data_256_32(Weight_2nd_Layer2[0]), Wr_Address=0x80001E00)
+        Write_DDR(data_256_32(Weight_2nd_Layer2[1]), Wr_Address=0x90001E00)
+        e = time.time()
+        if DEBUG: print("Write DDR & 256bit to 32bit :",e-s)
+        
+        layer2_end = time.time()
+        layer2_process = layer2_end - layer2_start
+        if DEBUG: print("Layer2 process time : ", layer2_process)
+
+        resume()
+
+        '''
+        d = Device("0000:08:00.0")
+        bar = d.bar[0]
+
+        data_read = open("result/layer_2_slave.txt", mode="w+")
+        i=0
+        for i in range(0,16): 
+            Read_Data = bar.read(0X00 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        d = Device("0000:08:00.0")
+        bar = d.bar[2]
+
+        data_read = open("result/layer2_result_ch0.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6360000-0X61C0000)/4) ): 
+            Read_Data = bar.read(0X61C0000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+
+        data_read = open("result/layer2_result_ch1.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6360000-0X61C0000)/4) ): 
+            Read_Data = bar.read(0X161C0000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")
+
+        data_read = open("result/layer2_location_result.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X7D2C000-0X7B8C000)/4) ): 
+            Read_Data = bar.read(0X7B8C000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")     
+        '''
+
+
+        #################################################
+        #                Layer 3 Start                  #
+        #################################################
+        # check Layer3 IRQ
+        check_irq_otherlayer()
+        # self.app_instance .change_color(self.app_instance.L4_IRQ_canvas, self.app_instance.L4_IRQ, "green")
+        # Layer 3
+        layer3_start = time.time()
+        # Read DDR & Conver Format # 512MB
+        s = time.time()
+        Layer3_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86360000, End_Address=0x863C8000)
+        Layer3_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image1_CH0))   
+        #if DEBUG: print("ch0 image 1 : ", len(Layer3_1st_Iter_Image1_CH0))     
+
+        Layer3_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x863C8000, End_Address=0x86430000)
+        Layer3_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer3_1st_Iter_Image2_CH0))
+        
+        Layer3_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x86430000, End_Address=0x86498000)
+        Layer3_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer3_1st_Iter_Image3_CH0))
+
+        Layer3_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x86498000, End_Address=0x86500000)
+        Layer3_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer3_1st_Iter_Image4_CH0))
+
+        Layer3_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x86500000, End_Address=0x86568000)
+        Layer3_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer3_1st_Iter_Image5_CH0))
+
+        Layer3_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x86568000, End_Address=0x865D0000)
+        Layer3_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer3_1st_Iter_Image6_CH0))
+
+        Layer3_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x865D0000, End_Address=0x86638000)
+        Layer3_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer3_1st_Iter_Image7_CH0))
+
+        Layer3_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x86638000, End_Address=0x866A0000)
+        Layer3_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer3_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer3_1st_Iter_Image8_CH0))
+
+
+        Layer3_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96360000, End_Address=0x963C8000)
+        Layer3_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer3_1st_Iter_Image1_CH1))
+
+        Layer3_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x963C8000, End_Address=0x96430000)
+        Layer3_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer3_1st_Iter_Image2_CH1))
+
+        Layer3_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x96430000, End_Address=0x96498000)
+        Layer3_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer3_1st_Iter_Image3_CH1))
+
+        Layer3_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x96498000, End_Address=0x96500000)
+        Layer3_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer3_1st_Iter_Image4_CH1))
+
+        Layer3_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x96500000, End_Address=0x96568000)
+        Layer3_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer3_1st_Iter_Image5_CH1))
+
+        Layer3_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x96568000, End_Address=0x965D0000)
+        Layer3_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer3_1st_Iter_Image6_CH1))
+
+        Layer3_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x965D0000, End_Address=0x96638000)
+        Layer3_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer3_1st_Iter_Image7_CH1))
+
+        Layer3_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x96638000, End_Address=0x966A0000)
+        Layer3_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer3_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer3_1st_Iter_Image8_CH1))
+        e = time.time()
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
+
+        '''
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image1_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image1_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image1_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image1_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image2_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image2_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image2_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image3_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image3_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image3_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image3_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image4_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image4_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image4_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image4_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image5_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image5_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image5_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image5_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image6_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image6_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image6_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image6_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image7_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image7_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image7_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image7_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image8_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image8_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer3_1st_Iter_Image8_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer3_1st_Iter_Image8_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        '''
+        
+        s = time.time()
+        Output_Image1_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image1_CH0_256, Layer3_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
+        Output_Image2_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image2_CH0_256, Layer3_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
+        Output_Image3_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image3_CH0_256, Layer3_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
+        Output_Image4_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image4_CH0_256, Layer3_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
+        Output_Image5_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image5_CH0_256, Layer3_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
+        Output_Image6_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image6_CH0_256, Layer3_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
+        Output_Image7_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image7_CH0_256, Layer3_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
+        Output_Image8_Layer3_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer3_1st_Iter_Image8_CH0_256, Layer3_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=128, Out_Size=52, Layer8=False)
+        e = time.time()
+        if DEBUG: print("Bfloat to Dec : ",e-s)
+
+        OutImages_1st_Layer3 = Output_Image1_Layer3_1st_Iter + Output_Image2_Layer3_1st_Iter + Output_Image3_Layer3_1st_Iter + Output_Image4_Layer3_1st_Iter + \
+                            Output_Image5_Layer3_1st_Iter + Output_Image6_Layer3_1st_Iter + Output_Image7_Layer3_1st_Iter + Output_Image8_Layer3_1st_Iter    
+
+        OutImage_1st_Layer3 = torch.tensor([float(value) for value in OutImages_1st_Layer3], dtype=torch.float32).reshape(8, 128, 52, 52)
+
+        # Mean, Var
+        Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
+
+
+        Beta_Layer3 = data.Beta_Dec[3]
+        Gamma_Layer3 = data.Gamma_Dec[3]
+
+        layer3_cache = BN(OutImage_1st_Layer3, Gamma_Layer3, Beta_Layer3)
+
+        # Squeeze to remove the dimension but keeping the same data ordering
+        Var_1st_Layer3 = Var_1st_Layer3.squeeze() * Gamma_Layer3
+        s = time.time()
+        Mean_1st_Layer3, Var_1st_Layer3 = Mean_Var_Dec2Bfloat(Mean_1st_Layer3, Var_1st_Layer3, Exponent_Bits, Mantissa_Bits)
+        e = time.time()
+        if DEBUG: print("Dec to Bfloat : ",e-s)
+        s = time.time()
+        Weight_2nd_Layer3 = New_Weight_Hardware_ReOrdering_OtherLayer(128, 64, data.Weight_Bfloat[3], Mean_1st_Layer3, Var_1st_Layer3, data.Beta_Bfloat[3], Iteration="2")
+        e = time.time()
+        if DEBUG: print("Weight Reordering : ",e-s)    
+
+        '''
+        data_read_mean_var = "result/layer3_mean_var.txt"
+        with open(data_read_mean_var, mode="w") as output_file:
+            for sublist in Weight_2nd_Layer3:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n")     
+        '''           
+
+        # Write DDR
+        s = time.time()
+        Write_DDR(data_256_32(Weight_2nd_Layer3[0]), Wr_Address=0x80006E00)
+        Write_DDR(data_256_32(Weight_2nd_Layer3[1]), Wr_Address=0x90006E00)
+        e = time.time()
+        if DEBUG: print("Write DDR & 256bit to 32bit : ",e-s)
+
+        layer3_end = time.time()
+        layer3_process = layer3_end - layer3_start
+        if DEBUG: print("Layer3 process time : ", layer3_process)
+        
+        resume()
+        #if DEBUG: print(irq_val)
+
+        '''
+        d = Device("0000:08:00.0")
+        bar = d.bar[0]
+
+        data_read = open("result/layer3_slave.txt", mode="w+")
+        i=0
+        for i in range(0,16): 
+            Read_Data = bar.read(0X00 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        d = Device("0000:08:00.0")
+        bar = d.bar[2]
+
+        data_read = open("result/layer3_result_ch0.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6770000-0X66A0000)/4) ): 
+            Read_Data = bar.read(0X66A0000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+
+        data_read = open("result/layer3_result_ch1.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6770000-0X66A0000)/4) ): 
+            Read_Data = bar.read(0X166A0000 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        data_read = open("result/layer3_location_result.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X7DFC000-0X7D2C000)/4) ): 
+            Read_Data = bar.read(0X7D2C000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+        '''
+
+        #################################################
+        #                Layer 4 Start                  #
+        #################################################
+        # check Layer4 IRQ
+        check_irq_otherlayer()
+        # self.app_instance .change_color(self.app_instance.L5_IRQ_canvas, self.app_instance.L5_IRQ, "green")
+        # Layer 4
+        Layer4_start = time.time()
+        # Read DDR & Conver Format # 512MB
+        s = time.time()
+        Layer4_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86770000, End_Address=0x867A4000)
+        Layer4_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image1_CH0))   
+        #if DEBUG: print("ch0 image 1 : ", len(Layer4_1st_Iter_Image1_CH0))     
+
+        Layer4_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x867A4000, End_Address=0x867D8000)
+        Layer4_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer4_1st_Iter_Image2_CH0))
+        
+        Layer4_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x867D8000, End_Address=0x8680C000)
+        Layer4_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer4_1st_Iter_Image3_CH0))
+
+        Layer4_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x8680C000, End_Address=0x86840000)
+        Layer4_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer4_1st_Iter_Image4_CH0))
+
+        Layer4_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x86840000, End_Address=0x86874000)
+        Layer4_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer4_1st_Iter_Image5_CH0))
+
+        Layer4_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x86874000, End_Address=0x868A8000)
+        Layer4_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer4_1st_Iter_Image6_CH0))
+
+        Layer4_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x868A8000, End_Address=0x868DC000)
+        Layer4_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer4_1st_Iter_Image7_CH0))
+
+        Layer4_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x868DC000, End_Address=0x86910000)
+        Layer4_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer4_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer4_1st_Iter_Image8_CH0))
+
+
+        Layer4_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96770000, End_Address=0x967A4000)
+        Layer4_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer4_1st_Iter_Image1_CH1))
+
+        Layer4_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x967A4000, End_Address=0x967D8000)
+        Layer4_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer4_1st_Iter_Image2_CH1))
+
+        Layer4_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x967D8000, End_Address=0x9680C000)
+        Layer4_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer4_1st_Iter_Image3_CH1))
+
+        Layer4_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x9680C000, End_Address=0x96840000)
+        Layer4_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer4_1st_Iter_Image4_CH1))
+
+        Layer4_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x96840000, End_Address=0x96874000)
+        Layer4_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer4_1st_Iter_Image5_CH1))
+
+        Layer4_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x96874000, End_Address=0x968A8000)
+        Layer4_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer4_1st_Iter_Image6_CH1))
+
+        Layer4_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x968A8000, End_Address=0x968DC000)
+        Layer4_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer4_1st_Iter_Image7_CH1))
+
+        Layer4_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x968DC000, End_Address=0x96910000)
+        Layer4_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer4_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer4_1st_Iter_Image8_CH1))
+        e = time.time()
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
+
+
+        '''
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image1_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image1_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image1_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image1_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image2_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image2_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image2_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image3_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image3_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image3_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image3_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image4_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image4_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image4_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image4_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image5_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image5_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image5_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image5_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image6_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image6_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image6_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image6_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image7_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image7_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image7_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image7_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image8_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image8_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer4_1st_Iter_Image8_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer4_1st_Iter_Image8_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        '''
+        
+        s = time.time()
+        Output_Image1_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image1_CH0_256, Layer4_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
+        Output_Image2_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image2_CH0_256, Layer4_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
+        Output_Image3_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image3_CH0_256, Layer4_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
+        Output_Image4_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image4_CH0_256, Layer4_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
+        Output_Image5_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image5_CH0_256, Layer4_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
+        Output_Image6_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image6_CH0_256, Layer4_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
+        Output_Image7_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image7_CH0_256, Layer4_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
+        Output_Image8_Layer4_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer4_1st_Iter_Image8_CH0_256, Layer4_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=256, Out_Size=26, Layer8=False)
+        e = time.time()
+        if DEBUG: print("Bfloat to Dec : ",e-s)
+
+        OutImages_1st_Layer4 = Output_Image1_Layer4_1st_Iter + Output_Image2_Layer4_1st_Iter + Output_Image3_Layer4_1st_Iter + Output_Image4_Layer4_1st_Iter + \
+                            Output_Image5_Layer4_1st_Iter + Output_Image6_Layer4_1st_Iter + Output_Image7_Layer4_1st_Iter + Output_Image8_Layer4_1st_Iter    
+
+        OutImage_1st_Layer4 = torch.tensor([float(value) for value in OutImages_1st_Layer4], dtype=torch.float32).reshape(8, 256, 26, 26)
+
+        # Mean, Var
+        s = time.time()
+        Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.forward(OutImage_1st_Layer4)
+        e = time.time()
+        if DEBUG: print("Calculate Mean & Var : ",e-s)
+
+        Beta_Layer4 = data.Beta_Dec[4]
+        Gamma_Layer4 = data.Gamma_Dec[4]
+
+        layer4_cache = BN(OutImage_1st_Layer4, Gamma_Layer4, Beta_Layer4)
+
+        # Squeeze to remove the dimension but keeping the same data ordering
+        Var_1st_Layer4 = Var_1st_Layer4.squeeze() * Gamma_Layer4
+
+        s = time.time()
+        Mean_1st_Layer4, Var_1st_Layer4 = Mean_Var_Dec2Bfloat(Mean_1st_Layer4, Var_1st_Layer4, Exponent_Bits, Mantissa_Bits)
+        e = time.time()
+        if DEBUG: print("Dec to Bfloat : ",e-s)
+        s = time.time()
+        Weight_2nd_Layer4 = New_Weight_Hardware_ReOrdering_OtherLayer(256, 128, data.Weight_Bfloat[4], Mean_1st_Layer4, Var_1st_Layer4, data.Beta_Bfloat[4], Iteration="2")
+        e = time.time()
+        if DEBUG: print("Weight Reordering : ",e-s)
+
+        '''
+        data_read_mean_var = "result/layer4_mean_var.txt"
+        with open(data_read_mean_var, mode="w") as output_file:
+            for sublist in Weight_2nd_Layer4:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n")        
+        '''
+
+        # Write DDR
+        s = time.time()
+        Write_DDR(data_256_32(Weight_2nd_Layer4[0]), Wr_Address=0x8001AE00)
+        Write_DDR(data_256_32(Weight_2nd_Layer4[1]), Wr_Address=0x9001AE00)
+        e = time.time()
+        if DEBUG: print("Write DDR & 256bit to 32bit : ",e-s)
+
+        layer4_end = time.time()
+        layer4_process = layer4_end - Layer4_start
+        if DEBUG: print("Layer4 process time : ", layer4_process)
+        
+        resume()
+
+        '''
+        d = Device("0000:08:00.0")
+        bar = d.bar[0]
+
+        data_read = open("result/layer4_slave.txt", mode="w+")
+        i=0
+        for i in range(0,16): 
+            Read_Data = bar.read(0X00 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        d = Device("0000:08:00.0")
+        bar = d.bar[2]
+
+        data_read = open("result/layer4_result_ch0.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6978000-0X6910000)/4) ): 
+            Read_Data = bar.read(0X6910000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+
+        data_read = open("result/layer4_result_ch1.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6978000-0X6910000)/4) ): 
+            Read_Data = bar.read(0X16910000 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        data_read = open("result/layer4_location_result.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X7E64000-0X7DFC000)/4) ): 
+            Read_Data = bar.read(0X7DFC000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+        '''
+
+        #################################################
+        #                Layer 5 Start                  #
+        #################################################
+        # check Layer5 IRQ
+        check_irq_otherlayer()
+        # self.app_instance .change_color(self.app_instance.L6_IRQ_canvas, self.app_instance.L6_IRQ, "green")
+        # Layer 5
+        Layer5_start = time.time()
+        s = time.time()
+        # Read DDR & Conver Format # 512MB
+        Layer5_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86978000, End_Address=0x86992000)
+        Layer5_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image1_CH0))   
+        #if DEBUG: print("ch0 image 1 : ", len(Layer5_1st_Iter_Image1_CH0))     
+
+        Layer5_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x86992000, End_Address=0x869AC000)
+        Layer5_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer5_1st_Iter_Image2_CH0))
+        
+        Layer5_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x869AC000, End_Address=0x869C6000)
+        Layer5_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer5_1st_Iter_Image3_CH0))
+
+        Layer5_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x869C6000, End_Address=0x869E0000)
+        Layer5_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer5_1st_Iter_Image4_CH0))
+
+        Layer5_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x869E0000, End_Address=0x869FA000)
+        Layer5_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer5_1st_Iter_Image5_CH0))
+
+        Layer5_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x869FA000, End_Address=0x86A14000)
+        Layer5_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer5_1st_Iter_Image6_CH0))
+
+        Layer5_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x86A14000, End_Address=0x86A2E000)
+        Layer5_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer5_1st_Iter_Image7_CH0))
+
+        Layer5_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x86A2E000, End_Address=0x86A48000)
+        Layer5_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer5_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer5_1st_Iter_Image8_CH0))
+
+
+        Layer5_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96978000, End_Address=0x96992000)
+        Layer5_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer5_1st_Iter_Image1_CH1))
+
+        Layer5_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x96992000, End_Address=0x969AC000)
+        Layer5_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer5_1st_Iter_Image2_CH1))
+
+        Layer5_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x969AC000, End_Address=0x969C6000)
+        Layer5_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer5_1st_Iter_Image3_CH1))
+
+        Layer5_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x969C6000, End_Address=0x969E0000)
+        Layer5_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer5_1st_Iter_Image4_CH1))
+
+        Layer5_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x969E0000, End_Address=0x969FA000)
+        Layer5_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer5_1st_Iter_Image5_CH1))
+
+        Layer5_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x969FA000, End_Address=0x96A14000)
+        Layer5_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer5_1st_Iter_Image6_CH1))
+
+        Layer5_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x96A14000, End_Address=0x96A2E000)
+        Layer5_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer5_1st_Iter_Image7_CH1))
+
+        Layer5_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x96A2E000, End_Address=0x96A48000)
+        Layer5_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer5_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer5_1st_Iter_Image8_CH1))
+        e = time.time()
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
+
+        '''
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image1_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image1_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image1_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image1_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image2_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image2_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image2_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image3_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image3_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image3_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image3_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image4_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image4_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image4_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image4_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image5_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image5_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image5_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image5_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image6_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image6_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image6_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image6_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image7_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image7_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image7_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image7_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image8_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image8_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer5_1st_Iter_Image8_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer5_1st_Iter_Image8_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        '''
+        
+
+        s = time.time()
+        Output_Image1_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image1_CH0_256, Layer5_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Image2_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image2_CH0_256, Layer5_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Image3_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image3_CH0_256, Layer5_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Image4_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image4_CH0_256, Layer5_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Image5_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image5_CH0_256, Layer5_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Image6_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image6_CH0_256, Layer5_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Image7_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image7_CH0_256, Layer5_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        Output_Image8_Layer5_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer5_1st_Iter_Image8_CH0_256, Layer5_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=512, Out_Size=13, Layer8=False)
+        e = time.time()
+        if DEBUG: print("Bfloat to Dec : ",e-s)
+
+        OutImages_1st_Layer5 = Output_Image1_Layer5_1st_Iter + Output_Image2_Layer5_1st_Iter + Output_Image3_Layer5_1st_Iter + Output_Image4_Layer5_1st_Iter + \
+                            Output_Image5_Layer5_1st_Iter + Output_Image6_Layer5_1st_Iter + Output_Image7_Layer5_1st_Iter + Output_Image8_Layer5_1st_Iter    
+
+        OutImage_1st_Layer5 = torch.tensor([float(value) for value in OutImages_1st_Layer5], dtype=torch.float32).reshape(8, 512, 13, 13)
+
+        # Mean, Var
+        s = time.time()
+        Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.forward(OutImage_1st_Layer5)
+        e = time.time()
+        if DEBUG: print("Calculate Mean & Var : ",e-s)
+
+        Beta_Layer5 = data.Beta_Dec[5]
+        Gamma_Layer5 = data.Gamma_Dec[5]
+
+        layer5_cache = BN(OutImage_1st_Layer5, Gamma_Layer5, Beta_Layer5)
+
+        # Squeeze to remove the dimension but keeping the same data ordering
+        Var_1st_Layer5 = Var_1st_Layer5.squeeze() * Gamma_Layer5
+
+        s =time.time()
+        Mean_1st_Layer5, Var_1st_Layer5 = Mean_Var_Dec2Bfloat(Mean_1st_Layer5, Var_1st_Layer5, Exponent_Bits, Mantissa_Bits)
+        e = time.time()
+        if DEBUG: print("Dec to Bfloat : ",e-s)
+        s = time.time()
+        Weight_2nd_Layer5 = New_Weight_Hardware_ReOrdering_OtherLayer(512, 256, data.Weight_Bfloat[5], Mean_1st_Layer5, Var_1st_Layer5, data.Beta_Bfloat[5], Iteration="2")
+        e = time.time()
+        if DEBUG: print("Weight Reordering : ",e-s)
+
+        '''
+        data_read_mean_var = "result/layer5_mean_var.txt"
+        with open(data_read_mean_var, mode="w") as output_file:
+            for sublist in Weight_2nd_Layer5:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n")    
+        '''            
+
+        # Write DDR
+        s = time.time()
+        Write_DDR(data_256_32(Weight_2nd_Layer5[0]), Wr_Address=0x8006AE00)
+        Write_DDR(data_256_32(Weight_2nd_Layer5[1]), Wr_Address=0x9006AE00)
+        e = time.time()
+        if DEBUG: print("Write DDR & 256bit to 32bit : ",e-s)
+
+        layer5_end = time.time()
+        layer5_process = layer5_end - Layer5_start
+        if DEBUG: print("Layer5 process time : ", layer5_process)
+        
+        resume()
+        #if DEBUG: print(irq_val)
+
+        '''
+        d = Device("0000:08:00.0")
+        bar = d.bar[0]
+
+        data_read = open("result/layer5_slave.txt", mode="w+")
+        i=0
+        for i in range(0,16): 
+            Read_Data = bar.read(0X00 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        d = Device("0000:08:00.0")
+        bar = d.bar[2]
+
+        data_read = open("result/layer5_result_ch0.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6B18000-0X6A48000)/4) ): 
+            Read_Data = bar.read(0X6A48000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+
+        data_read = open("result/layer5_result_ch1.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6B18000-0X6A48000)/4) ): 
+            Read_Data = bar.read(0X16A48000 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        data_read = open("result/layer5_location_result.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X7F34000-0X7E64000)/4) ): 
+            Read_Data = bar.read(0X7E64000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")     
+        '''
+
+        #################################################
+        #                Layer 6 Start                  #
+        #################################################
+        # check Layer6 IRQ
+        check_irq_otherlayer()
+        # self.app_instance .change_color(self.app_instance.L7_IRQ_canvas, self.app_instance.L7_IRQ, "green")
+        # Layer 6
+        Layer6_start = time.time()
+        s = time.time()
+        # Read DDR & Conver Format # 512MB
+        Layer6_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86B18000, End_Address=0x86B4C000)
+        Layer6_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image1_CH0))   
+        #if DEBUG: print("ch0 image 1 : ", len(Layer6_1st_Iter_Image1_CH0))     
+
+        Layer6_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x86B4C000, End_Address=0x86B80000)
+        Layer6_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer6_1st_Iter_Image2_CH0))
+        
+        Layer6_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x86B80000, End_Address=0x86BB4000)
+        Layer6_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer6_1st_Iter_Image3_CH0))
+
+        Layer6_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x86BB4000, End_Address=0x86BE8000)
+        Layer6_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer6_1st_Iter_Image4_CH0))
+
+        Layer6_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x86BE8000, End_Address=0x86C1C000)
+        Layer6_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer6_1st_Iter_Image5_CH0))
+
+        Layer6_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x86C1C000, End_Address=0x86C50000)
+        Layer6_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer6_1st_Iter_Image6_CH0))
+
+        Layer6_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x86C50000, End_Address=0x86C84000)
+        Layer6_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer6_1st_Iter_Image7_CH0))
+
+        Layer6_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x86C84000, End_Address=0x86CB8000)
+        Layer6_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer6_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer6_1st_Iter_Image8_CH0))
+
+
+        Layer6_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96B18000, End_Address=0x96B4C000)
+        Layer6_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer6_1st_Iter_Image1_CH1))
+
+        Layer6_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x96B4C000, End_Address=0x96B80000)
+        Layer6_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer6_1st_Iter_Image2_CH1))
+
+        Layer6_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x96B80000, End_Address=0x96BB4000)
+        Layer6_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer6_1st_Iter_Image3_CH1))
+
+        Layer6_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x96BB4000, End_Address=0x96BE8000)
+        Layer6_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer6_1st_Iter_Image4_CH1))
+
+        Layer6_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x96BE8000, End_Address=0x96C1C000)
+        Layer6_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer6_1st_Iter_Image5_CH1))
+
+        Layer6_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x96C1C000, End_Address=0x96C50000)
+        Layer6_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer6_1st_Iter_Image6_CH1))
+
+        Layer6_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x96C50000, End_Address=0x96C84000)
+        Layer6_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer6_1st_Iter_Image7_CH1))
+
+        Layer6_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x96C84000, End_Address=0x96CB8000)
+        Layer6_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer6_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer6_1st_Iter_Image8_CH1))
+        e = time.time()
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
+
+
+        '''
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image1_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image1_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image1_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image1_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image2_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image2_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image2_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image3_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image3_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image3_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image3_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image4_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image4_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image4_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image4_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image5_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image5_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image5_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image5_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image6_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image6_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image6_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image6_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image7_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image7_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image7_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image7_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image8_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image8_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer6_1st_Iter_Image8_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer6_1st_Iter_Image8_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        '''
+        
+        s = time.time()
+        Output_Image1_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image1_CH0_256, Layer6_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image2_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image2_CH0_256, Layer6_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image3_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image3_CH0_256, Layer6_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image4_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image4_CH0_256, Layer6_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image5_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image5_CH0_256, Layer6_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image6_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image6_CH0_256, Layer6_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image7_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image7_CH0_256, Layer6_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image8_Layer6_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer6_1st_Iter_Image8_CH0_256, Layer6_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        e = time.time()
+        if DEBUG: print("Bfloat to Dec : ",e-s)
+
+        OutImages_1st_Layer6 = Output_Image1_Layer6_1st_Iter + Output_Image2_Layer6_1st_Iter + Output_Image3_Layer6_1st_Iter + Output_Image4_Layer6_1st_Iter + \
+                            Output_Image5_Layer6_1st_Iter + Output_Image6_Layer6_1st_Iter + Output_Image7_Layer6_1st_Iter + Output_Image8_Layer6_1st_Iter    
+
+        OutImage_1st_Layer6 = torch.tensor([float(value) for value in OutImages_1st_Layer6], dtype=torch.float32).reshape(8, 1024, 13, 13)
+
+        # Mean, Var
+        Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
+        
+        Beta_Layer6 = data.Beta_Dec[6]
+        Gamma_Layer6 = data.Gamma_Dec[6]
+
+        layer6_cache = BN(OutImage_1st_Layer6, Gamma_Layer6, Beta_Layer6)
+
+        # Squeeze to remove the dimension but keeping the same data ordering
+        Var_1st_Layer6 = Var_1st_Layer6.squeeze() * Gamma_Layer6
+
+        s = time.time()
+        Mean_1st_Layer6, Var_1st_Layer6 = Mean_Var_Dec2Bfloat(Mean_1st_Layer6, Var_1st_Layer6, Exponent_Bits, Mantissa_Bits)
+        e = time.time()
+        if DEBUG: print("Dec to Bfloat : ",e-s)
+        s = time.time()
+        Weight_2nd_Layer6 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 512, data.Weight_Bfloat[6], Mean_1st_Layer6, Var_1st_Layer6, data.Beta_Bfloat[6], Iteration="2")
+        e = time.time()
+        if DEBUG: print("Weight Reordering : ",e-s)
+
+        '''
+        data_read_mean_var = "result/layer6_mean_var.txt"
+        with open(data_read_mean_var, mode="w") as output_file:
+            for sublist in Weight_2nd_Layer6:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n")        
+        '''        
+
+        # Write DDR
+        s = time.time()
+        Write_DDR(data_256_32(Weight_2nd_Layer6[0]), Wr_Address=0x801AAE00)
+        Write_DDR(data_256_32(Weight_2nd_Layer6[1]), Wr_Address=0x901AAE00)
+        e = time.time()
+        if DEBUG: print("Write DDR & 256bit to 32bit : ",e-s)
+
+        layer6_end = time.time()
+        layer6_process = layer6_end - Layer6_start
+        if DEBUG: print("Layer6 process time : ", layer6_process)
+
+        resume()
+
+        '''
+        d = Device("0000:08:00.0")
+        bar = d.bar[0]
+
+        data_read = open("result/layer6_slave.txt", mode="w+")
+        i=0
+        for i in range(0,16): 
+            Read_Data = bar.read(0X00 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        d = Device("0000:08:00.0")
+        bar = d.bar[2]
+
+        data_read = open("result/layer6_result_ch0.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6E58000-0X6CB8000)/4) ): 
+            Read_Data = bar.read(0X6CB8000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+
+        data_read = open("result/layer6_result_ch1.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X6E58000-0X6CB8000)/4) ): 
+            Read_Data = bar.read(0X16CB8000 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        data_read = open("result/layer6_location_result.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X80D4000-0X7F34000)/4) ): 
+            Read_Data = bar.read(0X7F34000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")       
+        '''
+
+        #################################################
+        #                Layer 7 Start                  #
+        #################################################
+        # check Layer7 IRQ
+        check_irq_otherlayer()
+        # self.app_instance .change_color(self.app_instance.L8_IRQ_canvas, self.app_instance.L8_IRQ, "green")
+        # Layer 7
+        Layer7_start = time.time()
+        s = time.time()
+        # Read DDR & Conver Format # 512MB
+        # if DEBUG: print("Read DDR")
+        Layer7_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x86E58000, End_Address=0x86E8C000)
+        Layer7_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image1_CH0))   
+        #if DEBUG: print("ch0 image 1 : ", len(Layer7_1st_Iter_Image1_CH0))     
+
+        Layer7_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x86E8C000, End_Address=0x86EC0000)
+        Layer7_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer7_1st_Iter_Image2_CH0))
+        
+        Layer7_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x86EC0000, End_Address=0x86EF4000)
+        Layer7_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer7_1st_Iter_Image3_CH0))
+
+        Layer7_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x86EF4000, End_Address=0x86F28000)
+        Layer7_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer7_1st_Iter_Image4_CH0))
+
+        Layer7_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x86F28000, End_Address=0x86F5C000)
+        Layer7_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer7_1st_Iter_Image5_CH0))
+
+        Layer7_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x86F5C000, End_Address=0x86F90000)
+        Layer7_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer7_1st_Iter_Image6_CH0))
+
+        Layer7_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x86F90000, End_Address=0x86FC4000)
+        Layer7_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer7_1st_Iter_Image7_CH0))
+
+        Layer7_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x86FC4000, End_Address=0x86FF8000)
+        Layer7_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer7_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer7_1st_Iter_Image8_CH0))
+
+
+        Layer7_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x96E58000, End_Address=0x96E8C000)
+        Layer7_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer7_1st_Iter_Image1_CH1))
+
+        Layer7_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x96E8C000, End_Address=0x96EC0000)
+        Layer7_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer7_1st_Iter_Image2_CH1))
+
+        Layer7_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x96EC0000, End_Address=0x96EF4000)
+        Layer7_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer7_1st_Iter_Image3_CH1))
+
+        Layer7_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x96EF4000, End_Address=0x96F28000)
+        Layer7_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer7_1st_Iter_Image4_CH1))
+
+        Layer7_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x96F28000, End_Address=0x96F5C000)
+        Layer7_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer7_1st_Iter_Image5_CH1))
+
+        Layer7_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x96F5C000, End_Address=0x96F90000)
+        Layer7_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer7_1st_Iter_Image6_CH1))
+
+        Layer7_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x96F90000, End_Address=0x96FC4000)
+        Layer7_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer7_1st_Iter_Image7_CH1))
+
+        Layer7_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x96FC4000, End_Address=0x96FF8000)
+        Layer7_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer7_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer7_1st_Iter_Image8_CH1))
+        e = time.time()
+        if DEBUG: print("Read DDR Time : ",e-s)
+
+
+        '''
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image1_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image1_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image1_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image1_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image2_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image2_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image2_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image3_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image3_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image3_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image3_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image4_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image4_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image4_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image4_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image5_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image5_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image5_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image5_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image6_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image6_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image6_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image6_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image7_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image7_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image7_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image7_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image8_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image8_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer7_1st_Iter_Image8_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer7_1st_Iter_Image8_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        '''
+        s = time.time()
+        Output_Image1_Layer7_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer7_1st_Iter_Image1_CH0_256, Layer7_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image2_Layer7_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer7_1st_Iter_Image2_CH0_256, Layer7_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image3_Layer7_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer7_1st_Iter_Image3_CH0_256, Layer7_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image4_Layer7_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer7_1st_Iter_Image4_CH0_256, Layer7_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image5_Layer7_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer7_1st_Iter_Image5_CH0_256, Layer7_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image6_Layer7_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer7_1st_Iter_Image6_CH0_256, Layer7_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image7_Layer7_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer7_1st_Iter_Image7_CH0_256, Layer7_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+        Output_Image8_Layer7_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer7_1st_Iter_Image8_CH0_256, Layer7_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+
+        OutImages_1st_Layer7 = Output_Image1_Layer7_1st_Iter + Output_Image2_Layer7_1st_Iter + Output_Image3_Layer7_1st_Iter + Output_Image4_Layer7_1st_Iter + \
+                            Output_Image5_Layer7_1st_Iter + Output_Image6_Layer7_1st_Iter + Output_Image7_Layer7_1st_Iter + Output_Image8_Layer7_1st_Iter    
+
+        OutImage_1st_Layer7 = torch.tensor([float(value) for value in OutImages_1st_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        e = time.time()
+        # if DEBUG: print("OutFmap_Bfloat2Dec Convert Time : ", e-s)
+
+        # Mean, Var
+        s = time.time()
+        Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.forward(OutImage_1st_Layer7)
+        e = time.time()
+        if DEBUG: print("Calculate Mean & Var Time : ",e-s)
+
+        Beta_Layer7 = data.Beta_Dec[7]
+        Gamma_Layer7 = data.Gamma_Dec[7]
+
+        layer7_cache = BN(OutImage_1st_Layer7, Gamma_Layer7, Beta_Layer7)
+
+        # Squeeze to remove the dimension but keeping the same data ordering
+        Var_1st_Layer7 = Var_1st_Layer7.squeeze() * Gamma_Layer7
+
+        s = time.time()
+        Mean_1st_Layer7, Var_1st_Layer7 = Mean_Var_Dec2Bfloat(Mean_1st_Layer7, Var_1st_Layer7, Exponent_Bits, Mantissa_Bits)
+        e = time.time()
+        if DEBUG: print("Dec to Bfloat : ",e-s)
+        s = time.time()
+        Weight_2nd_Layer7 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 1024, data.Weight_Bfloat[7], Mean_1st_Layer7, Var_1st_Layer7, data.Beta_Bfloat[7], Iteration="2")
+        e = time.time()
+        if DEBUG: print("New_Weight_Hardware_ReOrdering_OtherLayer Time : ", e-s)
+
+        '''
+        data_read_mean_var = "result/layer7_mean_var.txt"
+        with open(data_read_mean_var, mode="w") as output_file:
+            for sublist in Weight_2nd_Layer7:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n")        
+        
+        '''
+
+        # Write DDR
+        s = time.time()
+        Write_DDR(data_256_32(Weight_2nd_Layer7[0]), Wr_Address=0x806AAE00)
+        Write_DDR(data_256_32(Weight_2nd_Layer7[1]), Wr_Address=0x906AAE00)
+        e = time.time()
+        if DEBUG: print("256 to 32 & Write DDR Time : ",e-s)
+
+        layer7_end = time.time()
+        layer7_process = layer7_end - Layer7_start
+        if DEBUG: print("Layer7 process time : ", layer7_process)
+        
+        resume()
+
+        '''
+        d = Device("0000:08:00.0")
+        bar = d.bar[0]
+
+        data_read = open("result/layer7_slave.txt", mode="w+")
+        i=0
+        for i in range(0,16): 
+            Read_Data = bar.read(0X00 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        d = Device("0000:08:00.0")
+        bar = d.bar[2]
+
+        data_read = open("result/layer7_result_ch0.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X7198000-0X6FF8000)/4) ): 
+            Read_Data = bar.read(0X6FF8000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+
+        data_read = open("result/layer7_result_ch1.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X7198000-0X6FF8000)/4) ): 
+            Read_Data = bar.read(0X16FF8000 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+
+        data_read = open("result/layer7_location_result.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X8274000-0X80D4000)/4) ): 
+            Read_Data = bar.read(0X80D4000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")     
+        '''    
+        
+        end = time.time()
+        process_time = (end-start)/60
+        # if DEBUG: print(f'Whole Process: {process_time} mn')
+        #################################################
+        #                Layer 8 Start                  #
+        #################################################
+        check_irq_otherlayer()
+        # self.app_instance .change_color(self.app_instance.L9_IRQ_canvas, self.app_instance.L9_IRQ, "green")
+        layer8_start = time.time()
+        s = time.time()
+        # Post-Processing Pre-Defined Conditions
+        #Post_Start_Signal = "1"
+
+        # OutputImage from Hardware
+
+        # Post Processing
+        #if Post_Start_Signal == "1" or Post_Start_Signal == "1".zfill(4) or Post_Start_Signal == "1".zfill(16):  
+
+        # Layer 8
+        
+        # Read DDR & Conver Format # 512MB
+        
+        Layer8_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x87198000, End_Address=0x8719E800)
+        Layer8_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image1_CH0))   
+        #if DEBUG: print("ch0 image 1 : ", len(Layer8_1st_Iter_Image1_CH0))     
+
+        Layer8_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x8719E800, End_Address=0x871A5000)
+        Layer8_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer8_1st_Iter_Image2_CH0))
+
+        Layer8_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x871A5000, End_Address=0x871AB800)
+        Layer8_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer8_1st_Iter_Image3_CH0))
+
+        Layer8_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x871AB800, End_Address=0x871B2000)
+        Layer8_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer8_1st_Iter_Image4_CH0))
+
+        Layer8_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x871B2000, End_Address=0x871B8800)
+        Layer8_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer8_1st_Iter_Image5_CH0))
+
+        Layer8_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x871B8800, End_Address=0x871BF000)
+        Layer8_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer8_1st_Iter_Image6_CH0))
+
+        Layer8_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x871BF000, End_Address=0x871C5800)
+        Layer8_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer8_1st_Iter_Image7_CH0))
+
+        Layer8_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x871C5800, End_Address=0x871CC000)
+        Layer8_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer8_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer8_1st_Iter_Image8_CH0))
+
+
+        Layer8_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x97198000, End_Address=0x9719E800)
+        Layer8_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image1_CH1))   
+        #if DEBUG: print("ch1 image 1 : ", len(Layer8_1st_Iter_Image1_CH1))     
+
+        Layer8_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x9719E800, End_Address=0x971A5000)
+        Layer8_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer8_1st_Iter_Image2_CH1))
+
+        Layer8_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x971A5000, End_Address=0x971AB800)
+        Layer8_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer8_1st_Iter_Image3_CH1))
+
+        Layer8_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x971AB800, End_Address=0x971B2000)
+        Layer8_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer8_1st_Iter_Image4_CH1))
+
+        Layer8_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x971B2000, End_Address=0x971B8800)
+        Layer8_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer8_1st_Iter_Image5_CH1))
+
+        Layer8_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x971B8800, End_Address=0x971BF000)
+        Layer8_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer8_1st_Iter_Image6_CH1))
+
+        Layer8_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x971BF000, End_Address=0x971C5800)
+        Layer8_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer8_1st_Iter_Image7_CH1))
+
+        Layer8_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x971C5800, End_Address=0x971CC000)
+        Layer8_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer8_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer8_1st_Iter_Image8_CH1))
+        e = time.time()
+        if DEBUG: print("Read DDR & 32bit to 16bit : ",e-s)
+
+        Output_Image1 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image1_CH0_256, Layer8_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image2 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image2_CH0_256, Layer8_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image3 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image3_CH0_256, Layer8_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image4 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image4_CH0_256, Layer8_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image5 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image5_CH0_256, Layer8_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image6 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image6_CH0_256, Layer8_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image7 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image7_CH0_256, Layer8_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Image8 = OutFmap_Layer8_BFPtoDec(Layer8_1st_Iter_Image8_CH0_256, Layer8_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits)
+        Output_Layer8 = Output_Image1 + Output_Image2 + Output_Image3 + Output_Image4 + \
+                        Output_Image5 + Output_Image6 + Output_Image7 + Output_Image8
+
+        Float_OutputImage = [np.float32(x) for x in Output_Layer8]
+        Float_OutputImage = Float_OutputImage[0:(8*125*(13**2))]
+        Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
+        
+        if DEBUG2:
+            Layer8_check_Image1_CH0 = Read_DDR(Rd_Address=0x86FF8000, End_Address=0x8702C000)
+            Layer8_check_Image1_CH0_256 = (data_32_to_16(Layer8_check_Image1_CH0))   
+            #if DEBUG: print("ch0 image 1 : ", len(Layer8_check_Image1_CH0))     
+
+            Layer8_check_Image2_CH0 = Read_DDR(Rd_Address=0x8702C000, End_Address=0x87060000)
+            Layer8_check_Image2_CH0_256 = (data_32_to_16(Layer8_check_Image2_CH0))
+            #if DEBUG: print("ch0 image 2 : ", len(Layer8_check_Image2_CH0))
+
+            Layer8_check_Image3_CH0 = Read_DDR(Rd_Address=0x87060000, End_Address=0x87094000)
+            Layer8_check_Image3_CH0_256 = (data_32_to_16(Layer8_check_Image3_CH0))
+            #if DEBUG: print("ch0 image 3 : ", len(Layer8_check_Image3_CH0))
+
+            Layer8_check_Image4_CH0 = Read_DDR(Rd_Address=0x87094000, End_Address=0x870C8000)
+            Layer8_check_Image4_CH0_256 = (data_32_to_16(Layer8_check_Image4_CH0))
+            #if DEBUG: print("ch0 image 4 : ", len(Layer8_check_Image4_CH0))
+
+            Layer8_check_Image5_CH0 = Read_DDR(Rd_Address=0x870C8000, End_Address=0x870FC000)
+            Layer8_check_Image5_CH0_256 = (data_32_to_16(Layer8_check_Image5_CH0))
+            #if DEBUG: print("ch0 image 5 : ", len(Layer8_check_Image5_CH0))
+
+            Layer8_check_Image6_CH0 = Read_DDR(Rd_Address=0x870FC000, End_Address=0x87130000)
+            Layer8_check_Image6_CH0_256 = (data_32_to_16(Layer8_check_Image6_CH0))
+            #if DEBUG: print("ch0 image 6 : ", len(Layer8_check_Image6_CH0))
+
+            Layer8_check_Image7_CH0 = Read_DDR(Rd_Address=0x87130000, End_Address=0x87164000)
+            Layer8_check_Image7_CH0_256 = (data_32_to_16(Layer8_check_Image7_CH0))
+            #if DEBUG: print("ch0 image 7 : ", len(Layer8_check_Image7_CH0))
+
+            Layer8_check_Image8_CH0 = Read_DDR(Rd_Address=0x87164000, End_Address=0x87198000)
+            Layer8_check_Image8_CH0_256 = (data_32_to_16(Layer8_check_Image8_CH0))
+            #if DEBUG: print("ch0 image 8 : ", len(Layer8_check_Image8_CH0))
+
+
+            Layer8_check_Image1_CH1 = Read_DDR(Rd_Address=0x96FF8000, End_Address=0x9702C000)
+            Layer8_check_Image1_CH1_256 = (data_32_to_16(Layer8_check_Image1_CH1))   
+            #if DEBUG: print("ch1 image 1 : ", len(Layer8_check_Image1_CH1))     
+
+            Layer8_check_Image2_CH1 = Read_DDR(Rd_Address=0x9702C000, End_Address=0x97060000)
+            Layer8_check_Image2_CH1_256 = (data_32_to_16(Layer8_check_Image2_CH1))
+            #if DEBUG: print("ch1 image 2 : ", len(Layer8_check_Image2_CH1))
+
+            Layer8_check_Image3_CH1 = Read_DDR(Rd_Address=0x97060000, End_Address=0x97094000)
+            Layer8_check_Image3_CH1_256 = (data_32_to_16(Layer8_check_Image3_CH1))
+            #if DEBUG: print("ch1 image 3 : ", len(Layer8_check_Image3_CH1))
+
+            Layer8_check_Image4_CH1 = Read_DDR(Rd_Address=0x97094000, End_Address=0x970C8000)
+            Layer8_check_Image4_CH1_256 = (data_32_to_16(Layer8_check_Image4_CH1))
+            #if DEBUG: print("ch1 image 4 : ", len(Layer8_check_Image4_CH1))
+
+            Layer8_check_Image5_CH1 = Read_DDR(Rd_Address=0x970C8000, End_Address=0x970FC000)
+            Layer8_check_Image5_CH1_256 = (data_32_to_16(Layer8_check_Image5_CH1))
+            #if DEBUG: print("ch1 image 5 : ", len(Layer8_check_Image5_CH1))
+
+            Layer8_check_Image6_CH1 = Read_DDR(Rd_Address=0x970FC000, End_Address=0x97130000)
+            Layer8_check_Image6_CH1_256 = (data_32_to_16(Layer8_check_Image6_CH1))
+            #if DEBUG: print("ch1 image 6 : ", len(Layer8_check_Image6_CH1))
+
+            Layer8_check_Image7_CH1 = Read_DDR(Rd_Address=0x97130000, End_Address=0x97164000)
+            Layer8_check_Image7_CH1_256 = (data_32_to_16(Layer8_check_Image7_CH1))
+            #if DEBUG: print("ch1 image 7 : ", len(Layer8_check_Image7_CH1))
+
+            Layer8_check_Image8_CH1 = Read_DDR(Rd_Address=0x97164000, End_Address=0x97198000)
+            Layer8_check_Image8_CH1_256 = (data_32_to_16(Layer8_check_Image8_CH1))
+            #if DEBUG: print("ch1 image 8 : ", len(Layer8_check_Image8_CH1))            
+            # Read_OutFmap_Bfloat2Dec
+            # OutFmap_Layer8_BFPtoDec
+            Output8_Image1 = Read_OutFmap_Bfloat2Dec(Layer8_check_Image1_CH0_256, Layer8_check_Image1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+            Output8_Image2 = Read_OutFmap_Bfloat2Dec(Layer8_check_Image2_CH0_256, Layer8_check_Image2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+            Output8_Image3 = Read_OutFmap_Bfloat2Dec(Layer8_check_Image3_CH0_256, Layer8_check_Image3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+            Output8_Image4 = Read_OutFmap_Bfloat2Dec(Layer8_check_Image4_CH0_256, Layer8_check_Image4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+            Output8_Image5 = Read_OutFmap_Bfloat2Dec(Layer8_check_Image5_CH0_256, Layer8_check_Image5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+            Output8_Image6 = Read_OutFmap_Bfloat2Dec(Layer8_check_Image6_CH0_256, Layer8_check_Image6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+            Output8_Image7 = Read_OutFmap_Bfloat2Dec(Layer8_check_Image7_CH0_256, Layer8_check_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+            Output8_Image8 = Read_OutFmap_Bfloat2Dec(Layer8_check_Image8_CH0_256, Layer8_check_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
+            Output8_Layer8 = Output8_Image1 + Output8_Image2 + Output8_Image3 + Output8_Image4 + \
+                            Output8_Image5 + Output8_Image6 + Output8_Image7 + Output8_Image8
+
+            Float_Output8Image = [np.float32(x) for x in Output8_Layer8]
+            Float_Output8Image = Float_Output8Image[0:(8*125*(13**2))]
+            input_Layer8 = torch.tensor(Float_Output8Image, requires_grad=True).reshape(8,125, 13, 13)
+            Save_File(input_Layer8, "result/Layer_8_input")   
+            
+        
+        if DEBUG2 : Save_File(Output_Layer8, "result/Layer_8_Forward")   
+        if DEBUG2 : Save_File(data.Bias_Dec[8],   "result/Layer_8_Forward_Bias_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Weight_Dec[8], "result/Layer_8_Forward_weight_Before_Weight_Update")
+        
+        return Output_Layer8
+
+
+    def Post_Processing(self, data, gt_boxes, gt_classes, num_boxes):
+        # check Layer8 IRQ
+
+        '''
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image1_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image1_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image1_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image1_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image2_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image2_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image3_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image3_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image3_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image3_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image4_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image4_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image4_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image4_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image5_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image5_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image5_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image5_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image6_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image6_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image6_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image6_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image7_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image7_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image7_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image7_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image8_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image8_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer8_1st_Iter_Image8_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer8_1st_Iter_Image8_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        '''
+        
+
+        # if data.Mode == "Training":
+        PostProcessing = Post_Processing(Mode="Training",
+                    Brain_Floating_Point=data.Brain_Floating_Point,
+                    Exponent_Bits=Exponent_Bits,
+                    Mantissa_Bits=Mantissa_Bits,
+                    Output_Layer8=Output_Layer8,
+                    # OutImage1_Data_CH1=Layer8_1st_Iter_Image1_CH1_256,
+                    # OutImage2_Data_CH0=Layer8_1st_Iter_Image2_CH0_256,
+                    # OutImage2_Data_CH1=Layer8_1st_Iter_Image2_CH1_256,
+                    # OutImage3_Data_CH0=Layer8_1st_Iter_Image3_CH0_256,
+                    # OutImage3_Data_CH1=Layer8_1st_Iter_Image3_CH1_256,
+                    # OutImage4_Data_CH0=Layer8_1st_Iter_Image4_CH0_256,
+                    # OutImage4_Data_CH1=Layer8_1st_Iter_Image4_CH1_256,
+                    # OutImage5_Data_CH0=Layer8_1st_Iter_Image5_CH0_256,
+                    # OutImage5_Data_CH1=Layer8_1st_Iter_Image5_CH1_256,
+                    # OutImage6_Data_CH0=Layer8_1st_Iter_Image6_CH0_256,
+                    # OutImage6_Data_CH1=Layer8_1st_Iter_Image6_CH1_256,
+                    # OutImage7_Data_CH0=Layer8_1st_Iter_Image7_CH0_256,
+                    # OutImage7_Data_CH1=Layer8_1st_Iter_Image7_CH1_256,
+                    # OutImage8_Data_CH0=Layer8_1st_Iter_Image8_CH0_256,
+                    # OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
+                    )
+        s = time.time()
+        Loss, Loss_Gradient = PostProcessing.PostProcessing(gt_boxes, gt_classes, num_boxes)
+        e = time.time()
+        if DEBUG: print("Calculate Loss : ",e-s)
+        # if DEBUG: print(Loss)
+        #if DEBUG: print(Loss_Gradient)
+        
+        output_file1 = "loss.txt"
+        with open(output_file1, mode="a") as output_file_1:
+            output_file_1.write(str(Loss) + "\n")
+        output_file2 = "loss_gradient.txt"
+        with open(output_file2, mode="w") as output_file_2:
+            for item in (Loss_Gradient):
+                output_file_2.write(str(item) + "\n")        
+        output_file_1.close()
+        output_file_2.close()
+        
+        return Loss, Loss_Gradient
+    
+   
+            
+    def Forward_infer_test(self,data):
+        global layer0_cache, layer1_cache, layer2_cache, layer3_cache, layer4_cache, layer5_cache, layer6_cache, layer7_cache     
+        start = time.time()
+        #################################################
+        #                Layer 0 Start                  #
+        #################################################       
+        # layer0 capture interrupt
+        # TODO: Moved check_irq func to main
+        # check_irq_layer0() 
+        # self.app_instance.change_color(self.app_instance.L1_IRQ_canvas, self.app_instance.L1_IRQ, "green")
+        global OutImage_1st_Layer0, OutImage_1st_Layer1, OutImage_1st_Layer2, OutImage_1st_Layer3, OutImage_1st_Layer4,\
+        OutImage_1st_Layer5, OutImage_1st_Layer5, OutImage_1st_Layer7, OutImage_1st_Layer8, Output_Layer8, Bias_Grad
+        # Layer 0
+        # Read DDR & Conver Format # 512MB
+        layer0_start = time.time()
+
+        s = time.time()
+        Layer0_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x83E00000, End_Address=0x83ED0000)
+        Layer0_1st_Iter_Image1_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image1_CH0) 
+        #if DEBUG: print("ch0 image 1 : ", len(Layer0_1st_Iter_Image1_CH0)) 
+
+        Layer0_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x83ED0000, End_Address=0x83FA0000)
+        Layer0_1st_Iter_Image2_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image2_CH0)
+        #if DEBUG: print("ch0 image 2 : ", len(Layer0_1st_Iter_Image2_CH0))
+        
+        Layer0_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x83FA0000, End_Address=0x84070000)
+        Layer0_1st_Iter_Image3_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image3_CH0)
+        #if DEBUG: print("ch0 image 3 : ", len(Layer0_1st_Iter_Image3_CH0))
+
+        Layer0_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x84070000, End_Address=0x84140000)
+        Layer0_1st_Iter_Image4_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image4_CH0)
+        #if DEBUG: print("ch0 image 4 : ", len(Layer0_1st_Iter_Image4_CH0))
+
+        Layer0_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x84140000, End_Address=0x84210000)
+        Layer0_1st_Iter_Image5_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image5_CH0)
+        #if DEBUG: print("ch0 image 5 : ", len(Layer0_1st_Iter_Image5_CH0))
+
+        Layer0_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x84210000, End_Address=0x842E0000)
+        Layer0_1st_Iter_Image6_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image6_CH0)
+        #if DEBUG: print("ch0 image 6 : ", len(Layer0_1st_Iter_Image6_CH0))
+
+        Layer0_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x842E0000, End_Address=0x843B0000)
+        Layer0_1st_Iter_Image7_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image7_CH0)
+        #if DEBUG: print("ch0 image 7 : ", len(Layer0_1st_Iter_Image7_CH0))
+
+        Layer0_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x843B0000, End_Address=0x84480000)
+        Layer0_1st_Iter_Image8_CH0_256 = data_32_to_16(Layer0_1st_Iter_Image8_CH0)
+        #if DEBUG: print("ch0 image 8 : ", len(Layer0_1st_Iter_Image8_CH0))
+
+
+        Layer0_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x93E00000, End_Address=0x93ED0000)
+        Layer0_1st_Iter_Image1_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image1_CH1)
+        #if DEBUG: print("ch1 image 1 : ", len(Layer0_1st_Iter_Image1_CH1))
+
+        Layer0_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x93ED0000, End_Address=0x93FA0000)
+        Layer0_1st_Iter_Image2_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image2_CH1)
+        #if DEBUG: print("ch1 image 2 : ", len(Layer0_1st_Iter_Image2_CH1))
+
+        Layer0_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x93FA0000, End_Address=0x94070000)
+        Layer0_1st_Iter_Image3_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image3_CH1)
+        #if DEBUG: print("ch1 image 3 : ", len(Layer0_1st_Iter_Image3_CH1))
+
+        Layer0_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x94070000, End_Address=0x94140000)
+        Layer0_1st_Iter_Image4_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image4_CH1)
+        #if DEBUG: print("ch1 image 4 : ", len(Layer0_1st_Iter_Image4_CH1))
+
+        Layer0_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x94140000, End_Address=0x94210000)
+        Layer0_1st_Iter_Image5_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image5_CH1)
+        #if DEBUG: print("ch1 image 5 : ", len(Layer0_1st_Iter_Image5_CH1))
+
+        Layer0_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x94210000, End_Address=0x942E0000)
+        Layer0_1st_Iter_Image6_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image6_CH1)
+        #if DEBUG: print("ch1 image 6 : ", len(Layer0_1st_Iter_Image6_CH1))
+
+        Layer0_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x942E0000, End_Address=0x943B0000)
+        Layer0_1st_Iter_Image7_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image7_CH1)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Layer0_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x943B0000, End_Address=0x94480000)
+        Layer0_1st_Iter_Image8_CH1_256 = data_32_to_16(Layer0_1st_Iter_Image8_CH1)
+        #if DEBUG: print("ch1 image 8 : ", len(Layer0_1st_Iter_Image8_CH1))
+        e = time.time()
+        if DEBUG: print("Read DDR & 32bit to 16bit Convert :",e-s)
+
+        '''
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image1_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image1_CH0:
+                test_output.write(str(item) + "\n")
+        test_output.close()
+        
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image1_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image1_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image2_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image2_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image2_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image3_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image3_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image3_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image3_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image4_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image4_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image4_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image4_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image5_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image5_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image5_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image5_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image6_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image6_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image6_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image6_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image7_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image7_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image7_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image7_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image8_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image8_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer0_1st_Iter_Image8_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer0_1st_Iter_Image8_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        '''
+
+        s = time.time()
+        Output_Image1_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image1_CH0_256, Layer0_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Image2_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image2_CH0_256, Layer0_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Image3_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image3_CH0_256, Layer0_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Image4_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image4_CH0_256, Layer0_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Image5_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image5_CH0_256, Layer0_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Image6_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image6_CH0_256, Layer0_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Image7_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image7_CH0_256, Layer0_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        Output_Image8_Layer0_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer0_1st_Iter_Image8_CH0_256, Layer0_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False)
+        e = time.time()
+        if DEBUG: print("Bfloat to Dec : ",e-s)
+
+        OutImages_1st_Layer0 = Output_Image1_Layer0_1st_Iter + Output_Image2_Layer0_1st_Iter + Output_Image3_Layer0_1st_Iter + Output_Image4_Layer0_1st_Iter + \
+                            Output_Image5_Layer0_1st_Iter + Output_Image6_Layer0_1st_Iter + Output_Image7_Layer0_1st_Iter + Output_Image8_Layer0_1st_Iter    
+
+        OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
+        
+        if DEBUG2 : Save_File(OutImage_1st_Layer0, "result/Layer_0_Forward_1st_Iteration")
+        
+        if DEBUG: print(OutImage_1st_Layer0[0][0][0][0:5])
+        
+        # Mean, Var
+        s = time.time()
+        Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)    
+        e = time.time()
+        if DEBUG: print("Calculate Mean & Var :",e-s)
+
+        Beta_Layer0 = data.Beta_Dec[0]
+        Gamma_Layer0 = data.Gamma_Dec[0]
+
+        if DEBUG2 : Save_File(data.Beta_Dec[0],   "result/Layer_0_Forward_Beta_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Gamma_Dec[0],  "result/Layer_0_Forward_Gamma_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Weight_Dec[0], "result/Layer_0_Forward_weight_Before_Weight_Update")
+
+        # layer0 Caches: 
+        layer0_cache = BN(OutImage_1st_Layer0, Gamma_Layer0, Beta_Layer0)
+
+        # Squeeze to remove the dimension but keeping the same data ordering
+        Var_1st_Layer0 = Var_1st_Layer0.squeeze() * Gamma_Layer0
+        s = time.time()
+        Mean_1st_Layer0, Var_1st_Layer0 = Mean_Var_Dec2Bfloat(Mean_1st_Layer0, Var_1st_Layer0, Exponent_Bits, Mantissa_Bits)
+        e = time.time()
+        if DEBUG: print("Dec to Bfloat :",e-s)
+        s= time.time()
+        Weight_2nd_Layer0 = New_Weight_Hardware_ReOrdering_Layer0(16, 16, data.Weight_Bfloat[0], Mean_1st_Layer0, Var_1st_Layer0, data.Beta_Bfloat[0], Iteration="2")
+        #if DEBUG: print("Weight_2nd_Layer0 : ", Weight_2nd_Layer0)
+        e = time.time()
+ 
+        '''
+        data_read_mean_var = "result/Mean_1st_Layer0.txt"
+        with open(data_read_mean_var, mode="w") as output_file:  
+            for sublist in Mean_1st_Layer0:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
+        output_file.close() 
+
+        data_read_mean_var = "result/Var_1st_Layer0.txt"
+        with open(data_read_mean_var, mode="w") as output_file:  
+            for sublist in Var_1st_Layer0:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
+        output_file.close() 
+        
+        data_read_mean_var = "result/layer0_mean_var.txt"
+        with open(data_read_mean_var, mode="w") as output_file:  
+            for sublist in Weight_2nd_Layer0:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n") 
+        output_file.close()               
+        '''
+ 
+        '''
+        weight_layer0_2nd_ch0 = data_256_32(Weight_2nd_Layer0[0])
+        weight_layer0_2nd_ch1 = data_256_32(Weight_2nd_Layer0[1])
+        
+        data_read_mean_var = "result/weight_layer0_2nd_ch0.txt"
+        with open(data_read_mean_var, mode="w") as output_file:
+            for sublist in weight_layer0_2nd_ch0:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write(" ".join(map(str, cleaned_sublist)) + "\n")      
+        output_file.close()  
+
+        data_read_mean_var = "result/weight_layer0_2nd_ch1.txt"
+        with open(data_read_mean_var, mode="w") as output_file:
+            for sublist in weight_layer0_2nd_ch1:
+                cleaned_sublist = [clean_string(item) for item in sublist]
+                output_file.write
+        '''
+        s = time.time()
+        Write_DDR(data_256_32(Weight_2nd_Layer0[0]), Wr_Address=0x80000000)
+        Write_DDR(data_256_32(Weight_2nd_Layer0[1]), Wr_Address=0x90000000)
+        e = time.time()
+        if DEBUG: print("Write DDR & 256bit to 32bit",e-s)
+        
+        resume()
+        layer0_end = time.time()
+        process = layer0_end - layer0_start
+        if DEBUG: print("layer0 process time : ", process)
+
+        '''
+        d = Device("0000:08:00.0")
+        bar = d.bar[0]
+
+        data_read = open("result/layer0_slave.txt", mode="w+")
+        i=0
+        for i in range(0,16): 
+            Read_Data = bar.read(0X00 + (i*4))
+            data_read.write(str(Read_Data) + "\n") 
+        
+        d = Device("0000:08:00.0")
+        bar = d.bar[2]
+        
+        data_read = open("result/layer0_result_ch0_image1.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X4550000-0X4480000)/4) ): 
+            Read_Data = bar.read(0X4480000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+
+        data_read = open("result/layer0_result_ch1_image1.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X4550000-0X4480000)/4) ): 
+            Read_Data = bar.read(0X14480000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")     
+
+        data_read = open("result/layer0_location_result.txt", mode="w+")
+        i=0
+        for i in range(0,int((0X784C000-0X71CC000)/4) ): 
+            Read_Data = bar.read(0X71CC000 + (i*4))
+            data_read.write(str(Read_Data) + "\n")      
+        '''
+            
+        #################################################
+        #                Layer 1 Start                  #
+        #################################################
+        # check Layer1 IRQ
+        check_irq_otherlayer()     
+        # self.app_instance .change_color(self.app_instance.L2_IRQ_canvas, self.app_instance.L2_IRQ, "green") 
+        # Layer 1
+        
+        Image0_2nd_ch0 = Read_DDR(Rd_Address=0X84480000, End_Address=0X84550000)
+        Image0_2nd_ch0 = data_32_to_16(Image0_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image0_2nd_ch1 = Read_DDR(Rd_Address=0X94480000, End_Address=0X94550000)
+        Image0_2nd_ch1 = data_32_to_16(Image0_2nd_ch1)
+        
+        Image0_2nd_result = Read_OutFmap_Bfloat2Dec(Image0_2nd_ch0, Image0_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image1_2nd_ch0 = Read_DDR(Rd_Address=0X84550000, End_Address=0X84620000)
+        Image1_2nd_ch0 = data_32_to_16(Image1_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image1_2nd_ch1 = Read_DDR(Rd_Address=0X94550000, End_Address=0X94620000)
+        Image1_2nd_ch1 = data_32_to_16(Image1_2nd_ch1)
+        
+        Image1_2nd_result = Read_OutFmap_Bfloat2Dec(Image1_2nd_ch0, Image1_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image2_2nd_ch0 = Read_DDR(Rd_Address=0X84620000, End_Address=0X846F0000)
+        Image2_2nd_ch0 = data_32_to_16(Image2_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image2_2nd_ch1 = Read_DDR(Rd_Address=0X94620000, End_Address=0X946F0000)
+        Image2_2nd_ch1 = data_32_to_16(Image2_2nd_ch1)
+        
+        Image2_2nd_result = Read_OutFmap_Bfloat2Dec(Image2_2nd_ch0, Image2_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image3_2nd_ch0 = Read_DDR(Rd_Address=0X846F0000, End_Address=0X847C0000)
+        Image3_2nd_ch0 = data_32_to_16(Image3_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image3_2nd_ch1 = Read_DDR(Rd_Address=0X946F0000, End_Address=0X947C0000)
+        Image3_2nd_ch1 = data_32_to_16(Image3_2nd_ch1)
+        
+        Image3_2nd_result = Read_OutFmap_Bfloat2Dec(Image3_2nd_ch0, Image3_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image4_2nd_ch0 = Read_DDR(Rd_Address=0X847C0000, End_Address=0X84890000)
+        Image4_2nd_ch0 = data_32_to_16(Image4_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image4_2nd_ch1 = Read_DDR(Rd_Address=0X947C0000, End_Address=0X94890000)
+        Image4_2nd_ch1 = data_32_to_16(Image4_2nd_ch1)
+        
+        Image4_2nd_result = Read_OutFmap_Bfloat2Dec(Image4_2nd_ch0, Image4_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+        
+        Image5_2nd_ch0 = Read_DDR(Rd_Address=0X84890000, End_Address=0X84960000)
+        Image5_2nd_ch0 = data_32_to_16(Image5_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image5_2nd_ch1 = Read_DDR(Rd_Address=0X94890000, End_Address=0X94960000)
+        Image5_2nd_ch1 = data_32_to_16(Image5_2nd_ch1)
+        
+        Image5_2nd_result = Read_OutFmap_Bfloat2Dec(Image5_2nd_ch0, Image5_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image6_2nd_ch0 = Read_DDR(Rd_Address=0X84960000, End_Address=0X84A30000)
+        Image6_2nd_ch0 = data_32_to_16(Image6_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image6_2nd_ch1 = Read_DDR(Rd_Address=0X94960000, End_Address=0X94A30000)
+        Image6_2nd_ch1 = data_32_to_16(Image6_2nd_ch1)
+        
+        Image6_2nd_result = Read_OutFmap_Bfloat2Dec(Image6_2nd_ch0, Image6_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image7_2nd_ch0 = Read_DDR(Rd_Address=0X84A30000, End_Address=0X84B00000)
+        Image7_2nd_ch0 = data_32_to_16(Image7_2nd_ch0)
+        #if DEBUG: print("ch1 image 7 : ", len(Layer0_1st_Iter_Image7_CH1))
+
+        Image7_2nd_ch1 = Read_DDR(Rd_Address=0X94A30000, End_Address=0X94B00000)
+        Image7_2nd_ch1 = data_32_to_16(Image7_2nd_ch1)
+        
+        Image7_2nd_result = Read_OutFmap_Bfloat2Dec(Image7_2nd_ch0, Image7_2nd_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=208, Layer8=False) 
+
+        Image_2nd_result = Image0_2nd_result + Image1_2nd_result + Image2_2nd_result + Image3_2nd_result + Image4_2nd_result + Image5_2nd_result +\
+                           Image6_2nd_result + Image7_2nd_result
+        
+        Image_2nd_result = torch.tensor([float(value) for value in Image_2nd_result], dtype=torch.float32).reshape(8, 16, 208, 208)
+        
+        # Save_File(Image0_2nd_result, "result/Image0_2nd_result")
+        # Save_File(Image1_2nd_result, "result/Image1_2nd_result")
+        # Save_File(Image2_2nd_result, "result/Image2_2nd_result")
+        # Save_File(Image3_2nd_result, "result/Image3_2nd_result")
+        # Save_File(Image4_2nd_result, "result/Image4_2nd_result")
+        # Save_File(Image5_2nd_result, "result/Image5_2nd_result")
+        # Save_File(Image6_2nd_result, "result/Image6_2nd_result")
+        # Save_File(Image7_2nd_result, "result/Image7_2nd_result")
+        # Save_File(Image_2nd_result, "result/Image_2nd_result")
+        
+        _Out_2nd_Itr = [Image0_2nd_result, Image1_2nd_result, Image2_2nd_result, Image3_2nd_result, Image4_2nd_result, Image5_2nd_result, Image6_2nd_result, Image7_2nd_result]
+        if DEBUG2 : Save_File(_Out_2nd_Itr, "result/Layer_0_Forward_2nd_Iteration") 
+        
+        
+        
+        layer1_start = time.time()
+        s = time.time()
+        # Read DDR & Conver Format # 512MB
+        Layer1_1st_Iter_Image1_CH0 = Read_DDR(Rd_Address=0x84B00000, End_Address=0x84CA0000)
+        Layer1_1st_Iter_Image1_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image1_CH0))   
+        #if DEBUG: print("ch0 image 1 : ", len(Layer1_1st_Iter_Image1_CH0))    
+        
+        Layer1_1st_Iter_Image2_CH0 = Read_DDR(Rd_Address=0x84CA0000, End_Address=0x84E40000)
+        Layer1_1st_Iter_Image2_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image2_CH0))
+        #if DEBUG: print("ch0 image 2 : ", len(Layer1_1st_Iter_Image2_CH0))
+        
+        Layer1_1st_Iter_Image3_CH0 = Read_DDR(Rd_Address=0x84E40000, End_Address=0x84FE0000)
+        Layer1_1st_Iter_Image3_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image3_CH0))
+        #if DEBUG: print("ch0 image 3 : ", len(Layer1_1st_Iter_Image3_CH0))
+
+        Layer1_1st_Iter_Image4_CH0 = Read_DDR(Rd_Address=0x84FE0000, End_Address=0x85180000)
+        Layer1_1st_Iter_Image4_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image4_CH0))
+        #if DEBUG: print("ch0 image 4 : ", len(Layer1_1st_Iter_Image4_CH0))
+
+        Layer1_1st_Iter_Image5_CH0 = Read_DDR(Rd_Address=0x85180000, End_Address=0x85320000)
+        Layer1_1st_Iter_Image5_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image5_CH0))
+        #if DEBUG: print("ch0 image 5 : ", len(Layer1_1st_Iter_Image5_CH0))
+
+        Layer1_1st_Iter_Image6_CH0 = Read_DDR(Rd_Address=0x85320000, End_Address=0x854C0000)
+        Layer1_1st_Iter_Image6_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image6_CH0))
+        #if DEBUG: print("ch0 image 6 : ", len(Layer1_1st_Iter_Image6_CH0))
+
+        Layer1_1st_Iter_Image7_CH0 = Read_DDR(Rd_Address=0x854C0000, End_Address=0x85660000)
+        Layer1_1st_Iter_Image7_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image7_CH0))
+        #if DEBUG: print("ch0 image 7 : ", len(Layer1_1st_Iter_Image7_CH0))
+
+        Layer1_1st_Iter_Image8_CH0 = Read_DDR(Rd_Address=0x85660000, End_Address=0x85800000)
+        Layer1_1st_Iter_Image8_CH0_256 = (data_32_to_16(Layer1_1st_Iter_Image8_CH0))
+        #if DEBUG: print("ch0 image 8 : ", len(Layer1_1st_Iter_Image8_CH0))
+
+
+        Layer1_1st_Iter_Image1_CH1 = Read_DDR(Rd_Address=0x94B00000, End_Address=0x94CA0000)
+        Layer1_1st_Iter_Image1_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image1_CH1))
+        #if DEBUG: print("ch1 image 1 : ", len(Layer1_1st_Iter_Image1_CH1))
+
+        Layer1_1st_Iter_Image2_CH1 = Read_DDR(Rd_Address=0x94CA0000, End_Address=0x94E40000)
+        Layer1_1st_Iter_Image2_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image2_CH1))
+        #if DEBUG: print("ch1 image 2 : ", len(Layer1_1st_Iter_Image2_CH1))
+
+        Layer1_1st_Iter_Image3_CH1 = Read_DDR(Rd_Address=0x94E40000, End_Address=0x94FE0000)
+        Layer1_1st_Iter_Image3_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image3_CH1))
+        #if DEBUG: print("ch1 image 3 : ", len(Layer1_1st_Iter_Image3_CH1))
+
+        Layer1_1st_Iter_Image4_CH1 = Read_DDR(Rd_Address=0x94FE0000, End_Address=0x95180000)
+        Layer1_1st_Iter_Image4_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image4_CH1))
+        #if DEBUG: print("ch1 image 4 : ", len(Layer1_1st_Iter_Image4_CH1))
+
+        Layer1_1st_Iter_Image5_CH1 = Read_DDR(Rd_Address=0x95180000, End_Address=0x95320000)
+        Layer1_1st_Iter_Image5_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image5_CH1))
+        #if DEBUG: print("ch1 image 5 : ", len(Layer1_1st_Iter_Image5_CH1))
+
+        Layer1_1st_Iter_Image6_CH1 = Read_DDR(Rd_Address=0x95320000, End_Address=0x954C0000)
+        Layer1_1st_Iter_Image6_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image6_CH1))
+        #if DEBUG: print("ch1 image 6 : ", len(Layer1_1st_Iter_Image6_CH1))
+
+        Layer1_1st_Iter_Image7_CH1 = Read_DDR(Rd_Address=0x954C0000, End_Address=0x95660000)
+        Layer1_1st_Iter_Image7_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image7_CH1))
+        #if DEBUG: print("ch1 image 7 : ", len(Layer1_1st_Iter_Image7_CH1))
+
+        Layer1_1st_Iter_Image8_CH1 = Read_DDR(Rd_Address=0x95660000, End_Address=0x95800000)
+        Layer1_1st_Iter_Image8_CH1_256 = (data_32_to_16(Layer1_1st_Iter_Image8_CH1))
+        #if DEBUG: print("ch1 image 8 : ", len(Layer1_1st_Iter_Image8_CH1))
+        e = time.time()
+        if DEBUG: print("Read DDR & 32bit to 16bit :",e-s)
+
+        '''
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image1_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image1_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image1_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image1_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image2_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image2_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image2_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image2_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image3_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image3_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image3_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image3_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image4_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image4_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image4_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image4_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image5_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image5_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image5_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image5_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image6_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image6_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image6_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image6_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image7_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image7_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image7_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image7_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image8_CH0.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image8_CH0:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+
+        test_out = '1st_iter_result/Layer1_1st_Iter_Image8_CH1.txt'
+        with open(test_out, 'w+') as test_output:
+            for item in Layer1_1st_Iter_Image8_CH1:
+                line = str(item) 
+                test_output.write(line + '\n')   
+        test_output.close()
+        '''
+
+        s = time.time()
+        Output_Image1_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image1_CH0_256, Layer1_1st_Iter_Image1_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
+        Output_Image2_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image2_CH0_256, Layer1_1st_Iter_Image2_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
+        Output_Image3_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image3_CH0_256, Layer1_1st_Iter_Image3_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
+        Output_Image4_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image4_CH0_256, Layer1_1st_Iter_Image4_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
+        Output_Image5_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image5_CH0_256, Layer1_1st_Iter_Image5_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
+        Output_Image6_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image6_CH0_256, Layer1_1st_Iter_Image6_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
+        Output_Image7_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image7_CH0_256, Layer1_1st_Iter_Image7_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
+        Output_Image8_Layer1_1st_Iter = Read_OutFmap_Bfloat2Dec(Layer1_1st_Iter_Image8_CH0_256, Layer1_1st_Iter_Image8_CH1_256, Exponent_Bits, Mantissa_Bits, Out_CH=32, Out_Size=208, Layer8=False)
+        e = time.time()
+        if DEBUG: print("Bfloat to Dec :",e-s)
+        
+        OutImages_1st_Layer1 = Output_Image1_Layer1_1st_Iter + Output_Image2_Layer1_1st_Iter + Output_Image3_Layer1_1st_Iter + Output_Image4_Layer1_1st_Iter + \
+                            Output_Image5_Layer1_1st_Iter + Output_Image6_Layer1_1st_Iter + Output_Image7_Layer1_1st_Iter + Output_Image8_Layer1_1st_Iter    
+
+        OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).reshape(8, 32, 208, 208)
+        if DEBUG: print(OutImage_1st_Layer1[0][0][0][0:5])
+        
+        if DEBUG2 : Save_File(data.Beta_Dec[1],   "result/Layer_1_Forward_Beta_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Gamma_Dec[1],  "result/Layer_1_Forward_Gamma_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Weight_Dec[1], "result/Layer_1_Forward_weight_Before_Weight_Update")
         
         # Mean, Var
         s = time.time()
@@ -3077,169 +5810,13 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Layer8 = torch.tensor(Float_OutputImage, requires_grad=True).reshape(8,125, 13, 13)
         
         if DEBUG2 : Save_File(Output_Layer8, "result/Layer_8_Forward")   
+        if DEBUG2 : Save_File(data.Bias_Dec[8],   "result/Layer_8_Forward_Bias_Before_Weight_Update")
+        if DEBUG2 : Save_File(data.Weight_Dec[8], "result/Layer_8_Forward_weight_Before_Weight_Update")
+        resume()
         
         return Output_Layer8
 
-
-    def Post_Processing(self, data, gt_boxes, gt_classes, num_boxes):
-        # check Layer8 IRQ
-
-        '''
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image1_CH0.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image1_CH0:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image1_CH1.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image1_CH1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image2_CH0.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image2_CH1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image2_CH1.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image2_CH1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image3_CH0.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image3_CH0:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image3_CH1.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image3_CH1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image4_CH0.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image4_CH0:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image4_CH1.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image4_CH1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image5_CH0.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image5_CH0:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image5_CH1.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image5_CH1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image6_CH0.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image6_CH0:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image6_CH1.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image6_CH1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image7_CH0.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image7_CH0:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image7_CH1.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image7_CH1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image8_CH0.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image8_CH0:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-
-        test_out = '1st_iter_result/Layer8_1st_Iter_Image8_CH1.txt'
-        with open(test_out, 'w+') as test_output:
-            for item in Layer8_1st_Iter_Image8_CH1:
-                line = str(item) 
-                test_output.write(line + '\n')   
-        test_output.close()
-        '''
-        
-
-        # if data.Mode == "Training":
-        PostProcessing = Post_Processing(Mode="Training",
-                    Brain_Floating_Point=data.Brain_Floating_Point,
-                    Exponent_Bits=Exponent_Bits,
-                    Mantissa_Bits=Mantissa_Bits,
-                    Output_Layer8=Output_Layer8,
-                    # OutImage1_Data_CH1=Layer8_1st_Iter_Image1_CH1_256,
-                    # OutImage2_Data_CH0=Layer8_1st_Iter_Image2_CH0_256,
-                    # OutImage2_Data_CH1=Layer8_1st_Iter_Image2_CH1_256,
-                    # OutImage3_Data_CH0=Layer8_1st_Iter_Image3_CH0_256,
-                    # OutImage3_Data_CH1=Layer8_1st_Iter_Image3_CH1_256,
-                    # OutImage4_Data_CH0=Layer8_1st_Iter_Image4_CH0_256,
-                    # OutImage4_Data_CH1=Layer8_1st_Iter_Image4_CH1_256,
-                    # OutImage5_Data_CH0=Layer8_1st_Iter_Image5_CH0_256,
-                    # OutImage5_Data_CH1=Layer8_1st_Iter_Image5_CH1_256,
-                    # OutImage6_Data_CH0=Layer8_1st_Iter_Image6_CH0_256,
-                    # OutImage6_Data_CH1=Layer8_1st_Iter_Image6_CH1_256,
-                    # OutImage7_Data_CH0=Layer8_1st_Iter_Image7_CH0_256,
-                    # OutImage7_Data_CH1=Layer8_1st_Iter_Image7_CH1_256,
-                    # OutImage8_Data_CH0=Layer8_1st_Iter_Image8_CH0_256,
-                    # OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
-                    )
-        s = time.time()
-        Loss, Loss_Gradient = PostProcessing.PostProcessing(gt_boxes, gt_classes, num_boxes)
-        e = time.time()
-        if DEBUG: print("Calculate Loss : ",e-s)
-        # if DEBUG: print(Loss)
-        #if DEBUG: print(Loss_Gradient)
-        
-        output_file1 = "loss.txt"
-        with open(output_file1, mode="a") as output_file_1:
-            output_file_1.write(str(Loss) + "\n")
-        output_file2 = "loss_gradient.txt"
-        with open(output_file2, mode="w") as output_file_2:
-            for item in (Loss_Gradient):
-                output_file_2.write(str(item) + "\n")        
-        output_file_1.close()
-        output_file_2.close()
-        
-        return Loss, Loss_Gradient
-    
+   
      
     def Forward_Inference(self, data):
 
@@ -4266,7 +6843,8 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient_Layer7 = [Weight_Gradient1_Layer7, Weight_Gradient2_Layer7, Weight_Gradient3_Layer7, Weight_Gradient4_Layer7, Weight_Gradient5_Layer7, 
                                 Weight_Gradient6_Layer7, Weight_Gradient7_Layer7, Weight_Gradient8_Layer7]
         
-        Weight_Gradient_Layer7 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer7)]   
+        # Weight_Gradient_Layer7 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer7)]   
+        Weight_Gradient_Layer7 = list(np.mean(np.array(Weight_Gradient_Layer7), axis=0))
         
         Weight_Gradient_Layer7 = torch.tensor([float(value) for value in Weight_Gradient_Layer7], dtype=torch.float32).reshape(1024, 1024, 3, 3)  
         e = time.time()
@@ -4663,7 +7241,11 @@ class YOLOv2_Tiny_FPGA(object):
         
         Weight_Gradient_Layer6 = [Weight_Gradient1_Layer6, Weight_Gradient2_Layer6, Weight_Gradient3_Layer6, Weight_Gradient4_Layer6, Weight_Gradient5_Layer6, 
                                 Weight_Gradient6_Layer6, Weight_Gradient7_Layer6, Weight_Gradient8_Layer6]
-        Weight_Gradient_Layer6 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer6)]   
+        
+        # Weight_Gradient_Layer6 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer6)]  
+        Weight_Gradient_Layer6 = list(np.mean(np.array(Weight_Gradient_Layer6), axis=0))
+        
+         
         Weight_Gradient_Layer6 = torch.tensor([float(value) for value in Weight_Gradient_Layer6], dtype=torch.float32).reshape(1024, 512, 3, 3)  
 
         layer6_end = time.time()
@@ -5082,7 +7664,10 @@ class YOLOv2_Tiny_FPGA(object):
         
         Weight_Gradient_Layer5 = [Weight_Gradient1_Layer5, Weight_Gradient2_Layer5, Weight_Gradient3_Layer5, Weight_Gradient4_Layer5, Weight_Gradient5_Layer5, 
                                 Weight_Gradient6_Layer5, Weight_Gradient7_Layer5, Weight_Gradient8_Layer5]
-        Weight_Gradient_Layer5 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer5)]   
+        
+        # Weight_Gradient_Layer5 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer5)]   
+        Weight_Gradient_Layer5 = list(np.mean(np.array(Weight_Gradient_Layer5), axis=0))
+        
         Weight_Gradient_Layer5 = torch.tensor([float(value) for value in Weight_Gradient_Layer5], dtype=torch.float32).reshape(512, 256, 3, 3)  
 
         layer5_end = time.time()
@@ -5493,7 +8078,10 @@ class YOLOv2_Tiny_FPGA(object):
 
         Weight_Gradient_Layer4 = [Weight_Gradient1_Layer4, Weight_Gradient2_Layer4, Weight_Gradient3_Layer4, Weight_Gradient4_Layer4, Weight_Gradient5_Layer4, 
                                 Weight_Gradient6_Layer4, Weight_Gradient7_Layer4, Weight_Gradient8_Layer4]
-        Weight_Gradient_Layer4 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer4)]   
+        
+        # Weight_Gradient_Layer4 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer4)]   
+        Weight_Gradient_Layer4 = list(np.mean(np.array(Weight_Gradient_Layer4), axis=0))
+        
         Weight_Gradient_Layer4 = torch.tensor([float(value) for value in Weight_Gradient_Layer4], dtype=torch.float32).reshape(256, 128, 3, 3)   
 
         Blayer4_end = time.time()
@@ -5885,7 +8473,10 @@ class YOLOv2_Tiny_FPGA(object):
         
         Weight_Gradient_Layer3 = [Weight_Gradient1_Layer3, Weight_Gradient2_Layer3, Weight_Gradient3_Layer3, Weight_Gradient4_Layer3, Weight_Gradient5_Layer3, 
                                 Weight_Gradient6_Layer3, Weight_Gradient7_Layer3, Weight_Gradient8_Layer3]
-        Weight_Gradient_Layer3 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer3)]   
+        
+        # Weight_Gradient_Layer3 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer3)]  
+        Weight_Gradient_Layer3 = list(np.mean(np.array(Weight_Gradient_Layer3), axis=0))
+         
         Weight_Gradient_Layer3 = torch.tensor([float(value) for value in Weight_Gradient_Layer3], dtype=torch.float32).reshape(128, 64, 3, 3)   
 
         Blayer3_end = time.time()
@@ -6277,7 +8868,10 @@ class YOLOv2_Tiny_FPGA(object):
         
         Weight_Gradient_Layer2 = [Weight_Gradient1_Layer2, Weight_Gradient2_Layer2, Weight_Gradient3_Layer2, Weight_Gradient4_Layer2, Weight_Gradient5_Layer2, 
                                 Weight_Gradient6_Layer2, Weight_Gradient7_Layer2, Weight_Gradient8_Layer2]
-        Weight_Gradient_Layer2 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer2)]   
+        
+        # Weight_Gradient_Layer2 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer2)]   
+        Weight_Gradient_Layer2 = list(np.mean(np.array(Weight_Gradient_Layer2), axis=0))
+        
         Weight_Gradient_Layer2 = torch.tensor([float(value) for value in Weight_Gradient_Layer2], dtype=torch.float32).reshape(64, 32, 3, 3)   
 
         Blayer2_end = time.time()
@@ -6673,8 +9267,13 @@ class YOLOv2_Tiny_FPGA(object):
         
         Weight_Gradient_Layer1 = [Weight_Gradient1_Layer1, Weight_Gradient2_Layer1, Weight_Gradient3_Layer1, Weight_Gradient4_Layer1, Weight_Gradient5_Layer1, 
                                 Weight_Gradient6_Layer1, Weight_Gradient7_Layer1, Weight_Gradient8_Layer1]
-        Weight_Gradient_Layer1 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer1)]   
+        
+        # Weight_Gradient_Layer1 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer1)]   
+        Weight_Gradient_Layer1 = list(np.mean(np.array(Weight_Gradient_Layer1), axis=0))
+        
         Weight_Gradient_Layer1 = torch.tensor([float(value) for value in Weight_Gradient_Layer1], dtype=torch.float32).reshape(32, 16, 3, 3)   
+        
+        if DEBUG2 : Save_File(Weight_Gradient_Layer1, "result/Layer_1_Backward_Weight_Gradient")
 
         Blayer1_end = time.time()
         if DEBUG: print("Layer1 Process Time : ",Blayer1_end-Blayer1_start)
@@ -6955,7 +9554,10 @@ class YOLOv2_Tiny_FPGA(object):
         s = time.time()
         Weight_Gradient_Layer0 = [Weight_Gradient1_Layer0, Weight_Gradient2_Layer0, Weight_Gradient3_Layer0, Weight_Gradient4_Layer0, Weight_Gradient5_Layer0, 
                                 Weight_Gradient6_Layer0, Weight_Gradient7_Layer0, Weight_Gradient8_Layer0]
+        
         Weight_Gradient_Layer0 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer0)]   
+        # Weight_Gradient_Layer0 = list(np.mean(np.array(Weight_Gradient_Layer0), axis=0))
+        
         Weight_Gradient_Layer0 = torch.tensor([float(value) for value in Weight_Gradient_Layer0], dtype=torch.float32).reshape(16, 3, 3, 3)   
         e = time.time()
         if DEBUG: print("reshape : ",e-s)
@@ -7044,6 +9646,7 @@ class YOLOv2_Tiny_FPGA(object):
         Write_DDR(Weight_1st_CH1, Wr_Address=0x90000000)    
         e = time.time()
         if DEBUG: print("Write Weight : ",e-s)
+
 
     def Write_Image(self, data):
         # Pre-Processing Class Initialization

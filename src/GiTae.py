@@ -24,10 +24,10 @@ class FPGA(object):
         self.device         = None
         self.train_loader   = None
         
-        self.Mode                 = self.self.Mode     
-        self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
-        self.Exponent_Bits        = self.self.Exponent_Bits             
-        self.Mantissa_Bits        = self.self.Mantissa_Bits   
+        self.Mode                 = parent.Mode     
+        self.Brain_Floating_Point = parent.Brain_Floating_Point                     
+        self.Exponent_Bits        = parent.Exponent_Bits             
+        self.Mantissa_Bits        = parent.Mantissa_Bits   
         
         
         self.PreProcessing = Pre_Processing(Mode =   self.self.Mode,
@@ -90,21 +90,24 @@ class FPGA(object):
         e = time.time()
         if DEBUG: print("Write Image Time : ",e-s)   
         
-        self.d = Device("0000:08:00.0")
-        self.bar = self.d.bar[0]
-        self.bar.write(0x0, 0x00000011) # yolo start
-        self.bar.write(0x0, 0x00000010) # yolo start low
+                
+        
+        # self.d = Device("0000:08:00.0")
+        # self.bar = self.d.bar[0]
+        # self.bar.write(0x0, 0x00000011) # yolo start
+        # self.bar.write(0x0, 0x00000010) # yolo start low
 
-        self.bar.write(0x8, 0x00000011) # rd addr
-        self.bar.write(0x0, 0x00000014) # rd en
-        self.bar.write(0x0, 0x00000010) # rd en low
+        # self.bar.write(0x8, 0x00000011) # rd addr
+        # self.bar.write(0x0, 0x00000014) # rd en
+        # self.bar.write(0x0, 0x00000010) # rd en low
 
-        self.bar.write(0x18, 0x00008001) # axi addr
-        self.bar.write(0x14, 0x00000001) # axi rd en
-        self.bar.write(0x14, 0x00000000) # axi rd en low
+        # self.bar.write(0x18, 0x00008001) # axi addr
+        # self.bar.write(0x14, 0x00000001) # axi rd en
+        # self.bar.write(0x14, 0x00000000) # axi rd en low
         
     
     def Forward(self, data):
+        self.parent         = data
         self.gt_boxes       = data.gt_boxes  
         self.gt_classes     = data.gt_classes
         self.num_boxes      = data.num_obj 
@@ -113,6 +116,13 @@ class FPGA(object):
         self.im_data        = data.im_data    
               
         if DEBUG: print("Start NPU")
+        
+        
+        cmd = 'rm -rf src/GiTae/interrupt*txt; touch src/GiTae/interrupt_old.txt; touch src/GiTae/interrupt.txt; python3 src/GiTae/interrupt_layer_0.py '
+        os.system(cmd)
+        print(f"Got interrupt")
+        
+        
         s = time.time()
         self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward(self)
         # Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
@@ -131,6 +141,11 @@ class FPGA(object):
         self.im_data        = data.im_data    
               
         if DEBUG: print("Start NPU")
+        
+        cmd = 'python3 src/GiTae/start_signal.py '
+        os.system(cmd)
+        print(f"Start signal sent.")
+        
         s = time.time()
         self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward_Inference(data)
         Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
@@ -144,6 +159,7 @@ class FPGA(object):
     def Calculate_Loss(self,data):                 
         self.Loss, self.Loss_Gradient = self.YOLOv2TinyFPGA.Post_Processing(data, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
         if DEBUG2: Save_File(self.Loss_Gradient, "result/loss_gradient")
+        if DEBUG2: Save_File(self.Loss, "result/Loss")
     def Before_Backward(self,data):
         pass
         self.YOLOv2TinyFPGA.Pre_Processing_Backward(self, self.Loss_Gradient)

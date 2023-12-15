@@ -36,7 +36,7 @@ def yolo_filter_boxes(boxes_pred, conf_pred, classes_pred, confidence_threshold=
 
     # multiply class scores and objectiveness score
     # use class confidence score
-    # TODO: use objectiveness (IOU) score or class confidence score
+    # TO DO: use objectiveness (IOU) score or class confidence score
     cls_max_conf, cls_max_id = torch.max(classes_pred, dim=-1, keepdim=True)
     cls_conf = conf_pred * cls_max_conf
 

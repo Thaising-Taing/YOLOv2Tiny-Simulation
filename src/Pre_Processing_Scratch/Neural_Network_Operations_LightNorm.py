@@ -265,7 +265,7 @@ class Torch_SpatialBatchNorm(object):
         dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
         
         # Compute dL_dgamma and dL_dbeta
-        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True) # TODO - Is it really required to keep dim
+        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True) # TO DO - Is it really required to keep dim
         dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True)
         dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True)
 

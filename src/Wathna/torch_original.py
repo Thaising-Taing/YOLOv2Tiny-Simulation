@@ -76,7 +76,7 @@ class DeepConvNetTorch(object):
       device = 'cuda:0'
     
     ############################################################################
-    # TODO: Initialize the parameters for the DeepConvNet. All weights,        #
+    # TO DO: Initialize the parameters for the DeepConvNet. All weights,        #
     # biases, and batchnorm scale and shift parameters should be stored in the #
     # dictionary self.params.                                                  #
     #                                                                          #
@@ -1141,7 +1141,7 @@ class Torch_BatchNorm(object):
     out, cache = None, None
     if mode == 'train':
       #######################################################################
-      # TODO: Implement the training-time forward pass for batch norm.      #
+      # TO DO: Implement the training-time forward pass for batch norm.      #
       # Use minibatch statistics to compute the mean and variance, use      #
       # these statistics to normalize the incoming data, and scale and      #
       # shift the normalized data using gamma and beta.                     #
@@ -1198,7 +1198,7 @@ class Torch_BatchNorm(object):
       #######################################################################
     elif mode == 'test':
       #######################################################################
-      # TODO: Implement the test-time forward pass for batch normalization. #
+      # TO DO: Implement the test-time forward pass for batch normalization. #
       # Use the running mean and variance to normalize the incoming data,   #
       # then scale and shift the normalized data using gamma and beta.      #
       # Store the result in the out variable.                               #
@@ -1238,7 +1238,7 @@ class Torch_BatchNorm(object):
     """
     dx, dgamma, dbeta = None, None, None
     ###########################################################################
-    # TODO: Implement the backward pass for batch normalization. Store the    #
+    # TO DO: Implement the backward pass for batch normalization. Store the    #
     # results in the dx, dgamma, and dbeta variables.                         #
     # Referencing the original paper (https://arxiv.org/abs/1502.03167)       #
     # might prove to be helpful.                                              #
@@ -1304,7 +1304,7 @@ class Torch_BatchNorm(object):
     """
     dx, dgamma, dbeta = None, None, None
     ###########################################################################
-    # TODO: Implement the backward pass for batch normalization. Store the    #
+    # TO DO: Implement the backward pass for batch normalization. Store the    #
     # results in the dx, dgamma, and dbeta variables.                         #
     #                                                                         #
     # After computing the gradient with respect to the centered inputs, you   #
@@ -1352,7 +1352,7 @@ class Torch_SpatialBatchNorm(object):
     out, cache = None, None
 
     ###########################################################################
-    # TODO: Implement the forward pass for spatial batch normalization.       #
+    # TO DO: Implement the forward pass for spatial batch normalization.       #
     #                                                                         #
     # HINT: You can implement spatial batch normalization by calling the      #
     # vanilla version of batch normalization you implemented above.           #
@@ -1384,7 +1384,7 @@ class Torch_SpatialBatchNorm(object):
     dx, dgamma, dbeta = None, None, None
 
     ###########################################################################
-    # TODO: Implement the backward pass for spatial batch normalization.      #
+    # TO DO: Implement the backward pass for spatial batch normalization.      #
     #                                                                         #
     # HINT: You can implement spatial batch normalization by calling the      #
     # vanilla version of batch normalization you implemented above.           #

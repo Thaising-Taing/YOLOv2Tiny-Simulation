@@ -2,7 +2,7 @@
 #define _XDMA_IOCALLS_POSIX_H_
 
 #ifndef _WINDOWS
-// TODO: Windows build support
+// TO DO: Windows build support
 #include <linux/ioctl.h>
 #endif
 

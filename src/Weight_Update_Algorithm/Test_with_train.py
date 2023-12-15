@@ -54,7 +54,6 @@ def test_for_train(temp_path, model, args):
     if args.vis:
         args.conf_thresh = 0.5
     args.nms_thresh = 0.45
-    if args.use_small_dataset: args.data_limit = 80
     
     args.output_dir = temp_path
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
@@ -64,8 +63,9 @@ def test_for_train(temp_path, model, args):
     val_imdb = get_imdb(args.imdbval_name)
 
     val_dataset = RoiDataset(val_imdb, train=False)
-    if not args.data_limit==0:
-        val_dataset = torch.utils.data.Subset(val_dataset, range(0, args.data_limit))
+    # if args.use_small_dataset: args.data_limit = 80
+    # if not args.data_limit==0:
+    #     val_dataset = torch.utils.data.Subset(val_dataset, range(0, args.data_limit))
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
 
     # load model
