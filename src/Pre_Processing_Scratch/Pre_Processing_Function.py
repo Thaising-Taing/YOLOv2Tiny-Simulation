@@ -7,6 +7,8 @@ import torch
 import re
 import struct
 import time
+from functools import lru_cache
+import numba
 
 
 # Combined Master-PhD in MSISLAB
@@ -2293,6 +2295,15 @@ def ReLu_Marking_Ordering(Out_CH, Out_Size, DataCH0_List, DataCH1_List):
         
     return outlist
 
+def bfloat16_to_decimal(hex_str):
+    # 32 비트 부동 소수점 값을 hex 문자열로 변환
+    float32_hex = hex_str.ljust(8,'0')
+    hex_data = bytes.fromhex(float32_hex)
+    # hex 문자열을 부동 소수점 값으로 언팩
+    decimal_value = struct.unpack('!f', hex_data)[0]
+
+    return decimal_value
+ 
 def Fmap_Reverse_Ordering(Out_CH, Out_Size, DataCH0_List, DataCH1_List):
     # Out_CH = 128
     # Out_Size = 13
@@ -2319,25 +2330,17 @@ def Fmap_Reverse_Ordering(Out_CH, Out_Size, DataCH0_List, DataCH1_List):
     final_ar = final_ar.reshape(-1)
     
 
-    # def bfloat16_to_decimal(bfloat16_data):
-    #     int_data = int(bfloat16_data, 16)
-    #     sign = 1 if (int_data & 0x8000) == 0 else -1
-    #     exponent = ((int_data & 0x7F80) >> 7) - 127
-    #     fraction = 1.0 + (int_data & 0x007F) / 128.0
-    #     if(int_data != 0):
-    #         return sign * fraction * (2 ** exponent)
-    #     else:
-    #         return 0  
+    
+    # def bfloat16_to_decimal(hex_str):
+    #     # 32 비트 부동 소수점 값을 hex 문자열로 변환
+    #     float32_hex = hex_str.ljust(8,'0')
+    #     hex_data = bytes.fromhex(float32_hex)
+    #     # hex 문자열을 부동 소수점 값으로 언팩
+    #     decimal_value = struct.unpack('!f', hex_data)[0]
 
-    def bfloat16_to_decimal(hex_str):
-        # 32 비트 부동 소수점 값을 hex 문자열로 변환
-        float32_hex = hex_str.ljust(8,'0')
-        hex_data = bytes.fromhex(float32_hex)
-        # hex 문자열을 부동 소수점 값으로 언팩
-        decimal_value = struct.unpack('!f', hex_data)[0]
-
-        return decimal_value
+    #     return decimal_value
     decimal_array = np.vectorize(bfloat16_to_decimal)(final_ar)
+    #decimal_array = bfloat16_to_decimal(final_ar)
 
     outlist = decimal_array.tolist()
         
