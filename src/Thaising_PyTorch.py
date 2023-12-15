@@ -66,24 +66,27 @@ class Simulation(object):
         # Layer0: Conv-BN-ReLU-Pool
         Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Input_Image", im_data)
         temp_Out[0], temp_cache['0'] = Torch_Conv_Pool.forward(im_data, Weight_Tensor[0], conv_param, pool_param_stride2)
-        # Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Output_1st_Iter_Layer0", temp_Out[0])
+        Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Output_1st_Iter_Layer0", temp_Out[0])
         mean, var = Cal_mean_var.forward(temp_Out[0])
         
         Out0, cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(im_data, Weight_Tensor[0], Gamma_Tensor[0],
                                                                 Beta_Tensor[0], conv_param, running_mean[0], 
                                                                 running_var[0], mean, var, self.Mode, pool_param_stride2)
-        # Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Output_2nd_Iter_Layer0", Out0)
-        # Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_Before", Weight_Tensor[0])
-        # Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_Before", Beta_Tensor[0])
-        # Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_Before", Gamma_Tensor[0])
+        Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Output_2nd_Iter_Layer0", Out0)
+        Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_Before", Weight_Tensor[0])
+        Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_Before", Beta_Tensor[0])
+        Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_Before", Gamma_Tensor[0])
+
         # Layer1: Conv-BN-ReLU-Pool
         temp_Out[1], temp_cache['1'] = Torch_FastConv.forward(Out0, Weight_Tensor[1], conv_param)
-        
+        Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Output_1st_Iter_Layer1", temp_Out[1])
         mean, var = Cal_mean_var.forward(temp_Out[1])
         
         Out1, cache['1'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out0, Weight_Tensor[1], Gamma_Tensor[1], Beta_Tensor[1],
                                                                 conv_param, running_mean[1], running_var[1],
                                                                 mean, var, self.Mode, pool_param_stride2)
+        Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Output_1st_Iter_Layer1", Out1)
+        
         # Layer2: Conv-BN-ReLU-Pool
         temp_Out[2], temp_cache['2'] = Torch_FastConv.forward(Out1, Weight_Tensor[2], conv_param)
         
@@ -133,6 +136,8 @@ class Simulation(object):
         Out7, cache['7'] = Torch_Conv_BatchNorm_ReLU.forward(Out6, Weight_Tensor[7], Gamma_Tensor[7], Beta_Tensor[7],
                                                             conv_param, running_mean[7], running_var[7],
                                                             mean, var, self.Mode)
+        Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Output_Layer7", Out7)
+
         # Layer8: ConvWB
         conv_param['pad'] = 0
         Out8, cache['8'] = Torch_FastConvWB.forward(Out7, Weight_Tensor[8], bias, conv_param)
@@ -144,6 +149,7 @@ class Simulation(object):
     def Calculate_Loss(self,data):
         self.Loss, self.Loss_Gradient = loss(out=self.Output_Image, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_boxes)
         Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Loss_Grad", self.Loss_Gradient)
+        Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Loss", self.Loss)
 
     def Backward(self,data):
         # Add By Thaising
