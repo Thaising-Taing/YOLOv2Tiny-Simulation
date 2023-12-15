@@ -51,7 +51,7 @@ from Thaising_PyTorch import Simulation
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
-
+MAX_LINE_LENGTH = 1000
 
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
@@ -64,6 +64,7 @@ class App(customtkinter.CTk):
         super().__init__()
         
                 
+        self.DDR_SIZE = 0x10000
         self.MAX_LINE_LENGTH = 1000
 
         # Floating Point Parameters that we use
@@ -90,7 +91,8 @@ class App(customtkinter.CTk):
         self.Weight_Converted        = True  # Converted Weight
         self.Bias_Converted          = True  # Converted Bias
         self.BN_Param_Converted      = True  # Converted BN Parameters
-        self.Microcode               = True  # Microcode Writing
+        self.Microcode               = True  # Microcode Writing TODO: Check Microcode
+        # TODO: Check Microcode
 
         # Running Hardware Model:
         self.YOLOv2_Hardware_Forward     = True
@@ -813,6 +815,7 @@ class App(customtkinter.CTk):
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
+                self.Visualize()
                 self.Calculate_Loss()
                 self.Before_Backward() ######################## - Individual Functions
                 self.Backward() ############################### - Individual Functions
@@ -876,7 +879,7 @@ class App(customtkinter.CTk):
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
             # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
             
             self.batch = step
             self.Before_Forward() ######################### - Individual Functions
@@ -1176,6 +1179,10 @@ class App(customtkinter.CTk):
         self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
         
+        output_file1 = "result/mAP.txt"
+        with open(output_file1, mode="a") as output_file_1:
+            output_file_1.write(str(Loss) + "\n")
+        
     def Post_Epoch(self): 
         self.whole_process_end = time.time()
         self.whole_process_time = self.whole_process_end - self.whole_process_start
@@ -1188,10 +1195,10 @@ class App(customtkinter.CTk):
         if self.mode == "Simulation": _data = self.Sim
         if self.mode == "FPGA"      : _data = self.FPGA
         
-        if self.mode == "Pytorch"   : self.Save_File("output_of_forward_Pytorch.pickle"   , _data.out  )
-        if self.mode == "Python"    : self.Save_File("output_of_forward_Python.pickle"    , _data.out  )
-        if self.mode == "Simulation": self.Save_File("output_of_forward_Simulation.pickle", _data.out  )
-        if self.mode == "FPGA"      : self.Save_File("output_of_forward_FPGA.pickle"      , _data.out  )
+        # if self.mode == "Pytorch"   : self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
+        # if self.mode == "Python"    : self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
+        # if self.mode == "Simulation": self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
+        # if self.mode == "FPGA"      : self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
         
         
         out_batch = _data.out
@@ -1208,7 +1215,7 @@ class App(customtkinter.CTk):
             yolo_output = self.reshape_outputs(out)
             yolo_output = [item[0].data for item in yolo_output]
                 
-            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.2, nms_threshold=0.5)
             
             if len(detections) > 0:
                 det_boxes = detections[:, :5].cpu().numpy()
@@ -1220,17 +1227,18 @@ class App(customtkinter.CTk):
                 im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=self.classes)
                         
                 self.count['detections']+=1
-                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- {len(detections)} Detections", end='')
+                self.Show_Text(f"{len(detections)} Detections", end='')
                 
                 # plt.figure('Input Image')
                 # plt.imshow(_img)
-                plt.figure(f'Output Image - Batch {self.batch} - Image {i+1}')
+                plt.figure(f'Output Image')
                 plt.imshow(im2show)
                 plt.show(block=True)
                 
             else:
                 self.count['no_detections']+=1
-                self.Show_Text(f"Batch {self.batch} - Image {i+1} -- No Detections", end='')
+                self.Show_Text(f"No Detections", end='')
+                # self.Show_Text(f"Batch {self.batch} - Image {i+1} -- No Detections", end='')
 
     def Visualize_All(self):
         if self.mode == "Pytorch"   : _data = self.Pytorch

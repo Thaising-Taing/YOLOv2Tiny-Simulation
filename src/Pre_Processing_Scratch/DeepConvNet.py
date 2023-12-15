@@ -57,7 +57,7 @@ class DeepConvNet(object):
             device = 'cuda:0'
 
         ############################################################################
-        # TODO: Initialize the parameters for the DeepConvNet. All weights,        #
+        # TO DO: Initialize the parameters for the DeepConvNet. All weights,        #
         # biases, and batchnorm scale and shift parameters should be stored in the #
         # dictionary self.params.                                                  #
         #                                                                          #
