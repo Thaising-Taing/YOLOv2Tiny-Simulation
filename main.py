@@ -47,7 +47,7 @@ from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
-from Thaising import Simulation
+from Thaising_PyTorch import Simulation
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -59,6 +59,7 @@ customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "gre
 
 
 class App(customtkinter.CTk):
+    
     def __init__(self):
         super().__init__()
         
@@ -803,14 +804,14 @@ class App(customtkinter.CTk):
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.data_iter = iter(self.small_train_dataloader)
+            self.data_iter = iter(self.train_dataloader)
             self.Adjust_Learning_Rate()
             
             for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
-                self.show_image(self.im_data[0])
+                # self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
@@ -838,10 +839,9 @@ class App(customtkinter.CTk):
         self.Load_Dataset()
 
         self.whole_process_start = time.time()
-        self.data_iter = iter(self.train_dataloader)
+        self.data_iter = iter(self.test_dataloader)
         
-        # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Inference", total=self.iters_per_epoch_train):
-        for step in tqdm(range(2), desc=f"Inference", total=self.iters_per_epoch_train):
+        for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
             # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
             # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
@@ -946,7 +946,7 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=1, type=int)
+                            default=100, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
@@ -1055,7 +1055,8 @@ class App(customtkinter.CTk):
         self.small_train_dataloader = DataLoader(self.small_train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch_train = int(len(self.small_train_dataset) / self.args.batch_size)
+        # self.iters_per_epoch_train = int(len(self.small_train_dataset) / self.args.batch_size)
+        self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
         # -------------------------------------- Test Dataset -----------------------------------------------------
         self.imdb_test_name = 'voc_2007_test'
         self.test_dataset = self.get_dataset(self.imdb_test_name)
@@ -1128,9 +1129,9 @@ class App(customtkinter.CTk):
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
 
-        # self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After",_data.Weight[0])
-        # self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
-        # self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
+        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After",_data.Weight[0])
+        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
+        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
         
         if self.mode == "Pytorch"    : self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"     : self.Python.load_weights(new_weights)
