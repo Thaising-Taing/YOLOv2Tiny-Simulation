@@ -930,7 +930,7 @@ class App(customtkinter.CTk):
         
         
     # Training Helper Functions
-    def Save_File(self, data, path):
+    def Save_File(self, path, data):
         with open(path, 'wb') as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
@@ -946,7 +946,7 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=100, type=int)
+                            default=1, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
@@ -1127,7 +1127,10 @@ class App(customtkinter.CTk):
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
-    
+
+        # self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After",_data.Weight[0])
+        # self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
+        # self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
         
         if self.mode == "Pytorch"    : self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"     : self.Python.load_weights(new_weights)
