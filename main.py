@@ -1177,7 +1177,7 @@ class App(customtkinter.CTk):
         
         output_file1 = "result/mAP.txt"
         with open(output_file1, mode="a") as output_file_1:
-            output_file_1.write(str(Loss) + "\n")
+            output_file_1.write(str(self.map) + "\n")
         
     def Post_Epoch(self): 
         self.whole_process_end = time.time()
