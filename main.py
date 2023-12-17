@@ -15,6 +15,7 @@ import subprocess
 import tqdm
 import warnings
 warnings.filterwarnings("ignore")
+from datetime import datetime
 import os
 import sys
 sys.path.append("../")
@@ -47,7 +48,7 @@ from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
-from Thaising import Simulation
+from Thaising_PyTorch import Simulation
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -56,9 +57,11 @@ MAX_LINE_LENGTH = 1000
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
+save_debug_data = False
 
 
 class App(customtkinter.CTk):
+    
     def __init__(self):
         super().__init__()
         
@@ -804,22 +807,25 @@ class App(customtkinter.CTk):
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
             self.data_iter = iter(self.small_train_dataloader)
+            # self.data_iter = iter(self.train_dataloader)
             self.Adjust_Learning_Rate()
             
-            for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-                # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
-                self.show_image(self.im_data[0])
+            # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
+            for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+                # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+                # self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
-                self.Visualize()
+                # self.Visualize()
                 self.Calculate_Loss()
                 self.Before_Backward() ######################## - Individual Functions
                 self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
             self.Check_mAP()
+            self.save_weights()
         #     self.Save_Pickle()
         self.Post_Epoch()
         self.Show_Text(f"Training is finished")
@@ -838,12 +844,11 @@ class App(customtkinter.CTk):
         self.Load_Dataset()
 
         self.whole_process_start = time.time()
-        self.data_iter = iter(self.train_dataloader)
+        self.data_iter = iter(self.test_dataloader)
         
-        # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Inference", total=self.iters_per_epoch_train):
-        for step in tqdm(range(2), desc=f"Inference", total=self.iters_per_epoch_train):
+        for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-            # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+            # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
             # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
@@ -878,7 +883,7 @@ class App(customtkinter.CTk):
         self.data_iter = iter(self.small_test_dataloader)
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-            # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+            # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
             # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
             
             self.batch = step
@@ -930,7 +935,7 @@ class App(customtkinter.CTk):
         
         
     # Training Helper Functions
-    def Save_File(self, data, path):
+    def Save_File(self, path, data):
         with open(path, 'wb') as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
@@ -963,7 +968,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
-                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            default="Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
@@ -1055,7 +1060,8 @@ class App(customtkinter.CTk):
         self.small_train_dataloader = DataLoader(self.small_train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch_train = int(len(self.small_train_dataset) / self.args.batch_size)
+        self.iters_per_epoch_train_subset = int(len(self.small_train_dataset) / self.args.batch_size)
+        self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
         # -------------------------------------- Test Dataset -----------------------------------------------------
         self.imdb_test_name = 'voc_2007_test'
         self.test_dataset = self.get_dataset(self.imdb_test_name)
@@ -1068,7 +1074,7 @@ class App(customtkinter.CTk):
         self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch_test  = int(len(self.test_dataloader) / self.args.batch_size)
+        self.iters_per_epoch_test  = int(len(self.small_train_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # learning_rate = 0.001
@@ -1127,7 +1133,10 @@ class App(customtkinter.CTk):
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
-    
+
+        if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After",_data.Weight[0])
+        if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
+        if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
         
         if self.mode == "Pytorch"    : self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"     : self.Python.load_weights(new_weights)
@@ -1166,6 +1175,18 @@ class App(customtkinter.CTk):
                 with open(self.output_file, 'wb') as handle:
                     pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
     
+    def save_weights(self):
+        model = self.Shoaib.custom_model
+        save_dir = os.path.join(self.args.output_dir, "trained_weights", self.mode)
+        Path(save_dir).mkdir(parents=True, exist_ok=True)
+        _now = str(datetime.now()).split()
+        save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
+        torch.save({
+            'model': self.Shoaib.custom_model.state_dict(),
+            'epoch': self.epoch,
+            'lr': self.Shoaib.custom_optimizer.param_groups[0]['lr'],
+            }, save_name)
+    
     def Check_mAP(self):
         if self.mode == "Pytorch"   : _data = self.Pytorch
         if self.mode == "Python"    : _data = self.Python
@@ -1174,10 +1195,6 @@ class App(customtkinter.CTk):
         
         self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
-        
-        output_file1 = "result/mAP.txt"
-        with open(output_file1, mode="a") as output_file_1:
-            output_file_1.write(str(self.map) + "\n")
         
     def Post_Epoch(self): 
         self.whole_process_end = time.time()
@@ -1191,10 +1208,10 @@ class App(customtkinter.CTk):
         if self.mode == "Simulation": _data = self.Sim
         if self.mode == "FPGA"      : _data = self.FPGA
         
-        # if self.mode == "Pytorch"   : self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
-        # if self.mode == "Python"    : self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
-        # if self.mode == "Simulation": self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
-        # if self.mode == "FPGA"      : self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
+        # if self.mode == "Pytorch"   : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
+        # if self.mode == "Python"    : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
+        # if self.mode == "Simulation": if save_debug_data: self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
+        # if self.mode == "FPGA"      : if save_debug_data: self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
         
         
         out_batch = _data.out

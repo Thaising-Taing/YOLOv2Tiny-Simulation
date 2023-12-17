@@ -174,7 +174,7 @@ class Pytorch(object):
         
         X = data.im_data
         self.out, self.cache, self.Out_all_layers = self.modtorch_model.forward(X)
-        print(self.out[0][0][0][0:5])
+        # print(self.out[0][0][0][0:5])
         
     def Calculate_Loss(self,data):
         out = self.out
