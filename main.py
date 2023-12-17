@@ -57,6 +57,7 @@ MAX_LINE_LENGTH = 1000
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
+save_debug_data = False
 
 
 class App(customtkinter.CTk):
@@ -805,18 +806,20 @@ class App(customtkinter.CTk):
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.data_iter = iter(self.train_dataloader)
+            self.data_iter = iter(self.small_train_dataloader)
+            # self.data_iter = iter(self.train_dataloader)
             self.Adjust_Learning_Rate()
             
-            for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-                # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
+            # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
+            for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+                # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
                 # self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
-                self.Visualize()
+                # self.Visualize()
                 self.Calculate_Loss()
                 self.Before_Backward() ######################## - Individual Functions
                 self.Backward() ############################### - Individual Functions
@@ -845,7 +848,7 @@ class App(customtkinter.CTk):
         
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-            # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+            # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
             # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
@@ -880,7 +883,7 @@ class App(customtkinter.CTk):
         self.data_iter = iter(self.small_test_dataloader)
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-            # self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+            # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
             # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
             
             self.batch = step
@@ -1057,7 +1060,7 @@ class App(customtkinter.CTk):
         self.small_train_dataloader = DataLoader(self.small_train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        # self.iters_per_epoch_train = int(len(self.small_train_dataset) / self.args.batch_size)
+        self.iters_per_epoch_train_subset = int(len(self.small_train_dataset) / self.args.batch_size)
         self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
         # -------------------------------------- Test Dataset -----------------------------------------------------
         self.imdb_test_name = 'voc_2007_test'
@@ -1131,9 +1134,9 @@ class App(customtkinter.CTk):
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
 
-        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After",_data.Weight[0])
-        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
-        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
+        if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After",_data.Weight[0])
+        if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
+        if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
         
         if self.mode == "Pytorch"    : self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"     : self.Python.load_weights(new_weights)
@@ -1209,10 +1212,10 @@ class App(customtkinter.CTk):
         if self.mode == "Simulation": _data = self.Sim
         if self.mode == "FPGA"      : _data = self.FPGA
         
-        # if self.mode == "Pytorch"   : self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
-        # if self.mode == "Python"    : self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
-        # if self.mode == "Simulation": self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
-        # if self.mode == "FPGA"      : self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
+        # if self.mode == "Pytorch"   : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
+        # if self.mode == "Python"    : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
+        # if self.mode == "Simulation": if save_debug_data: self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
+        # if self.mode == "FPGA"      : if save_debug_data: self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
         
         
         out_batch = _data.out
