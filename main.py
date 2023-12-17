@@ -1074,7 +1074,7 @@ class App(customtkinter.CTk):
         self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch_test  = int(len(self.test_dataloader) / self.args.batch_size)
+        self.iters_per_epoch_test  = int(len(self.small_train_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # learning_rate = 0.001
@@ -1195,10 +1195,6 @@ class App(customtkinter.CTk):
         
         self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
-        
-        output_file1 = "result/mAP.txt"
-        with open(output_file1, mode="a") as output_file_1:
-            output_file_1.write(str(Loss) + "\n")
         
     def Post_Epoch(self): 
         self.whole_process_end = time.time()
