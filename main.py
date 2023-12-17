@@ -1055,8 +1055,7 @@ class App(customtkinter.CTk):
         self.small_train_dataloader = DataLoader(self.small_train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        # self.iters_per_epoch_train = int(len(self.small_train_dataset) / self.args.batch_size)
-        self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
+        self.iters_per_epoch_train = int(len(self.small_train_dataset) / self.args.batch_size)
         # -------------------------------------- Test Dataset -----------------------------------------------------
         self.imdb_test_name = 'voc_2007_test'
         self.test_dataset = self.get_dataset(self.imdb_test_name)
@@ -1069,7 +1068,7 @@ class App(customtkinter.CTk):
         self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch_test  = int(len(self.test_dataloader) / self.args.batch_size)
+        self.iters_per_epoch_test  = int(len(self.small_train_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # learning_rate = 0.001
@@ -1129,9 +1128,9 @@ class App(customtkinter.CTk):
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
 
-        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After",_data.Weight[0])
-        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
-        self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
+        self.Save_File("./Output_Sim_PyTorch/Weight_Layer0_After",_data.Weight[0])
+        self.Save_File("./Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
+        self.Save_File("./Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
         
         if self.mode == "Pytorch"    : self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"     : self.Python.load_weights(new_weights)
@@ -1178,10 +1177,6 @@ class App(customtkinter.CTk):
         
         self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
-        
-        output_file1 = "result/mAP.txt"
-        with open(output_file1, mode="a") as output_file_1:
-            output_file_1.write(str(Loss) + "\n")
         
     def Post_Epoch(self): 
         self.whole_process_end = time.time()
