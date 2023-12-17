@@ -15,6 +15,7 @@ import subprocess
 import tqdm
 import warnings
 warnings.filterwarnings("ignore")
+from datetime import datetime
 import os
 import sys
 sys.path.append("../")
@@ -820,6 +821,7 @@ class App(customtkinter.CTk):
                 self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
             self.Check_mAP()
+            self.save_weights()
         #     self.Save_Pickle()
         self.Post_Epoch()
         self.Show_Text(f"Training is finished")
@@ -1168,6 +1170,18 @@ class App(customtkinter.CTk):
                 self.output_file = os.path.join(self.args.output_dir, f'Params_{self.curr_epoch}.pickle')
                 with open(self.output_file, 'wb') as handle:
                     pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+    
+    def save_weights(self):
+        model = self.Shoaib.custom_model
+        save_dir = os.path.join(self.args.output_dir, "trained_weights", self.mode)
+        Path(save_dir).mkdir(parents=True, exist_ok=True)
+        _now = str(datetime.now()).split()
+        save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
+        torch.save({
+            'model': self.Shoaib.custom_model.state_dict(),
+            'epoch': self.epoch,
+            'lr': self.Shoaib.custom_optimizer.param_groups[0]['lr'],
+            }, save_name)
     
     def Check_mAP(self):
         if self.mode == "Pytorch"   : _data = self.Pytorch
