@@ -4007,7 +4007,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Weight_Gradient_Layer8 = [sum(map(float, item)) / len(item) for item in zip(*Weight_Gradient_Layer8)]
         # Weight_Gradient_Layer8 = list(np.mean(np.array(Weight_Gradient_Layer8), axis=0))
-        Weight_Gradient_Layer8 = list(np.sum(np.array(Weight_Gradient_Layer8)))
+        Weight_Gradient_Layer8 = list(np.sum(np.array(Weight_Gradient_Layer8), axis=0))
   
         Weight_Gradient_Layer8 = torch.tensor([float(value) for value in Weight_Gradient_Layer8], dtype=torch.float32).reshape(125, 1024, 1, 1)   
 
