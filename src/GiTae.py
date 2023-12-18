@@ -7,7 +7,9 @@ from Pre_Processing_Scratch.Pre_Processing import *
 
 from GiTae_Functions import *
 DEBUG = True
-DEBUG2 = True
+DEBUG2 = False
+
+np.set_printoptions(threshold=np.inf, linewidth=np.inf)
 
 def Save_File(data, path):
     with open(path, 'wb') as handle:
@@ -120,7 +122,7 @@ class FPGA(object):
         
         cmd = 'rm -rf src/GiTae/interrupt*txt; touch src/GiTae/interrupt_old.txt; touch src/GiTae/interrupt.txt; python3 src/GiTae/interrupt_layer_0.py '
         os.system(cmd)
-        print(f"Got interrupt")
+        if DEBUG: print(f"Got interrupt")
         
         
         s = time.time()
@@ -142,12 +144,14 @@ class FPGA(object):
               
         if DEBUG: print("Start NPU")
         
-        cmd = 'python3 src/GiTae/start_signal.py '
+        cmd = 'rm -rf src/GiTae/interrupt*txt; touch src/GiTae/interrupt_old.txt; touch src/GiTae/interrupt.txt; python3 src/GiTae/start_signal.py '
+        # cmd = 'python3 src/GiTae/start_signal.py '
         os.system(cmd)
-        print(f"Start signal sent.")
+        if DEBUG: print(f"Start signal sent.")
         
         s = time.time()
-        self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward_Inference(data)
+        # self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward_Inference(data)
+        self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward_Infer(self)
         Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
         e = time.time()
         if DEBUG: print("Forward Process Time : ",e-s)
@@ -155,11 +159,20 @@ class FPGA(object):
         # return Bias_Grad
         self.out = self.Output_Layer8
         
-    def Calculate_Loss(self,data):                 
+    def Calculate_Loss(self,data):
         self.Loss, self.Loss_Gradient = self.YOLOv2TinyFPGA.Post_Processing(data, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_obj)
         if DEBUG2: Save_File(self.Loss_Gradient, "result/loss_gradient")
         if DEBUG2: Save_File(self.Loss, "result/Loss")
-
+        if DEBUG2:
+            origin0 = pd.DataFrame(self.Loss_Gradient.view(-1))
+            Loss_Grad = np.array(self.Loss_Gradient)
+            test_out = 'result/Loss_Grad.txt'
+            with open(test_out, 'w+') as test_output:
+                for item in Loss_Grad:
+                    test_output.write(str(item) + "\n")
+            test_output.close()  
+            
+                                                    
     def Before_Backward(self,data):
         self.YOLOv2TinyFPGA.Pre_Processing_Backward(self, self.Loss_Gradient)
 

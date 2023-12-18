@@ -364,12 +364,28 @@ def Fmap_Reverse_Ordering(Out_CH, Out_Size, DataCH0_List, DataCH1_List):
     # that it will use all cores
     #os.system("taskset -p 0xff %d" % os.getpid())
    
-    pool = multiprocessing.Pool(multiprocessing.cpu_count())
-    decimal_array = pool.map(bfloat16_to_decimal, final_ar)
+    # pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    # decimal_array = pool.map(bfloat16_to_decimal, final_ar)
+    
+    
    
     # bfloat16_array = np.array(origin_ar, dtype=np.uint16)  # bfloat16 데이터
    # decimal_array = np.vectorize(bfloat16_to_decimal)(final_ar)
 
    # outlist = decimal_array.tolist()
+   
+    def to_decimal(num):
+        # Perform your desired conversion logic here if needed
+        return float(num)  # This is a basic example assuming conversion to integer
+
+    # decimal_array = np.vectorize(to_decimal(final_ar))
+    decimal_vectorized = np.vectorize(to_decimal)
+
+    # Apply the vectorized function to your array
+    outlist = decimal_vectorized(final_ar)
+
+
+    # outlist = decimal_array.tolist()
+    outlist = outlist.tolist()
        
-    return decimal_array
+    return outlist

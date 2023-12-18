@@ -824,7 +824,7 @@ class App(customtkinter.CTk):
                 self.Before_Backward() ######################## - Individual Functions
                 self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
-            self.Check_mAP()
+            if self.epoch%4 == 0: self.Check_mAP()
             self.save_weights()
         #     self.Save_Pickle()
         self.Post_Epoch()
@@ -955,7 +955,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=8, type=int)
+                            default=80, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=16, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -968,6 +968,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
+                            # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
                             default="Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
@@ -1177,7 +1178,7 @@ class App(customtkinter.CTk):
     
     def save_weights(self):
         model = self.Shoaib.custom_model
-        save_dir = os.path.join(self.args.output_dir, "trained_weights", self.mode)
+        save_dir = os.path.join(self.args.output_dir, "trained_weights")
         Path(save_dir).mkdir(parents=True, exist_ok=True)
         _now = str(datetime.now()).split()
         save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
@@ -1195,6 +1196,10 @@ class App(customtkinter.CTk):
         
         self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
+        
+        output_file1 = "result/mAP.txt"
+        with open(output_file1, mode="a") as output_file_1:
+            output_file_1.write(str(self.map) + "\n")
         
     def Post_Epoch(self): 
         self.whole_process_end = time.time()
@@ -1228,7 +1233,8 @@ class App(customtkinter.CTk):
             yolo_output = self.reshape_outputs(out)
             yolo_output = [item[0].data for item in yolo_output]
                 
-            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.2, nms_threshold=0.5)
+            # detections = yolo_eval(yolo_output, im_info, conf_threshold=0.2, nms_threshold=0.5)
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.45, nms_threshold=0.5)
             
             if len(detections) > 0:
                 det_boxes = detections[:, :5].cpu().numpy()
