@@ -50,7 +50,7 @@ from Weight_Update_Algorithm.yolov2_tiny import *
 from GiTae_Functions import *
 
 MAX_LINE_LENGTH = 1000
-DEBUG = False
+DEBUG = True
 DEBUG2 = True
 
 def save_txt(fname, data, module=[], layer_no=[], save_txt=False, save_hex=False, phase=[]):
@@ -3123,9 +3123,7 @@ class YOLOv2_Tiny_FPGA(object):
             Output8_Layer8 = Output8_Image1 + Output8_Image2 + Output8_Image3 + Output8_Image4 + \
                             Output8_Image5 + Output8_Image6 + Output8_Image7 + Output8_Image8
 
-            Float_Output8Image = [np.float32(x) for x in Output8_Layer8]
-            Float_Output8Image = Float_Output8Image[0:(8*125*(13**2))]
-            input_Layer8 = torch.tensor(Float_Output8Image, requires_grad=True).reshape(8,125, 13, 13)
+            input_Layer8 = torch.tensor(Output8_Layer8, requires_grad=True).reshape(8,1024, 13, 13)
             Save_File(input_Layer8, "result/Layer_8_input")   
             
         
