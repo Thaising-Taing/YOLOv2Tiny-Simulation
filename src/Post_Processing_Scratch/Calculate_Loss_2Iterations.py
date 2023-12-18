@@ -300,7 +300,6 @@ def loss(out, gt_boxes=None, gt_classes=None, num_boxes=None):
     # out = out[0:(8*125*(13**2))]
 
     out = out.reshape(8, 125, 13, 13)
-    print(out[0][0][0][0:5])
     scores = out
     bsize, _, h, w = out.shape
     out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)

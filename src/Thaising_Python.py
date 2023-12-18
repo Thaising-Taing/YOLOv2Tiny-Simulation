@@ -7,9 +7,9 @@ from Pre_Processing_Scratch.Pre_Processing import *
     
 from Post_Processing_Scratch.Calculate_Loss_2Iterations import *
 
-def save_pickle(Pickle_Path, Pickle_Data):
-    with open(Pickle_Path, 'wb') as handle:
-        pickle.dump(Pickle_Data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
+def Save_File(path, data):
+    with open(path, 'wb') as handle:
+        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def save_file(fname, data, module=[], layer_no=[], save_txt=False, save_hex=False, phase=[]):
     # print(f"Type of data: {type(data)}")
@@ -86,6 +86,8 @@ class Simulation(object):
         self.scheduler      = None
         self.device         = None
         self.train_loader   = None
+
+        self.save_debug_data = False
         
         self.Mode                 = self.self.Mode     
         self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
@@ -129,21 +131,28 @@ class Simulation(object):
         temp_cache = {}
 
         # Layer0: Conv-BN-ReLU-Pool
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Image", im_data)
         temp_Out[0], temp_cache['0'] = Python_Conv_Pool.forward(im_data, Weight_Tensor[0], conv_param, pool_param_stride2)
-
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer0", temp_Out[0])
         mean, var = Cal_mean_var.forward(temp_Out[0])
         
         Out0, cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.forward(im_data, Weight_Tensor[0], Gamma_Tensor[0],
                                                                 Beta_Tensor[0], conv_param, running_mean[0], 
                                                                 running_var[0], mean, var, pool_param_stride2)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_2nd_Iter_Layer0", Out0)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Layer0_Before", Weight_Tensor[0])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Layer0_Before", Beta_Tensor[0])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Layer0_Before", Gamma_Tensor[0])
         
         # Layer1: Conv-BN-ReLU-Pool
         temp_Out[1], temp_cache['1'] = Python_Conv.forward(Out0, Weight_Tensor[1], conv_param)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer1", temp_Out[1])
         mean, var = Cal_mean_var.forward(temp_Out[1])
         
         Out1, cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out0, Weight_Tensor[1], Gamma_Tensor[1], Beta_Tensor[1],
                                                                 conv_param, running_mean[1], running_var[1],
                                                                 mean, var, pool_param_stride2)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer1", Out1)
 
         # Layer2: Conv-BN-ReLU-Pool
         temp_Out[2], temp_cache['2'] = Python_Conv.forward(Out1, Weight_Tensor[2], conv_param)
@@ -198,22 +207,34 @@ class Simulation(object):
         Out7, cache['7'] = Python_Conv_BatchNorm_ReLU.forward(Out6, Weight_Tensor[7], Gamma_Tensor[7], Beta_Tensor[7],
                                                             conv_param, running_mean[7], running_var[7],
                                                             mean, var)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_Layer7", Out7)
 
         # Layer8: ConvWB
         conv_param['pad'] = 0
         Out8, cache['8'] = Python_ConvB.forward(Out7, Weight_Tensor[8], bias, conv_param)
         Output_Image = Out8
         self.Output_Image, self.cache = Output_Image, cache 
+        print(Output_Image[0][0][0][0:10])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_Layer8_FWD", self.Output_Image)
         # return Output_Image, cache
         
     def Calculate_Loss(self,data):
         self.Loss, self.Loss_Gradient = loss(out=self.Output_Image, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_boxes)
-        
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Loss_Grad", self.Loss_Gradient)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Loss", self.Loss)
+
     def Backward(self,data):
         # Add By Thaising
         Loss_Gradient, cache = self.Loss_Gradient, self.cache
         Input_Grad_Layer8, Weight_Gradient_Layer8, Bias_Grad  = Python_ConvB.backward(Loss_Gradient, cache['8'])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Grad_Layer8", Input_Grad_Layer8)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Gradient_Layer8", Weight_Gradient_Layer8)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Bias_Grad", Bias_Grad)
         Input_Grad_Layer7, Weight_Gradient_Layer7, Gamma_Gradient_Layer7, Beta_Gradient_Layer7  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer8, cache['7'])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Grad_Layer7", Input_Grad_Layer7)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Gradient_Layer7", Weight_Gradient_Layer7)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer7", Gamma_Gradient_Layer7)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer7", Beta_Gradient_Layer7)
         Input_Grad_Layer6, Weight_Gradient_Layer6, Gamma_Gradient_Layer6, Beta_Gradient_Layer6  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer7, cache['6'])
         Input_Grad_Layer5, Weight_Gradient_Layer5, Gamma_Gradient_Layer5, Beta_Gradient_Layer5  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer6, cache['5'])
         Input_Grad_Layer4, Weight_Gradient_Layer4, Gamma_Gradient_Layer4, Beta_Gradient_Layer4  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer5, cache['4'])
