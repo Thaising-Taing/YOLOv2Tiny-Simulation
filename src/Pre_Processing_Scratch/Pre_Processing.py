@@ -1197,8 +1197,8 @@ def BN(x, gamma, beta):
     avg_max = y.max(-1)[0].mean(-1)  # C
     avg_min = y.min(-1)[0].mean(-1)  # C
     avg = y.view(C, -1).mean(-1)  # C
-    max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
-    min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
+    ## max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
+    ## min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
     scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
     scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
 
@@ -1214,7 +1214,8 @@ def BN(x, gamma, beta):
     # running_mean = running_mean * momentum + (1 - momentum) * avg
     # running_var = running_var * momentum + (1 - momentum) * scale
     
-    cache = (x, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index)
+    #cache = (x, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index)
+    cache = (x, gamma, output, scale)
     
     return cache
 

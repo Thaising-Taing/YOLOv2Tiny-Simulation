@@ -832,7 +832,8 @@ class Shoaib_Code(object):
     
     def cal_mAP(self, Inputs_with_running=[]):
         self.set_weights(Inputs_with_running=Inputs_with_running)
-        save_name_temp = os.path.join(self.args.output_dir, 'temp')
+        save_name_temp = self.args.output_dir
+        # save_name_temp = os.path.join(self.args.output_dir, 'temp')
         map = test_for_train(save_name_temp, self.custom_model, self.args)
         return map
     

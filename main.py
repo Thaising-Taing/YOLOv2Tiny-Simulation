@@ -885,6 +885,7 @@ class App(customtkinter.CTk):
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
                 # self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
@@ -894,7 +895,8 @@ class App(customtkinter.CTk):
                 self.Before_Backward() ######################## - Individual Functions
                 self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
-            self.Check_mAP()
+                
+            if self.epoch%4 == 0: self.Check_mAP()
             self.save_weights()
         #     self.Save_Pickle()
         self.Post_Epoch()
@@ -1021,11 +1023,11 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=100, type=int)
+                            default=1, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=8, type=int)
+                            default=80, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=16, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -1038,6 +1040,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
+                            # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
                             default="Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
@@ -1225,9 +1228,9 @@ class App(customtkinter.CTk):
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
 
-        if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Weight_Layer0_After",_data.Weight[0])
-        if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
-        if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
+        if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
+        if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
+        if save_debug_data: self.Save_File("./Output_Sim_Python/Gamma_Layer0_After",_data.Gamma[0])
         
         if self.mode == "Pytorch"    :  self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"     :  self.Python.load_weights(new_weights)
@@ -1270,7 +1273,7 @@ class App(customtkinter.CTk):
     
     def save_weights(self):
         model = self.Shoaib.custom_model
-        save_dir = os.path.join(self.args.output_dir, "trained_weights", self.mode)
+        save_dir = os.path.join(self.args.output_dir, "trained_weights")
         Path(save_dir).mkdir(parents=True, exist_ok=True)
         _now = str(datetime.now()).split()
         save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
@@ -1290,12 +1293,12 @@ class App(customtkinter.CTk):
         
         self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
-        
+
         if self.mode == "FPGA"       :  
             output_file1 = "result/mAP.txt"
             with open(output_file1, mode="a") as output_file_1:
                 output_file_1.write(str(Loss) + "\n")
-            
+                
     def Post_Epoch(self): 
         self.whole_process_end = time.time()
         self.whole_process_time = self.whole_process_end - self.whole_process_start
@@ -1330,7 +1333,8 @@ class App(customtkinter.CTk):
             yolo_output = self.reshape_outputs(out)
             yolo_output = [item[0].data for item in yolo_output]
                 
-            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.2, nms_threshold=0.5)
+            # detections = yolo_eval(yolo_output, im_info, conf_threshold=0.2, nms_threshold=0.5)
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.45, nms_threshold=0.5)
             
             if len(detections) > 0:
                 det_boxes = detections[:, :5].cpu().numpy()
