@@ -824,7 +824,8 @@ class App(customtkinter.CTk):
                 self.Before_Backward() ######################## - Individual Functions
                 self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
-            if self.epoch%4 == 0: self.Check_mAP()
+            # if self.epoch%4 == 0: self.Check_mAP()
+            self.Check_mAP()
             self.save_weights()
         #     self.Save_Pickle()
         self.Post_Epoch()
