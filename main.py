@@ -1151,7 +1151,7 @@ class App(customtkinter.CTk):
         self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.e = time.time()
         print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch_test  = int(len(self.test_dataloader) / self.args.batch_size)
+        self.iters_per_epoch_test  = int(len(self.small_train_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # learning_rate = 0.001
