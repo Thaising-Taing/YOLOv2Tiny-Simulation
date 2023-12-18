@@ -11,7 +11,7 @@ def Save_File(path, data):
     with open(path, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-class Simulation(object):
+class TorchSimulation(object):
     
     def __init__(self, parent):
         self.self           = parent

@@ -76,7 +76,7 @@ def save_file(fname, data, module=[], layer_no=[], save_txt=False, save_hex=Fals
             if save_txt: print(f'\t\t--> Saved {filename}')
             # if save_hex: print(f'\t\t--> Saved {hexname}')
 
-class Simulation(object):
+class PythonSimulation(object):
     
     def __init__(self, parent):
         self.self           = parent

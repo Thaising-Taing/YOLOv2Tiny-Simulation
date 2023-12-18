@@ -46,9 +46,14 @@ from Weight_Update_Algorithm.yolov2_tiny import *
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
-from Thaising_PyTorch import Simulation
+from Thaising_PyTorch import TorchSimulation
+from Thaising_Python import PythonSimulation
+from Junaid import Junaid
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -153,20 +158,27 @@ class App(customtkinter.CTk):
         # Mode Selection Frame
         button_width = 120
         button_height = 30
-        self.Mode1 = customtkinter.CTkButton(self.mode_frame, text="PyTorch"    , command=self.Mode1_click , width=button_width, height=button_height)
-        self.Mode1.place(x=10, y=50)
 
-        self.Mode2 = customtkinter.CTkButton(self.mode_frame, text="Python"     , command=self.Mode2_click , width=button_width, height=button_height)
-        self.Mode2.place(x=10, y=100)
+        self.PythonMode = customtkinter.CTkButton(self.mode_frame, text="Python"      , command=self.PythonMode_click , width=button_width, height=button_height)
+        self.PythonMode.place(x=10, y=50)
         
-        self.Mode3 = customtkinter.CTkButton(self.mode_frame, text="Simulation" , command=self.Mode3_click , width=button_width, height=button_height)
-        self.Mode3.place(x=10, y=150)
+        self.PyTorchMode = customtkinter.CTkButton(self.mode_frame, text="PyTorch"    , command=self.PyTorchMode_click , width=button_width, height=button_height)
+        self.PyTorchMode.place(x=10, y=100)
+        
+        self.PythonSim = customtkinter.CTkButton(self.mode_frame, text="Python Sim"   , command=self.PythonSim_click , width=button_width, height=button_height)
+        self.PythonSim.place(x=10, y=150)
 
-        self.Mode4 = customtkinter.CTkButton(self.mode_frame, text="FPGA"       , command=self.Mode4_click , width=button_width, height=button_height)
-        self.Mode4.place(x=10, y=200)
+        self.PytorchSim = customtkinter.CTkButton(self.mode_frame, text="Pytorch Sim" , command=self.PytorchSim_click , width=button_width, height=button_height)
+        self.PytorchSim.place(x=10, y=200)
+        
+        self.PythonCUDA = customtkinter.CTkButton(self.mode_frame, text="Python CUDA" , command=self.PythonCUDA_click , width=button_width, height=button_height)
+        self.PythonCUDA.place(x=10, y=250)
 
-        self.ResetMode = customtkinter.CTkButton(self.mode_frame, text="Reset Mode", command=self.Reset_Mode , width=button_width, height=button_height)
-        self.ResetMode.place(x=10, y=250)
+        self.FPGA_Python = customtkinter.CTkButton(self.mode_frame, text="FPGA"       , command=self.FPGA_Python_click , width=button_width, height=button_height)
+        self.FPGA_Python.place(x=10, y=300)
+
+        self.ResetMode = customtkinter.CTkButton(self.mode_frame, text="Reset Mode"   , command=self.Reset_Mode_click , width=button_width, height=button_height)
+        self.ResetMode.place(x=10, y=350)
 
 
        
@@ -473,13 +485,15 @@ class App(customtkinter.CTk):
 
 
     # Select Modes
-    def Mode1_click(self):
+    def PyTorchMode_click(self):
         self.mode =  "Pytorch"
-        self.Mode1.configure(state="disabled")
-        self.Mode1.configure(fg_color='green')
-        self.Mode2.configure(state="disabled")
-        self.Mode3.configure(state="disabled")
-        self.Mode4.configure(state="disabled")
+        self.PyTorchMode.configure(state="disabled")
+        self.PyTorchMode.configure(fg_color='green')
+        self.PythonMode.configure(state="disabled")
+        self.PytorchSim.configure(state="disabled")
+        self.PythonSim.configure(state="disabled")
+        self.PythonCUDA.configure(state="disabled")
+        self.FPGA_Python.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
         self.Train.configure(state="normal")
@@ -497,13 +511,15 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Pytorch mode selected.")
         self.update()
         
-    def Mode2_click(self):
+    def PythonMode_click(self):
         self.mode =  'Python'
-        self.Mode1.configure(state="disabled")
-        self.Mode2.configure(state="disabled")
-        self.Mode2.configure(fg_color='green')
-        self.Mode3.configure(state="disabled")
-        self.Mode4.configure(state="disabled")
+        self.PyTorchMode.configure(state="disabled")
+        self.PythonMode.configure(state="disabled")
+        self.PythonMode.configure(fg_color='green')
+        self.PytorchSim.configure(state="disabled")
+        self.PythonSim.configure(state="disabled")
+        self.PythonCUDA.configure(state="disabled")
+        self.FPGA_Python.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
         self.Train.configure(state="normal")
@@ -520,13 +536,40 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Python mode selected.")
         self.update()
         
-    def Mode3_click(self):
-        self.mode =  'Simulation'
-        self.Mode1.configure(state="disabled")
-        self.Mode2.configure(state="disabled")
-        self.Mode3.configure(state="disabled")
-        self.Mode3.configure(fg_color='green')
-        self.Mode4.configure(state="disabled")
+    def PytorchSim_click(self):
+        self.mode =  'PytorchSim'
+        self.PyTorchMode.configure(state="disabled")
+        self.PythonMode.configure(state="disabled")
+        self.PytorchSim.configure(state="disabled")
+        self.PytorchSim.configure(fg_color='green')
+        self.PythonSim.configure(state="disabled")
+        self.PythonCUDA.configure(state="disabled")
+        self.FPGA_Python.configure(state="disabled")
+        self.ResetMode.configure(state="normal")
+        
+        self.Train.configure(state="normal")
+        self.Infer.configure(state="normal")
+        self.Stop.configure(state="normal")
+        
+        self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        
+        self.cover.lower()
+        self.right_frame_1.lower(self.cover)
+        self.right_frame_2.lower(self.cover)
+        self.Show_Text(f"Simulation mode selected.")
+        self.update()
+             
+    def PythonSim_click(self):
+        self.mode =  'PythonSim'
+        self.PyTorchMode.configure(state="disabled")
+        self.PythonMode.configure(state="disabled")
+        self.PytorchSim.configure(state="disabled")
+        self.PythonSim.configure(state="disabled")
+        self.PythonSim.configure(fg_color='green')
+        self.PythonCUDA.configure(state="disabled")
+        self.FPGA_Python.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
         self.Train.configure(state="normal")
@@ -543,13 +586,40 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Simulation mode selected.")
         self.update()
         
-    def Mode4_click(self):
+    def PythonCUDA_click(self):
+        self.mode =  'PythonCUDA'
+        self.PyTorchMode.configure(state="disabled")
+        self.PythonMode.configure(state="disabled")
+        self.PytorchSim.configure(state="disabled")
+        self.PythonSim.configure(state="disabled")
+        self.PythonCUDA.configure(state="disabled")
+        self.PythonCUDA.configure(fg_color='green')
+        self.FPGA_Python.configure(state="disabled")
+        self.ResetMode.configure(state="normal")
+        
+        self.Train.configure(state="normal")
+        self.Infer.configure(state="normal")
+        self.Stop.configure(state="normal")
+        
+        self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        
+        self.cover.lower()
+        self.right_frame_1.lift(self.cover)
+        self.right_frame_2.lift(self.cover)
+        self.Show_Text(f"FPGA mode selected.")
+        self.update()
+    
+    def FPGA_Python_click(self):
         self.mode =  'FPGA'
-        self.Mode1.configure(state="disabled")
-        self.Mode2.configure(state="disabled")
-        self.Mode3.configure(state="disabled")
-        self.Mode4.configure(state="disabled")
-        self.Mode4.configure(fg_color='green')
+        self.PyTorchMode.configure(state="disabled")
+        self.PythonMode.configure(state="disabled")
+        self.PytorchSim.configure(state="disabled")
+        self.PythonSim.configure(state="disabled")
+        self.PythonCUDA.configure(state="disabled")
+        self.FPGA_Python.configure(state="disabled")
+        self.FPGA_Python.configure(fg_color='green')
         self.ResetMode.configure(state="normal")
         
         self.Load_PCIe.configure(state="normal")
@@ -570,18 +640,22 @@ class App(customtkinter.CTk):
         self.Show_Text(f"FPGA mode selected.")
         self.update()
         
-    def Reset_Mode(self):
+    def Reset_Mode_click(self):
         self.mode =  4
-        self.Mode1.configure(state="normal")
-        self.Mode2.configure(state="normal")
-        self.Mode3.configure(state="normal")
-        self.Mode4.configure(state="normal")
-        self.ResetMode.configure(state="disabled")
+        self.PyTorchMode.configure(state="enabled")
+        self.PythonMode.configure(state="enabled")
+        self.PytorchSim.configure(state="enabled")
+        self.PythonSim.configure(state="enabled")
+        self.PythonCUDA.configure(state="enabled")
+        self.FPGA_Python.configure(state="enabled")
+        self.ResetMode.configure(state="normal")
         
-        self.Mode1.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Mode2.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Mode3.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Mode4.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.PyTorchMode.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.PythonMode.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.PytorchSim.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.PythonSim.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.PythonCUDA.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.FPGA_Python.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.Load_PCIe.configure(state="disabled")
         self.Load_Data.configure(state="disabled")
@@ -605,11 +679,7 @@ class App(customtkinter.CTk):
         self.Clear_Text()
         self.Show_Text(f"Reset.")
         self.update()
-      
-      
-      
-      
-      
+            
     # Select Operations        
     def Load_PCIe_click(self):
         self.Show_Text(f"Load PCIe Driver.")
@@ -812,9 +882,9 @@ class App(customtkinter.CTk):
             
             # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
             for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
                 # self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
@@ -1000,17 +1070,21 @@ class App(customtkinter.CTk):
         
         self.count = dict()
         self.count['detections'], self.count['no_detections'] = 0, 0
-        
-        if self.mode == "Pytorch"   : self.Pytorch  = Pytorch(self)
-        if self.mode == "Python"    : self.Python   = Python(self)
-        if self.mode == "Simulation": self.Sim      = Simulation(self)
-        if self.mode == "FPGA"      : self.FPGA     = FPGA(self)
+                
+        if self.mode == "Pytorch"    :  self.Pytorch          = Pytorch(self)
+        if self.mode == "Python"     :  self.Python           = Python(self)
+        if self.mode == "PythonSim"  :  self.PythonSimulation = PythonSimulation(self)
+        if self.mode == "PytorchSim" :  self.TorchSimulation  = TorchSimulation(self)
+        if self.mode == "PythonCUDA" :  self.Junaid           = Junaid(self)
+        if self.mode == "FPGA"       :  self.FPGA             = FPGA(self)
 
     def Create_Output_Dir(self):
-        if self.mode == "Pytorch"   : self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "Python"    : self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "Simulation": self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "FPGA"      : self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if self.mode == "Pytorch"    :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if self.mode == "Python"     :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if self.mode == "PythonSim"  :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if self.mode == "PytorchSim" :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if self.mode == "PythonCUDA" :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if self.mode == "FPGA"       :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if not os.path.exists(self.args.output_dir):
             os.makedirs(self.args.output_dir)
 
@@ -1037,11 +1111,14 @@ class App(customtkinter.CTk):
         # Loading Weight From pth File
         self.loaded_weights = self.Shoaib.load_weights()
         Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec = self.loaded_weights
+                
+        if self.mode == "Pytorch"    :  self.Pytorch.load_weights(self.loaded_weights)
+        if self.mode == "Python"     :  self.Python.load_weights(self.loaded_weights)
+        if self.mode == "PythonSim"  :  self.PythonSimulation.load_weights(self.loaded_weights)
+        if self.mode == "PytorchSim" :  self.TorchSimulation.load_weights(self.loaded_weights)
+        if self.mode == "PythonCUDA" :  self.Junaid.load_weights(self.loaded_weights)
+        if self.mode == "FPGA"       :  self.FPGA.load_weights(self.loaded_weights)
         
-        if self.mode == "Pytorch":      self.Pytorch.load_weights(self.loaded_weights)
-        if self.mode == "Python":       self.Python.load_weights(self.loaded_weights)
-        if self.mode == "Simulation":   self.Sim.load_weights(self.loaded_weights)
-        if self.mode == "FPGA":         self.FPGA.load_weights(self.loaded_weights)
         e = time.time()
         print("WeightLoader : ",e-s)
 
@@ -1088,46 +1165,60 @@ class App(customtkinter.CTk):
             self.learning_rate = 0.0000001
             
     def Before_Forward(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
-        if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : self.FPGA.Before_Forward(self)
+        if self.mode == "Pytorch"    :  pass
+        if self.mode == "Python"     :  pass
+        if self.mode == "PythonSim"  :  pass
+        if self.mode == "PytorchSim" :  pass
+        if self.mode == "PythonCUDA" :  pass
+        if self.mode == "FPGA"       :  self.FPGA.Before_Forward(self)
 
     def Forward(self):
-        if self.mode == "Pytorch"   : self.Pytorch.Forward(self)
-        if self.mode == "Python"    : self.Python.Forward(self)
-        if self.mode == "Simulation": self.Sim.Forward(self)
-        if self.mode == "FPGA"      : self.FPGA.Forward(self)
+        if self.mode == "Pytorch"    :  self.Pytorch.Forward(self)
+        if self.mode == "Python"     :  self.Python.Forward(self)
+        if self.mode == "PythonSim"  :  self.PythonSimulation.Forward(self)
+        if self.mode == "PytorchSim" :  self.TorchSimulation.Forward(self)
+        if self.mode == "PythonCUDA" :  self.Junaid.Forward(self)
+        if self.mode == "FPGA"       :  self.FPGA.Forward(self)
     
     def Forward_Infer(self):
-        if self.mode == "Pytorch"   : self.Pytorch.Forward(self)
-        if self.mode == "Python"    : self.Python.Forward(self)
-        if self.mode == "Simulation": self.Sim.Forward(self)
-        if self.mode == "FPGA"      : self.FPGA.Forward_Inference(self)
+        if self.mode == "Pytorch"    :  self.Pytorch.Forward(self)
+        if self.mode == "Python"     :  self.Python.Forward(self)
+        if self.mode == "PythonSim"  :  self.PythonSimulation.Forward(self)
+        if self.mode == "PytorchSim" :  self.TorchSimulation.Forward(self)
+        if self.mode == "PythonCUDA" :  self.Junaid.Forward(self)
+        if self.mode == "FPGA"       :  self.FPGA.Forward_Inference(self)
     
     def Calculate_Loss(self):
-        if self.mode == "Pytorch"   : self.Pytorch.Calculate_Loss(self)
-        if self.mode == "Python"    : self.Python.Calculate_Loss(self)
-        if self.mode == "Simulation": self.Sim.Calculate_Loss(self)
-        if self.mode == "FPGA"      : self.FPGA.Calculate_Loss(self)
+        if self.mode == "Pytorch"    :  self.Pytorch.Calculate_Loss(self)
+        if self.mode == "Python"     :  self.Python.Calculate_Loss(self)
+        if self.mode == "PythonSim"  :  self.PythonSimulation.Calculate_Loss(self)
+        if self.mode == "PytorchSim" :  self.TorchSimulation.Calculate_Loss(self)
+        if self.mode == "PythonCUDA" :  self.Junaid.Calculate_Loss(self)
+        if self.mode == "FPGA"       :  self.FPGA.Calculate_Loss(self)
        
     def Before_Backward(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
-        if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : self.FPGA.Before_Backward(self)
+        if self.mode == "Pytorch"    :  pass
+        if self.mode == "Python"     :  pass
+        if self.mode == "PythonSim"  :  pass
+        if self.mode == "PytorchSim" :  pass
+        if self.mode == "PythonCUDA" :  pass
+        if self.mode == "FPGA"       : self.FPGA.Before_Backward(self)
         
     def Backward(self):
-        if self.mode == "Pytorch"   : self.Pytorch.Backward(self)
-        if self.mode == "Python"    : self.Python.Backward(self)
-        if self.mode == "Simulation": self.Sim.Backward(self)
-        if self.mode == "FPGA"      : self.FPGA.Backward(self)
+        if self.mode == "Pytorch"    :  self.Pytorch.Backward(self)
+        if self.mode == "Python"     :  self.Python.Backward(self)
+        if self.mode == "PythonSim"  :  self.PythonSimulation.Backward(self)
+        if self.mode == "PytorchSim" :  self.TorchSimulation.Backward(self)
+        if self.mode == "PythonCUDA" :  self.Junaid.Backward(self)
+        if self.mode == "FPGA"       :  self.FPGA.Backward(self)
 
     def Weight_Update(self):
-        if self.mode == "Pytorch"   : _data = self.Pytorch
-        if self.mode == "Python"    : _data = self.Python
-        if self.mode == "Simulation": _data = self.Sim
-        if self.mode == "FPGA"      : _data = self.FPGA
+        if self.mode == "Pytorch"    :  _data =  self.Pytorch
+        if self.mode == "Python"     :  _data =  self.Python
+        if self.mode == "PythonSim"  :  _data =  self.PythonSimulation
+        if self.mode == "PytorchSim" :  _data =  self.TorchSimulation
+        if self.mode == "PythonCUDA" :  _data =  self.Junaid
+        if self.mode == "FPGA"       :  _data =  self.FPGA
         
         new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
@@ -1138,10 +1229,12 @@ class App(customtkinter.CTk):
         if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Beta_Layer0_After",_data.Beta[0])
         if save_debug_data: self.Save_File("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch/Gamma_Layer0_After",_data.Gamma[0])
         
-        if self.mode == "Pytorch"    : self.Pytorch.load_weights(new_weights)
-        if self.mode == "Python"     : self.Python.load_weights(new_weights)
-        if self.mode == "Simulation" : self.Sim.load_weights(new_weights)
-        if self.mode == "FPGA"       : self.FPGA.load_weights(new_weights)
+        if self.mode == "Pytorch"    :  self.Pytorch.load_weights(new_weights)
+        if self.mode == "Python"     :  self.Python.load_weights(new_weights)
+        if self.mode == "PythonSim"  :  self.PythonSimulation.load_weights(new_weights)
+        if self.mode == "PytorchSim" :  self.TorchSimulation.load_weights(new_weights)
+        if self.mode == "PythonCUDA" :  self.Junaid.load_weights(new_weights)
+        if self.mode == "FPGA"       :  self.FPGA.load_weights(new_weights)
             
         [self.Weight, self.Bias, self.Gamma, self.Beta] = new_weights
 
@@ -1188,18 +1281,21 @@ class App(customtkinter.CTk):
             }, save_name)
     
     def Check_mAP(self):
-        if self.mode == "Pytorch"   : _data = self.Pytorch
-        if self.mode == "Python"    : _data = self.Python
-        if self.mode == "Simulation": _data = self.Sim
-        if self.mode == "FPGA"      : _data = self.FPGA
+        if self.mode == "Pytorch"    :  _data = self.Pytorch
+        if self.mode == "Python"     :  _data = self.Python
+        if self.mode == "PythonSim"  :  _data = self.PythonSimulation
+        if self.mode == "PytorchSim" :  _data = self.TorchSimulation
+        if self.mode == "PythonCUDA" :  _data = self.Junaid
+        if self.mode == "FPGA"       :  _data = self.FPGA
         
         self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
         
-        output_file1 = "result/mAP.txt"
-        with open(output_file1, mode="a") as output_file_1:
-            output_file_1.write(str(Loss) + "\n")
-        
+        if self.mode == "FPGA"       :  
+            output_file1 = "result/mAP.txt"
+            with open(output_file1, mode="a") as output_file_1:
+                output_file_1.write(str(Loss) + "\n")
+            
     def Post_Epoch(self): 
         self.whole_process_end = time.time()
         self.whole_process_time = self.whole_process_end - self.whole_process_start
@@ -1207,10 +1303,12 @@ class App(customtkinter.CTk):
         self.Show_Text(self.output_text)
     
     def Visualize(self):
-        if self.mode == "Pytorch"   : _data = self.Pytorch
-        if self.mode == "Python"    : _data = self.Python
-        if self.mode == "Simulation": _data = self.Sim
-        if self.mode == "FPGA"      : _data = self.FPGA
+        if self.mode == "Pytorch"    :  _data = self.Pytorch
+        if self.mode == "Python"     :  _data = self.Python
+        if self.mode == "PythonSim"  :  _data = self.PythonSimulation
+        if self.mode == "PytorchSim" :  _data = self.TorchSimulation
+        if self.mode == "PythonCUDA" :  _data = self.Junaid
+        if self.mode == "FPGA"       :  _data = self.FPGA
         
         # if self.mode == "Pytorch"   : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
         # if self.mode == "Python"    : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
@@ -1258,10 +1356,12 @@ class App(customtkinter.CTk):
                 # self.Show_Text(f"Batch {self.batch} - Image {i+1} -- No Detections", end='')
 
     def Visualize_All(self):
-        if self.mode == "Pytorch"   : _data = self.Pytorch
-        if self.mode == "Python"    : _data = self.Python
-        if self.mode == "Simulation": _data = self.Sim
-        if self.mode == "FPGA"      : _data = self.FPGA
+        if self.mode == "Pytorch"    :  _data = self.Pytorch
+        if self.mode == "Python"     :  _data = self.Python
+        if self.mode == "PythonSim"  :  _data = self.PythonSimulation
+        if self.mode == "PytorchSim" :  _data = self.TorchSimulation
+        if self.mode == "PythonCUDA" :  _data = self.Junaid
+        if self.mode == "FPGA"       :  _data = self.FPGA
         
         out_batch_torch  = self.Load_File("output_of_forward_Torch.pickle")
         
@@ -1373,10 +1473,12 @@ class App(customtkinter.CTk):
         return delta_pred, conf_pred, class_pred   
 
     def Validate(self):
-        if self.mode == "Pytorch"   : _data = self.Pytorch
-        if self.mode == "Python"    : _data = self.Python
-        if self.mode == "Simulation": _data = self.Sim
-        if self.mode == "FPGA"      : _data = self.FPGA
+        if self.mode == "Pytorch"    :  _data = self.Pytorch
+        if self.mode == "Python"     :  _data = self.Python
+        if self.mode == "PythonSim"  :  _data = self.PythonSimulation
+        if self.mode == "PytorchSim" :  _data = self.TorchSimulation
+        if self.mode == "PythonCUDA" :  _data = self.Junaid
+        if self.mode == "FPGA"       :  _data = self.FPGA
         
         out_batch = _data.out
         
