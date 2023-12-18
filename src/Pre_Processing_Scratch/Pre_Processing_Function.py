@@ -2331,18 +2331,13 @@ def Fmap_Reverse_Ordering(Out_CH, Out_Size, DataCH0_List, DataCH1_List):
     
 
     
-    # def bfloat16_to_decimal(hex_str):
-    #     # 32 비트 부동 소수점 값을 hex 문자열로 변환
-    #     float32_hex = hex_str.ljust(8,'0')
-    #     hex_data = bytes.fromhex(float32_hex)
-    #     # hex 문자열을 부동 소수점 값으로 언팩
-    #     decimal_value = struct.unpack('!f', hex_data)[0]
+    def to_decimal(num):
+        return float(num)
 
-    #     return decimal_value
-    decimal_array = np.vectorize(bfloat16_to_decimal)(final_ar)
-    #decimal_array = bfloat16_to_decimal(final_ar)
+    decimal_vectorized = np.vectorize(to_decimal)
 
-    outlist = decimal_array.tolist()
+    outlist = decimal_vectorized(final_ar)
+    outlist = outlist.tolist()
         
     return outlist
 
@@ -2608,31 +2603,16 @@ def Weight_Gradient_Hardware_ReOrdering(Out_CH, In_CH, DataCH0_List, DataCH1_Lis
 
     final_ar = concat_ar.transpose(0,2,1,3,4)
     final_ar = final_ar.reshape(-1)
-  
 
-    # def bfloat16_to_decimal(bfloat16_data):
-    #     int_data = int(bfloat16_data, 16)
-    #     sign = 1 if (int_data & 0x8000) == 0 else -1
-    #     exponent = ((int_data & 0x7F80) >> 7) - 127
-    #     fraction = 1.0 + (int_data & 0x007F) / 128.0
-    #     if(int_data != 0):
-    #         return sign * fraction * (2 ** exponent)
-    #     else:
-    #         return 0  
+    def to_decimal(num):
 
-    def bfloat16_to_decimal(hex_str):
-        # 32 비트 부동 소수점 값을 hex 문자열로 변환
-        float32_hex = hex_str.ljust(8,'0')
-        hex_data = bytes.fromhex(float32_hex)
-        # hex 문자열을 부동 소수점 값으로 언팩
-        decimal_value = struct.unpack('!f', hex_data)[0]
+        return float(num)  
 
-        return decimal_value
+    decimal_vectorized = np.vectorize(to_decimal)
 
-    decimal_array = np.vectorize(bfloat16_to_decimal)(final_ar)
+    outlist = decimal_vectorized(final_ar)
 
-    # outlist = []
-    outlist = decimal_array.tolist()
+    outlist = outlist.tolist()
     return outlist
 
 
@@ -2698,7 +2678,7 @@ def Weight_Gradient_Hardware_ReOrdering_whole_image(Out_CH, In_CH, DataCH0_List,
     convert_ar = convert_ar.reshape(origin_size)
   
     
-
+    '''
     # # bfloat16_array = np.array(origin_ar, dtype=np.uint16)  # bfloat16 데이터
     # decimal_array = np.vectorize(bfloat16_to_decimal)(convert_ar).reshape(Batch_size, origin_size//Batch_size)
 
@@ -2722,7 +2702,18 @@ def Weight_Gradient_Hardware_ReOrdering_whole_image(Out_CH, In_CH, DataCH0_List,
         return decimal_value
     
     decimal_array = np.vectorize(bfloat16_to_decimal)(convert_ar).reshape(Batch_size, origin_size//Batch_size)
+    '''
+    def to_decimal(num):
+        # Perform your desired conversion logic here if needed
+        return float(num)  # This is a basic example assuming conversion to integer
 
+    # decimal_array = np.vectorize(to_decimal(final_ar))
+    decimal_vectorized = np.vectorize(to_decimal)
+
+    # Apply the vectorized function to your array
+    decimal_array = decimal_vectorized(convert_ar).reshape(Batch_size, origin_size//Batch_size)
+
+    outlist = outlist.tolist()
     decimal_array_sum = decimal_array[0] + decimal_array[1] + decimal_array[2] + decimal_array[3] + decimal_array[4] + decimal_array[5] + decimal_array[6] + decimal_array[7]
 
     # outlist = []

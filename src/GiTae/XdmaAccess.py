@@ -52,12 +52,21 @@ class XdmaAccess():
             bs += b
         return np.array([bs[0:length]])
 
-    def read_dma(self, addr, len_bytes):
+    def read_dma0(self, addr, len_bytes):
         os.lseek(self.fd_c2h0, addr, os.SEEK_SET)
         dma_raw = os.read(self.fd_c2h0, len_bytes)
         data = np.frombuffer(dma_raw, np.uint32)
         # data = np.frombuffer(dma_raw, np.uint16)
         return data
+    
+    def read_dma(self, addr, len_bytes):
+        os.lseek(self.fd_c2h0, addr, os.SEEK_SET)
+        dma_raw = os.read(self.fd_c2h0, len_bytes)
+        data = np.frombuffer(dma_raw, np.int16 )
+        data1 = data * 65536 
+        data2 = np.frombuffer(data1, np.float32 )
+        
+        return data2
 
     def write_dma(self, addr, data):
         os.lseek(self.fd_h2c0, addr, os.SEEK_SET)
