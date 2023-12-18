@@ -93,7 +93,7 @@ def Microcode(read_path):
     return Microcode_List 
  
 
-print("Button 3 clicked")
+# print("Button 3 clicked")
 d = Device("0000:08:00.0")
 bar = d.bar[0]
 #self.textbox.insert("0.0", "CTkTextbox\n\n" )
@@ -106,7 +106,7 @@ for i in range (0, len(microcode)):
     bar.write(0x8, i) # wr addr
     bar.write(0x0, 0x00000012) # wr en
     bar.write(0x0, 0x00000010) # wr en low
-print("mic write done")  
+# print("mic write done")  
 
         
 d = Device("0000:08:00.0")
@@ -119,6 +119,6 @@ bar.write(0x0, 0x00000010) # rd en low
 bar.write(0x18, 0x00008001) # axi addr
 bar.write(0x14, 0x00000001) # axi rd en
 bar.write(0x14, 0x00000000) # axi rd en low
-print("start")
+# print("start")
 check_irq_layer0()
-print("end")
+# print("end")
