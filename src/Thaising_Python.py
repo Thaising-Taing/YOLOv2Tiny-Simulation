@@ -147,7 +147,7 @@ class PythonSimulation(object):
         if self.save_debug_data: Save_File("./Output_Sim_Python/running_var", Gamma_Tensor[0])
         
         # Layer1: Conv-BN-ReLU-Pool
-        temp_Out[1], temp_cache['1'] = Python_Conv_Pool.forward(Out0, Weight_Tensor[1], conv_param)
+        temp_Out[1], temp_cache['1'] = Python_Conv.forward(Out0, Weight_Tensor[1], conv_param)
         # if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer1", temp_Out[1])
         mean, var = Cal_mean_var.forward(temp_Out[1])
         
