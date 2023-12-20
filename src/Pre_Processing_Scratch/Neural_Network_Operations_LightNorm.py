@@ -244,7 +244,7 @@ class Torch_SpatialBatchNorm(object):
         running_mean = running_mean * momentum + (1 - momentum) * avg
         running_var = running_var * momentum + (1 - momentum) * scale
         
-        cache = (x, gamma, beta, output, var, scale_fix, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
+        cache = (x, gamma, beta, output, var, scale, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
         return output, cache
     
     @staticmethod
@@ -280,35 +280,6 @@ class Torch_SpatialBatchNorm(object):
         dL_dxi = dL_dxi_ * backward_const
 
         return dL_dxi, dL_dgamma, dL_dbeta   
-
-
-# class Torch_FastConv(object):
-
-#     @staticmethod
-#     def forward(x, w, conv_param):
-#         N, C, H, W = x.shape
-#         F, _, HH, WW = w.shape
-#         stride, pad = conv_param['stride'], conv_param['pad']
-#         layer = torch.nn.Conv2d(C, F, (HH, WW), stride=stride, padding=pad, bias=False)
-#         layer.weight = torch.nn.Parameter(w)
-#         tx = x.detach()
-#         tx.requires_grad = True
-#         out = layer(tx)
-#         cache = (x, w, conv_param, tx, out, layer)
-#         return out, cache
-
-#     @staticmethod
-#     def backward(dout, cache):
-#         global tx, layer
-#         try:
-#             x, _, _, tx, out, layer = cache
-#             out.backward(dout)
-#             dx = tx.grad.detach()
-#             dw = layer.weight.grad.detach()
-#             layer.weight.grad = None
-#         except RuntimeError:
-#             dx, dw = torch.zeros_like(tx), torch.zeros_like(layer.weight)
-#         return dx, dw
 
 class Torch_FastConv(object):
 

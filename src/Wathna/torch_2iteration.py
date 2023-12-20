@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from my_config import config as cfg
 from pathlib import Path
-
+from torch.autograd import Variable
 import numpy as np
 import pickle
 import math
@@ -21,6 +21,9 @@ torch.manual_seed(3407)
 
 warnings.simplefilter("ignore", UserWarning)
 
+def Save_File(path, data):
+    with open(path, 'wb') as handle:
+        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def convert_to_hex(value):
     # We will Use Single-Precision, Truncated and Rounding into Brain Floating Point
@@ -708,6 +711,8 @@ class DeepConvNetTorch(object):
         out = Out[8]
         # print('\n\nFwd Out', out.dtype, out[out != 0], '\n\n')
 
+        Save_File('./original_torch_VS_simulation_python/out_torch', out)
+
         return out, cache, Out
 
     def loss(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
@@ -771,6 +776,11 @@ class DeepConvNetTorch(object):
                                                                   save_txt=True,
                                                                   save_hex=True,
                                                                   phase=self.phase)
+
+        Save_File('./original_torch_VS_simulation_python/weight_gradient8_torch', grads['W8'])
+        Save_File('./original_torch_VS_simulation_python/loss_grad8_torch', dOut[8])
+
+
         dw, db = grads['W8'], grads['b8'] 
         last_dout = dOut[8]
         
@@ -783,7 +793,7 @@ class DeepConvNetTorch(object):
             phase=self.phase,
         )
 
-    
+  
 
         dOut[6], grads['W6'], grads['gamma6'], grads['beta6'] = Torch_Conv_BatchNorm_ReLU.backward(
             dOut[7],
@@ -839,6 +849,10 @@ class DeepConvNetTorch(object):
             phase=self.phase,
         )
 
+        Save_File('./original_torch_VS_simulation_python/weight_gradient1_torch', grads['W1'])
+        Save_File('./original_torch_VS_simulation_python/loss_grad1_torch', dOut[1])
+
+
         dOut[0], grads['W0'], grads['gamma0'], grads['beta0'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[1],
             cache['0'],
@@ -847,6 +861,8 @@ class DeepConvNetTorch(object):
             save_hex=self.save_hex,
             phase=self.phase,
         )
+        Save_File('./original_torch_VS_simulation_python/weight_gradient0_torch', grads['W0'])
+        Save_File('./original_torch_VS_simulation_python/loss_grad0_torch', dOut[0])
 
         return dOut, grads
 
@@ -1660,9 +1676,101 @@ class WeightLoader(object):
         # make sure the loaded weight is right
         assert size == self.start
         return self.scratch
+    
+
+def origin_idx_calculator(idx, B, H, W, num_chunks):
+    origin_idx = []
+    if num_chunks < H*W//num_chunks:
+        for i in range(len(idx)):
+            for j in range(len(idx[0])):
+                origin_idx.append([(j*num_chunks*B+int(idx[i][j]))//(H*W), i, 
+                        ((j*num_chunks*B+int(idx[i][j]))%(H*W))//H, ((j*num_chunks*B+int(idx[i][j]))%(H*W))%H])
+    else:
+        for i in range(len(idx)):
+            for j in range(len(idx[0])):
+                origin_idx.append([(j*B*H*W//num_chunks+int(idx[i][j]))//(H*W), i,
+                        ((j*B*H*W//num_chunks+int(idx[i][j]))%(H*W))//H, ((j*B*H*W//num_chunks+int(idx[i][j]))%(H*W))%H])
+    return origin_idx
 
 
-class Yolov2(nn.Module):
+class RangeBN(nn.Module):
+    def __init__(self, num_features, momentum=0.1, affine=True, num_chunks=8, eps=1e-5):
+        super(RangeBN, self).__init__()
+        self.register_buffer('running_mean', torch.zeros(num_features))
+        self.register_buffer('running_var', torch.zeros(num_features))
+
+        self.momentum = momentum
+        if affine:
+            self.bias = nn.Parameter(torch.Tensor(num_features))
+            self.weight = nn.Parameter(torch.Tensor(num_features))
+        self.eps = eps
+        self.num_chunks = num_chunks
+        self.reset_params()
+
+    def reset_params(self):
+        if self.weight is not None:
+            self.weight.data.uniform_()
+        if self.bias is not None:
+            self.bias.data.zero_()
+
+    def forward(self, x, calculated_mean, calculated_var):
+        input_ = x
+        gamma_ = self.weight
+        #if self.training:
+        B, C, H, W = input_.shape
+        y = input_.transpose(0, 1).contiguous()  # C x B x H x W
+        y = y.view(C, self.num_chunks, B * H * W // self.num_chunks)
+        mean_max = y.max(-1)[0].mean(-1)  # C
+        mean_min = y.min(-1)[0].mean(-1)  # C
+        mean = y.view(C, -1).mean(-1)  # C
+        #scale_fix = (0.5 * 0.35) * (1 + (math.pi * math.log(4)) **
+        #                            0.5) / ((2 * math.log(y.size(-1))) ** 0.5)
+        scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
+        scale = 1 / ((mean_max - mean_min) * scale_fix + self.eps)
+        #print('scale', scale)
+        self.running_mean.detach().mul_(self.momentum).add_(
+            mean * (1 - self.momentum))
+
+        self.running_var.detach().mul_(self.momentum).add_(
+            scale * (1 - self.momentum))
+        """else:
+            mean = self.running_mean
+            scale = self.running_var"""
+        out = (x - calculated_mean) * calculated_var
+        out = out * gamma_.view(1, gamma_.size(0), 1, 1) + self.bias.view(1, self.bias.size(0), 1, 1)
+
+        return out
+
+class Cal_mean_var(object):
+
+    @staticmethod
+    def forward(x):
+    
+        out, cache = None, None
+        
+        eps = 1e-5
+        num_chunks = 8
+        B, C, H, W = x.shape
+        y = x.transpose(0, 1).contiguous()  # C x B x H x W
+        y = y.view(C, num_chunks, B * H * W // num_chunks)
+        avg_max = y.max(-1)[0].mean(-1)  # C
+        avg_min = y.min(-1)[0].mean(-1)  # C
+        avg = y.view(C, -1).mean(-1)  # C
+        max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
+        min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
+        scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
+        scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
+
+        avg = avg.view(1, -1, 1, 1)
+        scale = scale.view(1, -1, 1, 1)
+
+
+        cache = x
+        return avg, scale
+
+
+class  Yolov2(nn.Module):
+
     num_classes = 20
     num_anchors = 5
 
@@ -1670,58 +1778,95 @@ class Yolov2(nn.Module):
         super(Yolov2, self).__init__()
         if classes:
             self.num_classes = len(classes)
-
+            
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.lrelu = nn.LeakyReLU(0.1, inplace=True)
         self.slowpool = nn.MaxPool2d(kernel_size=2, stride=1)
 
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(16)
+        self.bn1 = RangeBN(16)
 
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(32)
+        self.bn2 = RangeBN(32)
 
         self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(64)
+        self.bn3 = RangeBN(64)
 
         self.conv4 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn4 = nn.BatchNorm2d(128)
+        self.bn4 = RangeBN(128)
 
         self.conv5 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn5 = nn.BatchNorm2d(256)
+        self.bn5 = RangeBN(256)
 
         self.conv6 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn6 = nn.BatchNorm2d(512)
+        self.bn6 = RangeBN(512)
 
         self.conv7 = nn.Conv2d(in_channels=512, out_channels=1024, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn7 = nn.BatchNorm2d(1024)
+        self.bn7 = RangeBN(1024)
 
         self.conv8 = nn.Conv2d(in_channels=1024, out_channels=1024, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn8 = nn.BatchNorm2d(1024)
+        self.bn8 = RangeBN(1024)
 
-        self.conv9 = nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1)
+        self.conv9 = nn.Sequential(nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1))
 
     def forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
         """
-    x: Variable
-    gt_boxes, gt_classes, num_boxes: Tensor
-    """
+        x: Variable
+        gt_boxes, gt_classes, num_boxes: Tensor
+        """
+        temp_x = self.maxpool(self.conv1(x))
+        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        
+        
+        x = self.maxpool(self.lrelu(self.bn1(self.conv1(x), cal_mean, cal_var)))
+        
+        temp_x = self.conv2(x)
+        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        
+        x = self.maxpool(self.lrelu(self.bn2(self.conv2(x), cal_mean, cal_var)))
+        
+        temp_x = self.conv3(x)
+        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
 
-        x = self.maxpool(self.lrelu(self.bn1(self.conv1(x))))
-        x = self.maxpool(self.lrelu(self.bn2(self.conv2(x))))
-        x = self.maxpool(self.lrelu(self.bn3(self.conv3(x))))
-        x = self.maxpool(self.lrelu(self.bn4(self.conv4(x))))
-        x = self.maxpool(self.lrelu(self.bn5(self.conv5(x))))
-        x = self.lrelu(self.bn6(self.conv6(x)))
-        x = F.pad(x, (0, 1, 0, 1))
-        x = self.slowpool(x)
-        x = self.lrelu(self.bn7(self.conv7(x)))
-        x = self.lrelu(self.bn8(self.conv8(x)))
+        x = self.maxpool(self.lrelu(self.bn3(self.conv3(x), cal_mean, cal_var)))
+        
+        temp_x = self.conv4(x)
+        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+
+        x = self.maxpool(self.lrelu(self.bn4(self.conv4(x), cal_mean, cal_var)))
+        
+        temp_x = self.conv5(x)
+        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+
+       
+        x = self.maxpool(self.lrelu(self.bn5(self.conv5(x), cal_mean, cal_var)))
+        
+        temp_x = self.conv6(x)
+        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        
+        x = self.lrelu(self.bn6(self.conv6(x), cal_mean, cal_var))
+        
+        temp_x = self.conv7(x)
+        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        
+ 
+        x = self.lrelu(self.bn7(self.conv7(x), cal_mean, cal_var))
+        
+        temp_x = self.conv8(x)
+        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+ 
+        x = self.lrelu(self.bn8(self.conv8(x), cal_mean, cal_var))
+
         out = self.conv9(x)
+    
+
 
         # out -- tensor of shape (B, num_anchors * (5 + num_classes), H, W)
         bsize, _, h, w = out.size()
 
+        # 5 + num_class tensor represents (t_x, t_y, t_h, t_w, t_c) and (class1_score, class2_score, ...)
+        # reorganize the output tensor to shape (B, H * W * num_anchors, 5 + num_classes)
+    
         # 5 + num_class tensor represents (t_x, t_y, t_h, t_w, t_c) and (class1_score, class2_score, ...)
         # reorganize the output tensor to shape (B, H * W * num_anchors, 5 + num_classes)
         out = out.permute(0, 2, 3, 1).contiguous().view(bsize, h * w * self.num_anchors, 5 + self.num_classes)
@@ -1743,7 +1888,7 @@ class Yolov2(nn.Module):
             gt_data = (gt_boxes, gt_classes, num_boxes)
             target_data = build_target(output_data, gt_data, h, w)
 
-            target_variable = [v for v in target_data]
+            target_variable = [Variable(v) for v in target_data]
             box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
 
             return box_loss, iou_loss, class_loss
@@ -2244,16 +2389,13 @@ class Cal_mean_var(object):
 class Torch_SpatialBatchNorm(object):
 
     @staticmethod
-    def forward(x, gamma, beta, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
-        
+    def forward(x, gamma, beta, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):  
         out, cache = None, None
-        
         eps = 1e-5
         D = gamma.shape[0]
         num_chunks = 8
-        running_mean = bn_params.get('running_mean', torch.zeros(D, dtype=x.dtype, device=x.device))
-        running_var = bn_params.get('running_var', torch.zeros(D, dtype=x.dtype, device=x.device))
+        running_mean = bn_params["running_mean"]
+        running_var = bn_params["running_var"]
         B, C, H, W = x.shape
         y = x.transpose(0, 1).contiguous()  # C x B x H x W
         y = y.view(C, num_chunks, B * H * W // num_chunks)
@@ -2264,86 +2406,50 @@ class Torch_SpatialBatchNorm(object):
         min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
         scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
         scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
-
         avg = avg.view(1, -1, 1, 1)
         scale = scale.view(1, -1, 1, 1)
-        
-
-        # ctx.avg = avg
-        # ctx.avg_max = avg_max
-        # ctx.avg_min = avg_min
-        # ctx.eps = eps
-        # ctx.scale = scale
-        # ctx.scale_fix = scale_fix
-        # ctx.num_chunks = num_chunks
-        # ctx.max_index = max_index
-        # ctx.min_index = min_index
         momentum = 0.1
+        output = (x - mean) * var
 
+        output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
         
-        if bn_params["mode"] == 'train':
-            output_hat = (x - mean.view(1, -1, 1, 1)) * var.view(1, -1, 1, 1)
-            running_mean = running_mean * momentum + (1 - momentum) * mean.view(1, -1, 1, 1)
-            running_var = running_var * momentum + (1 - momentum) * var.view(1, -1, 1, 1)
-        else:
-            output_hat = (x - running_mean) * running_var
-
-        # ctx.save_for_backward(X, gamma, beta, output, scale)
-
+        running_mean = running_mean * momentum + (1 - momentum) * avg
+        running_var = running_var * momentum + (1 - momentum) * scale
         
-        # if bn_params["mode"] == 'test':
-            
-
-        output = output_hat * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
-        
-        
-        cache = (x, gamma, beta, output_hat, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index)
-
-        
-        
+        cache = (x, gamma, beta, output, var, scale, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
         return output, cache
     
     @staticmethod
     def backward(grad_output, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
         X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
         B, C, H, W = X.shape
-        
-        #print('grad_output', grad_output)
-
         dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
         
-        """
-        dL_dvar = dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)
-        dL_dvar_tmp = torch.zeros(dL_dvar.size()).cuda()
-        for idx in max_index:
-            dL_dvar_tmp[idx[0], idx[1], idx[2], idx[3]] = dL_dvar[idx[0], idx[1], idx[2], idx[3]] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-        for idx in min_index:
-            dL_dvar_tmp[idx[0], idx[1], idx[2], idx[3]] = dL_dvar[idx[0], idx[1], idx[2], idx[3]]
-        dL_dvar = dL_dvar_tmp.sum(dim=(0, 2, 3), keepdim=True)
-        """
+        # Compute dL_dvar
         dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True)
+        
+        # Compute dL_dxmax_mean and dL_dxmin_mean
         dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
         dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+        
+        # Compute dL_dxmax and dL_dxmin
         dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
         dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
         
-        dL_davg = (dL_dxi_hat * -1.0 * scale).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dxi = dL_davg / (B*H*W) + dL_dxi_hat * scale
-        
-        for idx in max_index:
-            dL_dxi[idx[0], idx[1], idx[2], idx[3]] += grad_output[idx[0], idx[1], idx[2], idx[3]]
-        for idx in min_index:
-            dL_dxi[idx[0], idx[1], idx[2], idx[3]] -= grad_output[idx[0], idx[1], idx[2], idx[3]] #dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-        #dL_dxi_max = dL_dxi + dL_dxmax
-        #dL_dxi_min = dL_dxi + dL_dxmin
-        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
-        #for idx in max_index:
-        #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-        #for idx in min_index:
-        #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmin[0, idx[1], 0, 0] #dL_dxi_min[idx[0], idx[1], idx[2], idx[3]] #
+        # Compute dL_dgamma and dL_dbeta
+        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True) # TO DO - Is it really required to keep dim
+        dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+        dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True)
 
+        # Average per channel
+        avg_pc = (dL_dxi_hat * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B * H * W)
+        dL_dxi_ = avg_pc + dL_dxi_hat
+        
+        # Backward coefficient
+        backward_const = scale
+        
+        # Final output calculation
+        dL_dxi = dL_dxi_ * backward_const
 
         return dL_dxi, dL_dgamma, dL_dbeta
             
