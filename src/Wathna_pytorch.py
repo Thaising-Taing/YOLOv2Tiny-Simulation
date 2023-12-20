@@ -7,6 +7,10 @@ from Weight_Update_Algorithm.Test_with_train import *
 from Pre_Processing_Scratch.Pre_Processing import *
 
 from src.Wathna.torch_2iteration import *
+
+def Save_File(path, data):
+    with open(path, 'wb') as handle:
+        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
 class Pytorch(object):
     

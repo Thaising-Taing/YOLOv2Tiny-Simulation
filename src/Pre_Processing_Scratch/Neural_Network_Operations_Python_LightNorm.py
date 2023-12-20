@@ -531,29 +531,37 @@ class Python_SpatialBatchNorm(object):
         cache = (x, gamma, beta, output, var, scale_fix, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
         
         return output, cache
-    
+
     @staticmethod
     def backward(grad_output, cache):
-        
         X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
-        B, C, H, W = X.shape    
+        B, C, H, W = X.shape
         dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
+        
+        # Compute dL_dvar
         dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True)
+        
+        # Compute dL_dxmax_mean and dL_dxmin_mean
         dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
         dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+        
+        # Compute dL_dxmax and dL_dxmin
         dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
         dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
-        dL_davg = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
         
-        #average per channel
-        avg_pc = dL_davg / (B*H*W) # write to file
-        dL_dxi_ = avg_pc + grad_output
-        
-        # backward coefficient
-        backward_const = scale 
-        
-        dl_dxi = dL_dxi_ * backward_const
+        # Compute dL_dgamma and dL_dbeta
+        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True) # TO DO - Is it really required to keep dim
+        dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+        dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True)
 
-        return dl_dxi, dL_dgamma, dL_dbeta     
+        # Average per channel
+        avg_pc = (dL_dxi_hat * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B * H * W)
+        dL_dxi_ = avg_pc + dL_dxi_hat
+        
+        # Backward coefficient
+        backward_const = scale
+        
+        # Final output calculation
+        dL_dxi = dL_dxi_ * backward_const
+
+        return dL_dxi, dL_dgamma, dL_dbeta     
