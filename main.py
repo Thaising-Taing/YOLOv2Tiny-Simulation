@@ -47,13 +47,13 @@ from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
 from Thaising_Python import PythonSimulation
-# from Junaid import Junaid
+from Junaid import Junaid
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -1023,13 +1023,13 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=100, type=int)
+                            default=160, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=8, type=int)
+                            default=16000, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
-                            default=16, type=int)
+                            default=619, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
                             default=8, type=int)
         parser.add_argument('--nw', dest='num_workers',
@@ -1040,8 +1040,8 @@ class App(customtkinter.CTk):
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
-                            # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
-                            default="Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth", type=str)
+                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            # default="Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
@@ -1198,7 +1198,7 @@ class App(customtkinter.CTk):
         if self.mode == "PytorchSim" :  self.TorchSimulation.Calculate_Loss(self)
         if self.mode == "PythonCUDA" :  self.Junaid.Calculate_Loss(self)
         if self.mode == "FPGA"       :  self.FPGA.Calculate_Loss(self)
-       
+
     def Before_Backward(self):
         if self.mode == "Pytorch"    :  pass
         if self.mode == "Python"     :  pass
@@ -1300,10 +1300,16 @@ class App(customtkinter.CTk):
                 output_file_1.write(str(Loss) + "\n")
                 
     def Post_Epoch(self): 
+        if self.mode == "Pytorch"    :  _data =  self.Pytorch
+        if self.mode == "Python"     :  _data =  self.Python
+        if self.mode == "PythonSim"  :  _data =  self.PythonSimulation
+        if self.mode == "PytorchSim" :  _data =  self.TorchSimulation
+        if self.mode == "PythonCUDA" :  _data =  self.Junaid
+        if self.mode == "FPGA"       :  _data =  self.FPGA
+        
         self.whole_process_end = time.time()
         self.whole_process_time = self.whole_process_end - self.whole_process_start
-        # self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
-        self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}"
+        self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}--Loss: {_data.Loss}"
         self.Show_Text(self.output_text)
     
     def Visualize(self):
