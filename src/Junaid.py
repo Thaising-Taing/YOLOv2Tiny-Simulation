@@ -10,7 +10,7 @@ def Save_File(path, data):
     with open(path, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 def save_pickle(Pickle_Path, Pickle_Data):
