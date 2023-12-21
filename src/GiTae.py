@@ -7,7 +7,7 @@ from Pre_Processing_Scratch.Pre_Processing import *
 
 from GiTae_Functions import *
 DEBUG = True
-DEBUG2 = False
+DEBUG2 = True
 
 np.set_printoptions(threshold=np.inf, linewidth=np.inf)
 
