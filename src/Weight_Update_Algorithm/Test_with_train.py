@@ -63,9 +63,9 @@ def test_for_train(temp_path, model, args):
     val_imdb = get_imdb(args.imdbval_name)
 
     val_dataset = RoiDataset(val_imdb, train=False)
-    if args.use_small_dataset: args.data_limit = 80
-    if not args.data_limit==0:
-        val_dataset = torch.utils.data.Subset(val_dataset, range(0, args.data_limit))
+    # if args.use_small_dataset: args.data_limit = 80
+    # if not args.data_limit==0:
+    #     val_dataset = torch.utils.data.Subset(val_dataset, range(0, args.data_limit))
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
 
     # load model

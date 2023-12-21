@@ -13,15 +13,19 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 warnings.simplefilter("ignore", UserWarning)
 libconv = ctypes.CDLL('/data/Circuit_Team/Junaid/yolov2/convolution_cuda.so')
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+
+
 # Python_Convolution without Bias
 class Python_Conv(object):
 
     @staticmethod
     def forward(x, w, conv_param):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        x, w = x.to(device), w.to(device)
+        x = x.to(device)
+        w = w.to(device)
         out = None
-        pad = conv_param['pad']
+        # pad = conv_param['pad']
+        pad = 1
         stride = conv_param['stride']
         N, C, H, W = x.shape
         F, C, HH, WW = w.shape
@@ -29,8 +33,6 @@ class Python_Conv(object):
         W_out = int(1 + (W + 2 * pad - WW) / stride)
        
         _curr_time = time.time()
-
-        # out = torch.zeros((N, F, H_out, W_out), dtype=x.dtype)
         out = torch.zeros((N, F, H_out, W_out), dtype=x.dtype, device= "cuda")
         input_ptr = x.flatten().contiguous().data_ptr()
         kernel_ptr = w.flatten().contiguous().data_ptr()
@@ -42,17 +44,19 @@ class Python_Conv(object):
                pad, stride)
         out = out.reshape(N, F, H_out, W_out)
         _time= (time.time() - _curr_time)  
-        print("Time taken by Layer is: ",_time)
+        # print("Time taken by Layer is: ",_time)
         cache = (x, w, conv_param)
-  
+        
 
         return out, cache
 
     @staticmethod
     def backward(dout, cache):
+        x, w, conv_param = cache
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         dout = dout.to(device)
-        x, w, conv_param = cache
+        x = x.to(device)
+        w = w.to(device)
         pad = 1 
         stride = conv_param['stride']
         N, C, H, W = x.shape
@@ -90,7 +94,7 @@ class Python_Conv(object):
 
         
         _time = (time.time() - _curr_time)  
-        print("Time taken by Backward Layer is:", _time)
+        # print("Time taken by Backward Layer is:", _time)
         
 
         dx = dx.reshape(N, C, H, W)
@@ -106,6 +110,10 @@ class Python_ConvB(object):
         out = None
         pad = conv_param['pad']
         stride = conv_param['stride']
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        x = x.to(device)
+        w = w.to(device)
+        b = b.to(device)
         N, C, H, W = x.shape
         F, C, HH, WW = w.shape
         H_out = int(1 + (H + 2 * pad - HH) / stride)
@@ -113,7 +121,7 @@ class Python_ConvB(object):
         
         _curr_time = time.time()
         # Flatten the arrays and get pointers to their data
-        out = torch.zeros((N, F, H_out, W_out), dtype=x.dtype)
+        out = torch.zeros((N, F, H_out, W_out), dtype=x.dtype, device= "cuda")
         input_ptr  = x.flatten().contiguous().data_ptr()
         kernel_ptr = w.flatten().contiguous().data_ptr()
         output_ptr = out.flatten().contiguous().data_ptr()
@@ -127,16 +135,18 @@ class Python_ConvB(object):
         out = out.reshape(N, F, H_out, W_out)
                           
         _time= (time.time() - _curr_time)  
-        print("Time taken by Layer WB","is: ",_time)
+        # print("Time taken by Layer WB","is: ",_time)
         cache = (x, w, b, conv_param)
 
         return out, cache
 
     @staticmethod
     def backward(dout, cache):
-
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         x, w, b, conv_param = cache
         dx, dw_bias, db = None, None, None
+        w = w.to(device)
+        b = b.to(device)
 
         pad = conv_param['pad']
         stride = conv_param['stride']
@@ -145,7 +155,7 @@ class Python_ConvB(object):
         db = torch.zeros_like(b,device="cuda")
         dw_bias = torch.zeros_like(w,device="cuda")
         A,B,X,Y = x.shape
-        dx_bias = torch.zeros((A,B,X,Y), dtype=x.dtype)
+        dx_bias = torch.zeros((A,B,X,Y), dtype=x.dtype, device= "cuda")
 
         dout_ptr = dout.flatten().contiguous().data_ptr()
         db_ptr = db.flatten().contiguous().data_ptr()
@@ -175,7 +185,7 @@ class Python_ConvB(object):
             ctypes.cast(dx_ptr_bias, ctypes.POINTER(ctypes.c_float)), pad, stride)
 
         _time= (time.time() - _curr_time)  
-        print("Time taken by Backward Layer is: ",_time)
+        # print("Time taken by Backward Layer is: ",_time)
 
         dx_bias = dx_bias.reshape(A,B,X,Y)
         
@@ -200,11 +210,12 @@ class Python_MaxPool(object):
         W_out = int(1 + (W - pool_width) / stride)
 
         # Allocate memory for output and positions on GPU
-        out = torch.ones((N, C, H_out, W_out), dtype=x.dtype, device="cuda")
-        positions = torch.zeros((N, C, H_out, W_out), dtype=torch.int32)
+    
+        out = torch.zeros((N, C, H_out, W_out), dtype=x.dtype, device="cuda")
+        positions = torch.zeros((N, C, H_out, W_out), dtype=torch.int32, device="cuda")
         # Ensure input tensor is on GPU and contiguous
-        x_gpu = x.contiguous()
-        positions_gpu = positions.contiguous()
+        x_gpu = x.contiguous().cuda() if not x.is_cuda else x.contiguous()
+        positions_gpu = positions.contiguous().cuda()if not positions.is_cuda else positions.contiguous()
         # Get pointers to the data
         x_ptr = x_gpu.flatten().data_ptr()
         out_ptr = out.flatten().data_ptr()
@@ -222,7 +233,7 @@ class Python_MaxPool(object):
         out = out.reshape(N, C, H_out, W_out)
         cache = (x, positions_gpu, pool_param)
         _time= (time.time() - _curr_time)  
-        print("Time taken by Pooling Layer",layer_no,"is: ",_time)
+        # print("Time taken by Pooling Layer",layer_no,"is: ",_time)
                 
         return out, cache
 
@@ -538,15 +549,12 @@ class Python_SpatialBatchNorm(object):
     @staticmethod
     def forward(x, gamma, beta, running_mean, running_var, mean, var):
         out, cache = None, None
-        print("Device", x.device, gamma.device, beta.device, running_mean.device, running_var.device, mean.device, var.device)
-        x = x.to(gamma.device)
-        gamma = gamma.to(gamma.device)
-        beta = beta.to(gamma.device)
-        running_mean = running_mean.to(gamma.device)
-        running_var = running_var.to(gamma.device)
-        mean = mean.to(gamma.device)
-        var = var.to(gamma.device)
-        print("/n NEW Device", x.device, gamma.device, beta.device, running_mean.device, running_var.device, mean.device, var.device)
+        gamma = gamma.to(x.device)
+        beta = beta.to(x.device)
+        running_mean = running_mean.to(x.device)
+        running_var = running_var.to(x.device)
+        mean = mean.to(x.device)
+        var = var.to(x.device)
         eps = 1e-5
         D = gamma.shape[0]
         num_chunks = 8
@@ -576,26 +584,34 @@ class Python_SpatialBatchNorm(object):
     
     @staticmethod
     def backward(grad_output, cache):
-        
         X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
-        B, C, H, W = X.shape    
+        B, C, H, W = X.shape
         dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
+        
+        # Compute dL_dvar
         dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True)
+        
+        # Compute dL_dxmax_mean and dL_dxmin_mean
         dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
         dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+        
+        # Compute dL_dxmax and dL_dxmin
         dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
         dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
-        dL_davg = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
         
-        #average per channel
-        avg_pc = dL_davg / (B*H*W) # write to file
-        dL_dxi_ = avg_pc + grad_output
-        
-        # backward coefficient
-        backward_const = scale 
-        
-        dl_dxi = dL_dxi_ * backward_const
+        # Compute dL_dgamma and dL_dbeta
+        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True) # TO DO - Is it really required to keep dim
+        dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+        dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True)
 
-        return dl_dxi, dL_dgamma, dL_dbeta     
+        # Average per channel
+        avg_pc = (dL_dxi_hat * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B * H * W)
+        dL_dxi_ = avg_pc + dL_dxi_hat
+        
+        # Backward coefficient
+        backward_const = scale
+        
+        # Final output calculation
+        dL_dxi = dL_dxi_ * backward_const
+
+        return dL_dxi, dL_dgamma, dL_dbeta     
