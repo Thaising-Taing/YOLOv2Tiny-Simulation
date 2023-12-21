@@ -8,9 +8,9 @@ def load_pickle(Pickle_Path):
         data = pickle.load(handle)
     return data
 
-Input_Grad_Layer0_PyTorch = load_pickle("/home/msis/Desktop/Python/yolov2/original_torch_VS_simulation_python/loss_grad0_torch")
+Input_Grad_Layer0_PyTorch = load_pickle("/home/msis/Desktop/Python/yolov2/Thaising_Sim_PyTorch/Input_Grad_Layer2")
 print(Input_Grad_Layer0_PyTorch[0][0][0][0:20])
-Input_Grad_Layer0_Python = load_pickle("/home/msis/Desktop/Python/yolov2/Output_Sim_Python/Input_Grad_Layer0")
+Input_Grad_Layer0_Python = load_pickle("/home/msis/Desktop/Python/yolov2/Thaising_Sim_Python/Input_Grad_Layer2")
 # Input_Grad_Layer0_FPGA = np.array(Input_Grad_Layer0_FPGA)
 # Input_Grad_Layer0_FPGA = torch.tensor(np.concatenate(Input_Grad_Layer0_FPGA, axis=0)).reshape(8, 3, 416, 416)
 print(Input_Grad_Layer0_Python[0][0][0][0:20])
