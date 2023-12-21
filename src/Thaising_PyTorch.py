@@ -11,7 +11,7 @@ def Save_File(path, data):
     with open(path, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-class Simulation(object):
+class TorchSimulation(object):
     
     def __init__(self, parent):
         self.self           = parent
@@ -67,6 +67,7 @@ class Simulation(object):
 
         # Layer0: Conv-BN-ReLU-Pool
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Input_Image", im_data)
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Weight_Layer7", Weight_Tensor[7])
         temp_Out[0], temp_cache['0'] = Torch_Conv_Pool.forward(im_data, Weight_Tensor[0], conv_param, pool_param_stride2)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Output_1st_Iter_Layer0", temp_Out[0])
         mean, var = Cal_mean_var.forward(temp_Out[0])
@@ -138,6 +139,7 @@ class Simulation(object):
         Out7, cache['7'] = Torch_Conv_BatchNorm_ReLU.forward(Out6, Weight_Tensor[7], Gamma_Tensor[7], Beta_Tensor[7],
                                                             conv_param, running_mean[7], running_var[7],
                                                             mean, var, self.Mode)
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Input_Layer7", Out6)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Output_Layer7", Out7)
 
         # Layer8: ConvWB
@@ -155,6 +157,7 @@ class Simulation(object):
         self.Loss, self.Loss_Gradient = loss(out=self.Output_Image, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_boxes)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Loss_Grad", self.Loss_Gradient)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Loss", self.Loss)
+        print(self.Loss.item())
 
     def Backward(self,data):
         # Add By Thaising
@@ -163,7 +166,7 @@ class Simulation(object):
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Input_Grad_Layer8", Input_Grad_Layer8)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Weight_Gradient_Layer8", Weight_Gradient_Layer8)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Bias_Grad", Bias_Grad)
-        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Cache8", cache['8'])
+        # print(Weight_Gradient_Layer8[0:10][0][0][0])
         Input_Grad_Layer7, Weight_Gradient_Layer7, Gamma_Gradient_Layer7, Beta_Gradient_Layer7  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer8, cache['7'])
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Input_Grad_Layer7", Input_Grad_Layer7)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Weight_Gradient_Layer7", Weight_Gradient_Layer7)
@@ -173,10 +176,25 @@ class Simulation(object):
         Input_Grad_Layer5, Weight_Gradient_Layer5, Gamma_Gradient_Layer5, Beta_Gradient_Layer5  = Torch_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer6, cache['5'])
         Input_Grad_Layer4, Weight_Gradient_Layer4, Gamma_Gradient_Layer4, Beta_Gradient_Layer4  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer5, cache['4'])
         Input_Grad_Layer3, Weight_Gradient_Layer3, Gamma_Gradient_Layer3, Beta_Gradient_Layer3  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer4, cache['3'])
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Input_Grad_Layer3", Input_Grad_Layer3)
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Weight_Gradient_Layer3", Weight_Gradient_Layer3)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer3", Gamma_Gradient_Layer3)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer3", Beta_Gradient_Layer3)      
         Input_Grad_Layer2, Weight_Gradient_Layer2, Gamma_Gradient_Layer2, Beta_Gradient_Layer2  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer3, cache['2'])
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Input_Grad_Layer2", Input_Grad_Layer2)
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Weight_Gradient_Layer2", Weight_Gradient_Layer2)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer2", Gamma_Gradient_Layer2)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer2", Beta_Gradient_Layer2)          
         Input_Grad_Layer1, Weight_Gradient_Layer1, Gamma_Gradient_Layer1, Beta_Gradient_Layer1  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer2, cache['1'])
-        # if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Output_Layer1_Backward", Input_Grad_Layer1)
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Input_Grad_Layer1", Input_Grad_Layer1)
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Weight_Gradient_Layer1", Weight_Gradient_Layer1)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer1", Gamma_Gradient_Layer1)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer1", Beta_Gradient_Layer1)
         Input_Grad_Layer0, Weight_Gradient_Layer0, Gamma_Gradient_Layer0, Beta_Gradient_Layer0  = Torch_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer1, cache['0'])
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Input_Grad_Layer0", Input_Grad_Layer0)
+        if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Weight_Gradient_Layer0", Weight_Gradient_Layer0)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer0", Gamma_Gradient_Layer0)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer0", Beta_Gradient_Layer0)
         
         # Gradient Value for Weight Update
         self.gWeight = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 

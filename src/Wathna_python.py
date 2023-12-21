@@ -6,7 +6,7 @@ from copy import deepcopy as dc
 from Weight_Update_Algorithm.Test_with_train import *
 from Pre_Processing_Scratch.Pre_Processing import *
 
-from src.Wathna.python_original import *
+from src.Wathna.python_2iteration import *
 
 class Python(object):
 

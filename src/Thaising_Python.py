@@ -76,7 +76,7 @@ def save_file(fname, data, module=[], layer_no=[], save_txt=False, save_hex=Fals
             if save_txt: print(f'\t\t--> Saved {filename}')
             # if save_hex: print(f'\t\t--> Saved {hexname}')
 
-class Simulation(object):
+class PythonSimulation(object):
     
     def __init__(self, parent):
         self.self           = parent
@@ -87,7 +87,7 @@ class Simulation(object):
         self.device         = None
         self.train_loader   = None
 
-        self.save_debug_data = False
+        self.save_debug_data = True
         
         self.Mode                 = self.self.Mode     
         self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
@@ -143,16 +143,18 @@ class Simulation(object):
         if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Layer0_Before", Weight_Tensor[0])
         if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Layer0_Before", Beta_Tensor[0])
         if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Layer0_Before", Gamma_Tensor[0])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/running_mean", running_mean[0])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/running_var", Gamma_Tensor[0])
         
         # Layer1: Conv-BN-ReLU-Pool
         temp_Out[1], temp_cache['1'] = Python_Conv.forward(Out0, Weight_Tensor[1], conv_param)
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer1", temp_Out[1])
+        # if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer1", temp_Out[1])
         mean, var = Cal_mean_var.forward(temp_Out[1])
         
         Out1, cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out0, Weight_Tensor[1], Gamma_Tensor[1], Beta_Tensor[1],
                                                                 conv_param, running_mean[1], running_var[1],
                                                                 mean, var, pool_param_stride2)
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer1", Out1)
+        # if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer1", Out1)
 
         # Layer2: Conv-BN-ReLU-Pool
         temp_Out[2], temp_cache['2'] = Python_Conv.forward(Out1, Weight_Tensor[2], conv_param)
@@ -207,15 +209,14 @@ class Simulation(object):
         Out7, cache['7'] = Python_Conv_BatchNorm_ReLU.forward(Out6, Weight_Tensor[7], Gamma_Tensor[7], Beta_Tensor[7],
                                                             conv_param, running_mean[7], running_var[7],
                                                             mean, var)
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_Layer7", Out7)
+        # if self.save_debug_data: Save_File("./Output_Sim_Python/Output_Layer7", Out7)
 
         # Layer8: ConvWB
         conv_param['pad'] = 0
         Out8, cache['8'] = Python_ConvB.forward(Out7, Weight_Tensor[8], bias, conv_param)
         Output_Image = Out8
         self.Output_Image, self.cache = Output_Image, cache 
-        print(Output_Image[0][0][0][0:10])
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_Layer8_FWD", self.Output_Image)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_Layer8_FWD_python", self.Output_Image)
         # return Output_Image, cache
         
     def Calculate_Loss(self,data):
@@ -239,10 +240,26 @@ class Simulation(object):
         Input_Grad_Layer5, Weight_Gradient_Layer5, Gamma_Gradient_Layer5, Beta_Gradient_Layer5  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer6, cache['5'])
         Input_Grad_Layer4, Weight_Gradient_Layer4, Gamma_Gradient_Layer4, Beta_Gradient_Layer4  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer5, cache['4'])
         Input_Grad_Layer3, Weight_Gradient_Layer3, Gamma_Gradient_Layer3, Beta_Gradient_Layer3  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer4, cache['3'])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Grad_Layer3", Input_Grad_Layer3)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Gradient_Layer3", Weight_Gradient_Layer3)    
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer3", Gamma_Gradient_Layer3)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer3", Beta_Gradient_Layer3)         
         Input_Grad_Layer2, Weight_Gradient_Layer2, Gamma_Gradient_Layer2, Beta_Gradient_Layer2  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer3, cache['2'])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Grad_Layer2", Input_Grad_Layer2)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Gradient_Layer2", Weight_Gradient_Layer2)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer2", Gamma_Gradient_Layer2)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer2", Beta_Gradient_Layer2)        
         Input_Grad_Layer1, Weight_Gradient_Layer1, Gamma_Gradient_Layer1, Beta_Gradient_Layer1  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer2, cache['1'])
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Grad_Layer1", Input_Grad_Layer1)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Gradient_Layer1", Weight_Gradient_Layer1)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer1", Gamma_Gradient_Layer1)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer1", Beta_Gradient_Layer1)
         Input_Grad_Layer0, Weight_Gradient_Layer0, Gamma_Gradient_Layer0, Beta_Gradient_Layer0  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer1, cache['0'])
-        
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Grad_Layer0", Input_Grad_Layer0)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Gradient_Layer0", Weight_Gradient_Layer0)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer0", Gamma_Gradient_Layer0)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer0", Beta_Gradient_Layer0)
+
         # Gradient Value for Weight Update
         self.gWeight = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 
                         Weight_Gradient_Layer4, Weight_Gradient_Layer5, Weight_Gradient_Layer6, Weight_Gradient_Layer7, 

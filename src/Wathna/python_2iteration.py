@@ -2828,19 +2828,83 @@ class Cal_mean_var(object):
         return avg_pc
     
         
+# class Python_SpatialBatchNorm(object):
+
+#     @staticmethod
+#     def forward(x, gamma, beta, running_mean, running_var, mean, var, Mode):  
+#         out, cache = None, None
+#         eps = 1e-5
+#         D = gamma.shape[0]
+#         num_chunks = 8
+#         running_mean = running_mean
+#         running_var = running_var
+#         B, C, H, W = x.shape
+#         y = x.transpose(0, 1).contiguous()  # C x B x H x W
+#         y = y.view(C, num_chunks, B * H * W // num_chunks)
+#         avg_max = y.max(-1)[0].mean(-1)  # C
+#         avg_min = y.min(-1)[0].mean(-1)  # C
+#         avg = y.view(C, -1).mean(-1)  # C
+#         max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
+#         min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
+#         scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
+#         scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
+#         avg = avg.view(1, -1, 1, 1)
+#         scale = scale.view(1, -1, 1, 1)
+#         momentum = 0.1
+#         output = (x - mean) * var
+
+#         output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
+        
+#         running_mean = running_mean * momentum + (1 - momentum) * avg
+#         running_var = running_var * momentum + (1 - momentum) * scale
+        
+#         cache = (x, gamma, beta, output, var, scale, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
+#         return output, cache
+    
+#     @staticmethod
+#     def backward(grad_output, cache):
+#         X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
+#         B, C, H, W = X.shape
+#         dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
+        
+#         # Compute dL_dvar
+#         dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True)
+        
+#         # Compute dL_dxmax_mean and dL_dxmin_mean
+#         dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+#         dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+        
+#         # Compute dL_dxmax and dL_dxmin
+#         dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
+#         dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
+        
+#         # Compute dL_dgamma and dL_dbeta
+#         dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True) # TO DO - Is it really required to keep dim
+#         dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+#         dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+
+#         # Average per channel
+#         avg_pc = (dL_dxi_hat * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B * H * W)
+#         dL_dxi_ = avg_pc + dL_dxi_hat
+        
+#         # Backward coefficient
+#         backward_const = scale
+        
+#         # Final output calculation
+#         dL_dxi = dL_dxi_ * backward_const
+
+#         return dL_dxi, dL_dgamma, dL_dbeta
+
 class Python_SpatialBatchNorm(object):
 
     @staticmethod
-    def forward(x, gamma, beta, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
-        
+    def forward(x, gamma, beta, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):  
         out, cache = None, None
-        
         eps = 1e-5
         D = gamma.shape[0]
         num_chunks = 8
-        running_mean = bn_params.get('running_mean', torch.zeros(D, dtype=x.dtype, device=x.device))
-        running_var = bn_params.get('running_var', torch.zeros(D, dtype=x.dtype, device=x.device))
+        running_mean = bn_params["running_mean"]
+        running_var = bn_params["running_var"]
         B, C, H, W = x.shape
         y = x.transpose(0, 1).contiguous()  # C x B x H x W
         y = y.view(C, num_chunks, B * H * W // num_chunks)
@@ -2851,98 +2915,49 @@ class Python_SpatialBatchNorm(object):
         min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
         scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
         scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
-
         avg = avg.view(1, -1, 1, 1)
         scale = scale.view(1, -1, 1, 1)
-        
-        
-        # ctx.avg = avg
-        # ctx.avg_max = avg_max
-        # ctx.avg_min = avg_min
-        # ctx.eps = eps
-        # ctx.scale = scale
-        # ctx.scale_fix = scale_fix
-        # ctx.num_chunks = num_chunks
-        # ctx.max_index = max_index
-        # ctx.min_index = min_index
         momentum = 0.1
-
         output = (x - mean) * var
-        # ctx.save_for_backward(X, gamma, beta, output, scale)
 
         output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
         
         running_mean = running_mean * momentum + (1 - momentum) * avg
         running_var = running_var * momentum + (1 - momentum) * scale
         
-        cache = (x, gamma, beta, output, var, scale_fix, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
-        
-        # Subtraction: Mean 
-        Sub = avg
-        
-        # Multiplication: scale * gamma
-        scale_reshape = scale.squeeze()
-        Mul = scale_reshape * gamma
-        
-        # Addition: Beta
-        Add = beta
-        
-
-        
+        cache = (x, gamma, beta, output, var, scale, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
         return output, cache
     
     @staticmethod
     def backward(grad_output, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
         X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
         B, C, H, W = X.shape
-        
-    
-        
-        #print('grad_output', grad_output)
-        # print(grad_output.shape)
         dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
-        """
-        dL_dvar = dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)
-        dL_dvar_tmp = torch.zeros(dL_dvar.size()).cuda()
-        for idx in max_index:
-            dL_dvar_tmp[idx[0], idx[1], idx[2], idx[3]] = dL_dvar[idx[0], idx[1], idx[2], idx[3]] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-        for idx in min_index:
-            dL_dvar_tmp[idx[0], idx[1], idx[2], idx[3]] = dL_dvar[idx[0], idx[1], idx[2], idx[3]]
-        dL_dvar = dL_dvar_tmp.sum(dim=(0, 2, 3), keepdim=True)
-        """
+        
+        # Compute dL_dvar
         dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True)
+        
+        # Compute dL_dxmax_mean and dL_dxmin_mean
         dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
         dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+        
+        # Compute dL_dxmax and dL_dxmin
         dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
         dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
-        # dL_davg = (dL_dxi_hat * -1.0 * scale).sum(dim=(0, 2, 3), keepdim=True)
-        # dL_dxi = dL_davg / (B*H*W) + dL_dxi_hat * scale
-        # for idx in max_index:
-        #     dL_dxi[idx[0], idx[1], idx[2], idx[3]] += grad_output[idx[0], idx[1], idx[2], idx[3]]
-        # for idx in min_index:
-        #     dL_dxi[idx[0], idx[1], idx[2], idx[3]] -= grad_output[idx[0], idx[1], idx[2], idx[3]] #dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-        #dL_dxi_max = dL_dxi + dL_dxmax
-        #dL_dxi_min = dL_dxi + dL_dxmin
-        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
-        #for idx in max_index:
-        #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-        #for idx in min_index:
         
-        #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmin[0, idx[1], 0, 0] #dL_dxi_min[idx[0], idx[1], idx[2], idx[3]] #
-        dL_davg = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
-        
-        #average per channel
-        avg_pc = dL_davg / (B*H*W) # write to file
-        dL_dxi_ = avg_pc + grad_output
-        
-        # backward coefficient
-        backward_const = scale   # write to file
-        
-        dl_dxi = dL_dxi_ * backward_const
-        
-        
-        # dL_dxi_hat = grad_output * gamma
+        # Compute dL_dgamma and dL_dbeta
+        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True) # TO DO - Is it really required to keep dim
+        dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+        dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True)
 
-        return dl_dxi, dL_dgamma, dL_dbeta     
+        # Average per channel
+        avg_pc = (dL_dxi_hat * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B * H * W)
+        dL_dxi_ = avg_pc + dL_dxi_hat
+        
+        # Backward coefficient
+        backward_const = scale
+        
+        # Final output calculation
+        dL_dxi = dL_dxi_ * backward_const
+
+        return dL_dxi, dL_dgamma, dL_dbeta
