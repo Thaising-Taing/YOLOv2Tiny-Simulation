@@ -269,123 +269,123 @@ class Shoaib_Code(object):
         for name, param in self.custom_model.named_parameters():
             if name == "conv1.weight": 
                 param.data = Weight[0]
-                param.grad = gWeight[0]
+                param.grad = gWeight[0].cpu()
 
             elif name == "conv2.weight": 
                 param.data = Weight[1]
-                param.grad = gWeight[1]
+                param.grad = gWeight[1].cpu()
 
             elif name == "conv3.weight": 
                 param.data = Weight[2]
-                param.grad = gWeight[2]
+                param.grad = gWeight[2].cpu()
 
             elif name == "conv4.weight": 
                 param.data = Weight[3]
-                param.grad = gWeight[3]
+                param.grad = gWeight[3].cpu()
 
             elif name == "conv5.weight": 
                 param.data = Weight[4]
-                param.grad = gWeight[4]
+                param.grad = gWeight[4].cpu()
 
             elif name == "conv6.weight": 
                 param.data = Weight[5]
-                param.grad = gWeight[5]
+                param.grad = gWeight[5].cpu()
 
             elif name == "conv7.weight": 
                 param.data = Weight[6]
-                param.grad = gWeight[6]
+                param.grad = gWeight[6].cpu()
 
             elif name == "conv8.weight": 
                 param.data = Weight[7]
-                param.grad = gWeight[7]
+                param.grad = gWeight[7].cpu()
 
             elif name == "conv9.0.weight": 
                 param.data = Weight[8]
-                param.grad = gWeight[8]
+                param.grad = gWeight[8].cpu()
 
             elif name == "bn1.weight": 
                 param.data = Gamma_WeightBN[0]
                 try: param.grad = gGamma_WeightBN[0]
-                except: param.grad = gGamma_WeightBN[0].view(-1)
+                except: param.grad = gGamma_WeightBN[0].view(-1).cpu()
 
             elif name == "bn2.weight": 
                 param.data = Gamma_WeightBN[1]
                 try: param.grad = gGamma_WeightBN[1]
-                except: param.grad = gGamma_WeightBN[1].view(-1)
+                except: param.grad = gGamma_WeightBN[1].view(-1).cpu()
 
             elif name == "bn3.weight": 
                 param.data = Gamma_WeightBN[2]
                 try: param.grad = gGamma_WeightBN[2]
-                except: param.grad = gGamma_WeightBN[2].view(-1)
+                except: param.grad = gGamma_WeightBN[2].view(-1).cpu()
 
             elif name == "bn4.weight": 
                 param.data = Gamma_WeightBN[3]
                 try: param.grad = gGamma_WeightBN[3]
-                except: param.grad = gGamma_WeightBN[3].view(-1)
+                except: param.grad = gGamma_WeightBN[3].view(-1).cpu()
 
             elif name == "bn5.weight": 
                 param.data = Gamma_WeightBN[4]
                 try: param.grad = gGamma_WeightBN[4]
-                except: param.grad = gGamma_WeightBN[4].view(-1)
+                except: param.grad = gGamma_WeightBN[4].view(-1).cpu()
 
             elif name == "bn6.weight": 
                 param.data = Gamma_WeightBN[5]
                 try: param.grad = gGamma_WeightBN[5]
-                except: param.grad = gGamma_WeightBN[5].view(-1)
+                except: param.grad = gGamma_WeightBN[5].view(-1).cpu()
 
             elif name == "bn7.weight": 
                 param.data = Gamma_WeightBN[6]
                 try: param.grad = gGamma_WeightBN[6]
-                except: param.grad = gGamma_WeightBN[6].view(-1)
+                except: param.grad = gGamma_WeightBN[6].view(-1).cpu()
 
             elif name == "bn8.weight": 
                 param.data = Gamma_WeightBN[7]
                 try: param.grad = gGamma_WeightBN[7]
-                except: param.grad = gGamma_WeightBN[7].view(-1)
+                except: param.grad = gGamma_WeightBN[7].view(-1).cpu()
 
             elif name == "bn1.bias": 
                 param.data = BetaBN[0]
                 try: param.grad = gBetaBN[0]
-                except: param.grad = gBetaBN[0].view(-1)
+                except: param.grad = gBetaBN[0].view(-1).cpu()
 
             elif name == "bn2.bias": 
                 param.data = BetaBN[1]
                 try: param.grad = gBetaBN[1]
-                except: param.grad = gBetaBN[1].view(-1)
+                except: param.grad = gBetaBN[1].view(-1).cpu()
 
             elif name == "bn3.bias": 
                 param.data = BetaBN[2]
                 try: param.grad = gBetaBN[2]
-                except: param.grad = gBetaBN[2].view(-1)
+                except: param.grad = gBetaBN[2].view(-1).cpu()
 
             elif name == "bn4.bias": 
                 param.data = BetaBN[3]
                 try: param.grad = gBetaBN[3]
-                except: param.grad = gBetaBN[3].view(-1)
+                except: param.grad = gBetaBN[3].view(-1).cpu()
 
             elif name == "bn5.bias": 
                 param.data = BetaBN[4]
                 try: param.grad = gBetaBN[4]
-                except: param.grad = gBetaBN[4].view(-1)
+                except: param.grad = gBetaBN[4].view(-1).cpu()
 
             elif name == "bn6.bias": 
                 param.data = BetaBN[5]
                 try: param.grad = gBetaBN[5]
-                except: param.grad = gBetaBN[5].view(-1)
+                except: param.grad = gBetaBN[5].view(-1).cpu()
 
             elif name == "bn7.bias": 
                 param.data = BetaBN[6]
                 try: param.grad = gBetaBN[6]
-                except: param.grad = gBetaBN[6].view(-1)
+                except: param.grad = gBetaBN[6].view(-1).cpu()
 
             elif name == "bn8.bias": 
                 param.data = BetaBN[7]
                 try: param.grad = gBetaBN[7]
-                except: param.grad = gBetaBN[7].view(-1)
+                except: param.grad = gBetaBN[7].view(-1).cpu()
 
             elif name == "conv9.0.bias": 
                 param.data = Bias
-                param.grad = gBias
+                param.grad = gBias.cpu()
             
             elif name == "bn1.running_mean": pass        
             elif name == "bn1.running_var": pass        
@@ -547,6 +547,7 @@ class Shoaib_Code(object):
         Returns:
             Dict[str, Tensor]: The updated state dictionary of the custom model.
         """
+        
         self.custom_optimizer.zero_grad()
         
         # Update weight values

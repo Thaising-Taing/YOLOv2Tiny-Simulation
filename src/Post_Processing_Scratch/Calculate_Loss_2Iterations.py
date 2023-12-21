@@ -189,7 +189,9 @@ def build_target(output, gt_data, H, W):
         # rescale ground truth boxes
         gt_boxes[:, 0::2] *= W
         gt_boxes[:, 1::2] *= H
-
+        
+        ## Delete for Python Version
+        gt_boxes = gt_boxes.to("cuda")
         # step 1: process IoU target
 
         # apply delta_pred to pre-defined anchors
@@ -293,12 +295,7 @@ def yolo_loss(output, target):
 
 
 def loss(out, gt_boxes=None, gt_classes=None, num_boxes=None):
-    # print('Calculating the loss and its gradients for python model.')
     out = torch.tensor(out, requires_grad=True)
-    
-    # # Additional Condition: 
-    # out = out[0:(8*125*(13**2))]
-
     out = out.reshape(8, 125, 13, 13)
     scores = out
     bsize, _, h, w = out.shape
@@ -321,12 +318,8 @@ def loss(out, gt_boxes=None, gt_classes=None, num_boxes=None):
 
     box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
     loss = box_loss + iou_loss + class_loss
-
-    # print(f"\t --> Loss = {loss}\n")
     out = scores
     out.retain_grad()
     loss.backward(retain_graph=True)
     dout = out.grad.detach()
-    # print(type(dout))
-    # print(f'\nLoss Gradients:\t{dout[dout != 0][:10]}')
     return loss, dout
