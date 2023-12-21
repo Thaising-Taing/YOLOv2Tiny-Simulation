@@ -813,9 +813,9 @@ class App(customtkinter.CTk):
             
             # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
             for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
                 # self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
@@ -953,11 +953,11 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=1, type=int)
+                            default=100, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=80, type=int)
+                            default=8, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=16, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -1206,7 +1206,8 @@ class App(customtkinter.CTk):
     def Post_Epoch(self): 
         self.whole_process_end = time.time()
         self.whole_process_time = self.whole_process_end - self.whole_process_start
-        self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
+        # self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}--Loss: {self.Loss}"
+        self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}"
         self.Show_Text(self.output_text)
     
     def Visualize(self):
