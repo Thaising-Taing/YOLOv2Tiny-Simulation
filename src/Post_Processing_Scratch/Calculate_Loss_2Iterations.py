@@ -191,7 +191,7 @@ def build_target(output, gt_data, H, W):
         gt_boxes[:, 1::2] *= H
         
         ## Delete for Python Version
-        gt_boxes = gt_boxes.to("cuda")
+        # gt_boxes = gt_boxes.to("cuda")
         # step 1: process IoU target
 
         # apply delta_pred to pre-defined anchors
