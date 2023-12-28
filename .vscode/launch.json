@@ -39,5 +39,19 @@
 			"justMyCode": false,
 			// "sudo": true,
 		}
+
+		,
+		{
+			"name": "Convert To Text",
+			"type": "python",
+			"request": "launch",
+			"program": "save_txt.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			"args": [
+				"--data"		, "DATA/pytorch/Layer_7_Backward_Input_Gradient",
+			]
+			// "sudo": true,
+		}
 	]
 }
