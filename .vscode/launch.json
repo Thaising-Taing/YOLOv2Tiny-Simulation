@@ -29,6 +29,15 @@
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			// "sudo": true,
+		},
+		{
+			"name": "Comparison",
+			"type": "python",
+			"request": "launch",
+			"program": "Comparison.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			// "sudo": true,
 		}
 	]
 }
