@@ -85,6 +85,8 @@ def random_distort(img, hue=.1, sat=1.5, val=1.5):
 
     img = img.convert('HSV')
     cs = list(img.split())
+    import pdb
+    pdb.set_trace()
     cs[1] = cs[1].point(lambda i: i * sat)
     cs[2] = cs[2].point(lambda i: i * val)
 
@@ -202,7 +204,7 @@ def augment_img(img, boxes, gt_classes):
             gt_classes = gt_classes[keep]
             break
 
-    img = random_distort(img, cfg.hue, cfg.saturation, cfg.exposure)
+    # img = random_distort(img, cfg.hue, cfg.saturation, cfg.exposure)
     return img, boxes, gt_classes
 
 
