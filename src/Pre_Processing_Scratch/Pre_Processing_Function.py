@@ -2828,7 +2828,7 @@ def Weight_Gradient_Hardware_ReOrdering_whole_image_layer8(Out_CH, In_CH, DataCH
 
 # Soft2Harward ReOrdering: Backward
 # Weight Layer0 ReOrdering: Backward
-def Weight_Hardware_Backward_ReOrdering_Layer0(Filter_Num, In_Channel_Num, Weight_List, Backward_List, Average_List):
+def Weight_Hardware_Backward_ReOrdering_Layer0(Filter_Num, In_Channel_Num, Weight_List, Backward_List, Average_List, Active_List):
     # Filter_Num_T = 128
     # In_Channel_Num_T = 1024
     Filter_Num_T = Filter_Num
@@ -2852,9 +2852,11 @@ def Weight_Hardware_Backward_ReOrdering_Layer0(Filter_Num, In_Channel_Num, Weigh
     origin    =    pd.DataFrame(Weight_List)
     batch_add =    pd.DataFrame(Average_List)
     batch_mul =    pd.DataFrame(Backward_List)
+    bias_active =    pd.DataFrame(Active_List)
 
-    bias_active_ar = np.repeat('3DCD',In_Channel_Num).reshape(In_Channel_Num,1)  # outchannel num == filter num
+    # bias_active_ar = np.repeat('3DCD',In_Channel_Num).reshape(In_Channel_Num,1)  # outchannel num == filter num
 
+    bias_active_ar = np.array(bias_active)
     batch_add_ar = np.array(batch_add)
     batch_mul_ar = np.array(batch_mul)
     origin_ar = np.array(origin)
@@ -2889,6 +2891,7 @@ def Weight_Hardware_Backward_ReOrdering_Layer0(Filter_Num, In_Channel_Num, Weigh
     origin_ar = origin_ar.reshape(Filter_Num_T,In_Channel_Num_T,kenel_size)
     origin_ar_T = origin_ar.transpose(1,0,2)
     origin_ar_TT = origin_ar_T[:,:,::-1]
+    # origin_ar_TT = origin_ar_T
 
     # if (kenel_size==1) :
     #     origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,1) 
@@ -3054,6 +3057,7 @@ def Weight_Hardware_Backward_ReOrdering_Layer8(Filter_Num, In_Channel_Num, Weigh
     origin_ar = origin_ar.reshape(Filter_Num_T,In_Channel_Num_T,kenel_size)
     origin_ar_T = origin_ar.transpose(1,0,2)
     origin_ar_TT = origin_ar_T[:,:,::-1]
+    # origin_ar_TT = origin_ar_T
 
     # if (kenel_size==1) :
     #     origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,1) 
@@ -3167,7 +3171,7 @@ def Weight_Hardware_Backward_ReOrdering_Layer8(Filter_Num, In_Channel_Num, Weigh
     return Weight_OtherLayer
 
 
-def Weight_Hardware_Backward_ReOrdering_OtherLayer(Filter_Num, In_Channel_Num, Weight_List, Backward_List, Average_List):
+def Weight_Hardware_Backward_ReOrdering_OtherLayer(Filter_Num, In_Channel_Num, Weight_List, Backward_List, Average_List, Active_List):
     # Filter_Num_T = 128
     # In_Channel_Num_T = 1024
     Filter_Num_T = Filter_Num
@@ -3189,11 +3193,13 @@ def Weight_Hardware_Backward_ReOrdering_OtherLayer(Filter_Num, In_Channel_Num, W
 
     origin = pd.DataFrame(Weight_List)
     #--------------------------------Activation and BatchNorm-----------------------
+    bias_active =  pd.DataFrame(Active_List)
     batch_add =    pd.DataFrame(Average_List)
     batch_mul =    pd.DataFrame(Backward_List)
 
-    bias_active_ar = np.repeat('3DCD',In_Channel_Num).reshape(In_Channel_Num,1)  # outchannel num == filter num
+    # bias_active_ar = np.repeat('3DCD',In_Channel_Num).reshape(In_Channel_Num,1)  # outchannel num == filter num
 
+    bias_active_ar = np.array(bias_active)
     batch_add_ar = np.array(batch_add)
     batch_mul_ar = np.array(batch_mul)
 
@@ -3217,6 +3223,7 @@ def Weight_Hardware_Backward_ReOrdering_OtherLayer(Filter_Num, In_Channel_Num, W
     origin_ar = origin_ar.reshape(Filter_Num_T,In_Channel_Num_T,kenel_size)
     origin_ar_T = origin_ar.transpose(1,0,2)
     origin_ar_TT = origin_ar_T[:,:,::-1]
+    # origin_ar_TT = origin_ar_T
 
     # if (kenel_size==1) :
     #     origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,1) 

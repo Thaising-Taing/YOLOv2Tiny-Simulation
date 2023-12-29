@@ -48,12 +48,12 @@ from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-
+os.environ["CUDA_VISIBLE_DEVICES"]="7"
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
 from Thaising_Python import PythonSimulation
-from Junaid_Python import Junaid
+from Junaid import Junaid
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -451,6 +451,8 @@ class App(customtkinter.CTk):
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
         self.right_frame_2.lower(self.cover)
+        
+        self.Show_Text("GUI Ready.")
 
 
     # Helper Functions
@@ -876,16 +878,16 @@ class App(customtkinter.CTk):
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.data_iter = iter(self.small_train_dataloader)
-            # self.data_iter = iter(self.train_dataloader)
+            self.data_iter = iter(self.train_dataloader)
+            # self.data_iter = iter(self.small_train_dataloader)
             self.Adjust_Learning_Rate()
             
-            # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
-            for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
+            for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
+            # for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
                 # self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
@@ -896,7 +898,7 @@ class App(customtkinter.CTk):
                 self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
                 
-            if self.epoch%8 == 0: self.Check_mAP()
+            if self.epoch%4 == 0: self.Check_mAP()
             self.save_weights()
         #     self.Save_Pickle()
         self.Post_Epoch()
@@ -920,7 +922,7 @@ class App(customtkinter.CTk):
         
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-            if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+            # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
             # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
@@ -956,7 +958,7 @@ class App(customtkinter.CTk):
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
             self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
             # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
             
             self.batch = step
             self.Before_Forward() ######################### - Individual Functions
@@ -1027,9 +1029,9 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=16000, type=int)
+                            default=16, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
-                            default=619, type=int)
+                            default=16, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
                             default=8, type=int)
         parser.add_argument('--nw', dest='num_workers',
@@ -1133,28 +1135,24 @@ class App(customtkinter.CTk):
         self.train_dataset = self.get_dataset(self.imdb_train_name)
         # Whole Training Dataset 
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
         # Small Training Dataset
         self.small_train_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
-        # print("Sub Training Dataset: " + str(len(small_dataset)))
-        self.s = time.time()
         self.small_train_dataloader = DataLoader(self.small_train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.e = time.time()
-        print("Data Loader : ",self.e-self.s)
         self.iters_per_epoch_train_subset = int(len(self.small_train_dataset) / self.args.batch_size)
-        self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
         # -------------------------------------- Test Dataset -----------------------------------------------------
         self.imdb_test_name = 'voc_2007_test'
         self.test_dataset = self.get_dataset(self.imdb_test_name)
         # Whole Training Dataset 
         self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        # Small Training Dataset
-        self.small_test_dataset = torch.utils.data.Subset(self.test_dataloader, range(0, self.args.total_inference_set))
-        # print("Sub Training Dataset: " + str(len(small_dataset)))
-        self.s = time.time()
-        self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.e = time.time()
-        print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch_test  = int(len(self.small_train_dataset) / self.args.batch_size)
+            # # Small Training Dataset
+            # self.small_test_dataset = torch.utils.data.Subset(self.test_dataloader, range(0, self.args.total_inference_set))
+            # # print("Sub Training Dataset: " + str(len(small_dataset)))
+            # self.s = time.time()
+            # self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+            # self.e = time.time()
+            # print("Data Loader : ",self.e-self.s)
+        self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # learning_rate = 0.001
@@ -1294,10 +1292,9 @@ class App(customtkinter.CTk):
         self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
 
-        if self.mode == "FPGA"       :  
-            output_file1 = "result/mAP.txt"
-            with open(output_file1, mode="a") as output_file_1:
-                output_file_1.write(str(Loss) + "\n")
+        date_time = str(datetime.now()).replace(" ","---").split(".")[0].replace(":","-")
+        with open("mAP.txt", mode="a+") as output_file_1:
+            output_file_1.write(f"{date_time}: {self.map} \n")
                 
     def Post_Epoch(self): 
         if self.mode == "Pytorch"    :  _data =  self.Pytorch
@@ -1526,4 +1523,3 @@ class App(customtkinter.CTk):
 if __name__ == "__main__":
     app = App()
     app.mainloop()
-

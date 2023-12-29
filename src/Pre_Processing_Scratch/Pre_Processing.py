@@ -700,11 +700,22 @@ class Cal_mean_var(object):
         max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
         min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
         scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
+<<<<<<< HEAD
         scale_ = 1 / ((avg_max - avg_min) * scale_fix) 
         avg = avg.view(1, -1, 1, 1)
         scale_ = scale_.view(1, -1, 1, 1)
+=======
+        # scale_fix = 1 / ((2 * math.log(num_chunks)) ** 0.5)
+        scale = 1 / ((avg_max - avg_min) * scale_fix + eps) 
+        # scale_ = 1 / ((avg_max - avg_min) * scale_fix) 
+
+        avg = avg.view(1, -1, 1, 1)
+        # scale_ = scale_.view(1, -1, 1, 1)
+        scale = scale.view(1, -1, 1, 1)
+
+>>>>>>> b51e4d2e2af88c235adf280e8ffdd453999ea9f8
         cache = x
-        return avg, scale_
+        return avg, scale
     
     @staticmethod
     def backward(dout, cache):
@@ -743,6 +754,7 @@ def Dec2Hex(decimal):
 def Mean_Var_Dec2Bfloat(Mean, Var, Exponent_Bit, Mantissa_Bit): 
     Mean = Mean.flatten().tolist()
     Var = Var.flatten().tolist()
+    
     Mean_List=[]
     Var_List=[]
     Mean_List.clear()
@@ -754,6 +766,30 @@ def Mean_Var_Dec2Bfloat(Mean, Var, Exponent_Bit, Mantissa_Bit):
         Truncated_Rounded_Hex = Dec2Hex(var)
         Var_List.append(Truncated_Rounded_Hex)
     return Mean_List, Var_List
+
+
+def Mean_Var_Dec2Bfloat_Back(Mean, Var, gamma, Exponent_Bit, Mantissa_Bit): 
+    Mean = Mean.flatten().tolist()
+    Var = Var.flatten().tolist()
+    gamma = gamma.flatten().tolist()
+    
+    Mean_List=[]
+    Var_List=[]
+    gamma_List=[]
+    Mean_List.clear()
+    Var_List.clear()
+    gamma_List.clear()
+    for mean in Mean: 
+        Truncated_Rounded_Hex = Dec2Hex(mean)
+        Mean_List.append(Truncated_Rounded_Hex)
+    for var in Var: 
+        Truncated_Rounded_Hex = Dec2Hex(var)
+        Var_List.append(Truncated_Rounded_Hex)
+    for e in gamma: 
+        Truncated_Rounded_Hex = Dec2Hex(e)
+        gamma_List.append(Truncated_Rounded_Hex)    
+    return Mean_List, Var_List, gamma_List
+
 
 def Loss_Gradient_Dec2Bfloat(Loss_Gradient, Exponent_Bit, Mantissa_Bit): 
     Loss_Gradient = Loss_Gradient.flatten().tolist()
@@ -1172,6 +1208,45 @@ def BN(x, gamma, beta):
     return cache
 '''
 
+# def BN(x, gamma, beta):
+
+#     out, cache = None, None
+            
+#     eps = 1e-5
+#     D = gamma.shape[0]
+#     num_chunks = 8
+#     # running_mean = bn_params.get('running_mean', torch.zeros(D, dtype=x.dtype, device=x.device))
+#     # running_var = bn_params.get('running_var', torch.zeros(D, dtype=x.dtype, device=x.device))
+#     B, C, H, W = x.shape
+#     # y = x.transpose(0, 1).contiguous()  # C x B x H x W
+#     y = x.permute(1, 0, 2, 3).contiguous()  # C x B x H x W
+#     y = y.view(C, num_chunks, B * H * W // num_chunks)
+#     avg_max = y.max(-1)[0].mean(-1)  # C
+#     avg_min = y.min(-1)[0].mean(-1)  # C
+#     avg = y.view(C, -1).mean(-1)  # C
+#     ## max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
+#     ## min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
+#     scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
+#     scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
+
+#     avg = avg.view(1, -1, 1, 1)
+#     scale = scale.view(1, -1, 1, 1)
+    
+#     momentum = 0.1
+
+#     output = (x - avg) * scale
+
+#     output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
+    
+#     # running_mean = running_mean * momentum + (1 - momentum) * avg
+#     # running_var = running_var * momentum + (1 - momentum) * scale
+    
+#     #cache = (x, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index)
+#     cache = (x, gamma, output, scale)
+    
+#     return cache
+
+
 def BN(x, gamma, beta):
 
     out, cache = None, None
@@ -1183,7 +1258,7 @@ def BN(x, gamma, beta):
     # running_var = bn_params.get('running_var', torch.zeros(D, dtype=x.dtype, device=x.device))
     B, C, H, W = x.shape
     # y = x.transpose(0, 1).contiguous()  # C x B x H x W
-    y = x.permute(1, 0, 2, 3).contiguous()  # C x B x H x W
+    y = x.transpose(0, 1).contiguous()  # C x B x H x W
     y = y.view(C, num_chunks, B * H * W // num_chunks)
     avg_max = y.max(-1)[0].mean(-1)  # C
     avg_min = y.min(-1)[0].mean(-1)  # C
@@ -1209,6 +1284,7 @@ def BN(x, gamma, beta):
     cache = (x, gamma, output, scale)
     
     return cache
+
 
 def bfloat16_to_decimal(hex_str):
     # 32 비트 부동 소수점 값을 hex 문자열로 변환

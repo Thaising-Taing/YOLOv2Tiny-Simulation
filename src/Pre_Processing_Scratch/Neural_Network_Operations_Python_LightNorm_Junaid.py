@@ -11,8 +11,13 @@ import ctypes
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 warnings.simplefilter("ignore", UserWarning)
+<<<<<<< HEAD
 libconv = ctypes.CDLL('/data/Circuit_Team/Junaid/yolov2/convolution_cuda.so')
 os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+=======
+# libconv = ctypes.CDLL('/data/Circuit_Team/Junaid/yolov2/convolution_cuda.so')
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+>>>>>>> b51e4d2e2af88c235adf280e8ffdd453999ea9f8
 
 
 # Python_Convolution without Bias
