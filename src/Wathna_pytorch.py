@@ -178,11 +178,12 @@ class Pytorch(object):
         
         X = data.im_data
         self.out, self.cache, self.Out_all_layers = self.modtorch_model.forward(X)
-        # print(self.out[0][0][0][0:5])
+        Save_File("./Wathna_PyTorch/Output", self.out)
         
     def Calculate_Loss(self,data):
         out = self.out
         self.loss, self.dout = self.modtorch_model.loss(out, self.gt_boxes, self.gt_classes, self.num_boxes)
+        Save_File("./Wathna_PyTorch/Loss_Grad", self.dout)
         
     def Backward(self,data):
         self.dout, self.grads = self.modtorch_model.backward(self.dout, self.cache)
