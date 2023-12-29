@@ -711,7 +711,7 @@ class DeepConvNetTorch(object):
         out = Out[8]
         # print('\n\nFwd Out', out.dtype, out[out != 0], '\n\n')
 
-        Save_File('./original_torch_VS_simulation_python/out_torch', out)
+        # Save_File('./original_torch_VS_simulation_python/out_torch', out)
 
         return out, cache, Out
 
@@ -777,8 +777,8 @@ class DeepConvNetTorch(object):
                                                                   save_hex=True,
                                                                   phase=self.phase)
 
-        Save_File('./original_torch_VS_simulation_python/weight_gradient8_torch', grads['W8'])
-        Save_File('./original_torch_VS_simulation_python/loss_grad8_torch', dOut[8])
+        # Save_File('./original_torch_VS_simulation_python/weight_gradient8_torch', grads['W8'])
+        # Save_File('./original_torch_VS_simulation_python/loss_grad8_torch', dOut[8])
 
 
         dw, db = grads['W8'], grads['b8'] 
@@ -849,8 +849,8 @@ class DeepConvNetTorch(object):
             phase=self.phase,
         )
 
-        Save_File('./original_torch_VS_simulation_python/weight_gradient1_torch', grads['W1'])
-        Save_File('./original_torch_VS_simulation_python/loss_grad1_torch', dOut[1])
+        # Save_File('./original_torch_VS_simulation_python/weight_gradient1_torch', grads['W1'])
+        # Save_File('./original_torch_VS_simulation_python/loss_grad1_torch', dOut[1])
 
 
         dOut[0], grads['W0'], grads['gamma0'], grads['beta0'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
@@ -861,8 +861,8 @@ class DeepConvNetTorch(object):
             save_hex=self.save_hex,
             phase=self.phase,
         )
-        Save_File('./original_torch_VS_simulation_python/weight_gradient0_torch', grads['W0'])
-        Save_File('./original_torch_VS_simulation_python/loss_grad0_torch', dOut[0])
+        # Save_File('./original_torch_VS_simulation_python/weight_gradient0_torch', grads['W0'])
+        # Save_File('./original_torch_VS_simulation_python/loss_grad0_torch', dOut[0])
 
         return dOut, grads
 

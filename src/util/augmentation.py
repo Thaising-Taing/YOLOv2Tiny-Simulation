@@ -103,6 +103,8 @@ def random_distort(img, hue=.1, sat=1.5, val=1.5):
     return img
 
 
+
+
 def random_hue(img, rate=.1):
     """
     adjust hue
@@ -202,7 +204,7 @@ def augment_img(img, boxes, gt_classes):
             gt_classes = gt_classes[keep]
             break
 
-    img = random_distort(img, cfg.hue, cfg.saturation, cfg.exposure)
+    # img = random_distort(img, cfg.hue, cfg.saturation, cfg.exposure)
     return img, boxes, gt_classes
 
 
