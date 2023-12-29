@@ -25,7 +25,7 @@ class TorchSimulation(object):
         
         self.save_debug_data= False
         self.save_txt = False
-        self.save_bfloat16 = True
+        self.save_bfloat16 = False
         
         self.Mode                 = self.self.Mode     
         self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
