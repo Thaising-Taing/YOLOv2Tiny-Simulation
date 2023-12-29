@@ -11,7 +11,7 @@ import ctypes
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 warnings.simplefilter("ignore", UserWarning)
-libconv = ctypes.CDLL('/data/Circuit_Team/Junaid/yolov2/convolution_cuda.so')
+# libconv = ctypes.CDLL('/data/Circuit_Team/Junaid/yolov2/convolution_cuda.so')
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 

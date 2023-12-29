@@ -14,9 +14,9 @@ class Shoaib_Code(object):
         Running_Var_Dec = []     ,
         args            = []     ,
         pth_weights_path= ''     ,
-        lr              = 0.001  ,
-        momentum        = 0.001  , 
-        weight_decay    = 0.001  ,
+        lr              = 0.0001  ,
+        momentum        = 0.9  , 
+        weight_decay    = 0.0005  ,
         model           = []     ,
         optim           = []     ,
         ):

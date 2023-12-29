@@ -16,6 +16,7 @@ import math
 
 # Zip the pickle file
 import bz2file as bz2
+SAVE_RESULTS = False
 
 torch.manual_seed(3407)
 
@@ -709,6 +710,12 @@ class DeepConvNetTorch(object):
 
 
         out = Out[8]
+<<<<<<< HEAD
+=======
+        # print('\n\nFwd Out', out.dtype, out[out != 0], '\n\n')
+
+        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/out_torch', out)
+>>>>>>> b51e4d2e2af88c235adf280e8ffdd453999ea9f8
 
         return out, cache, Out
 
@@ -774,6 +781,12 @@ class DeepConvNetTorch(object):
                                                                   save_hex=True,
                                                                   phase=self.phase)
 
+<<<<<<< HEAD
+=======
+        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient8_torch', grads['W8'])
+        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad8_torch', dOut[8])
+
+>>>>>>> b51e4d2e2af88c235adf280e8ffdd453999ea9f8
 
         dw, db = grads['W8'], grads['b8'] 
         last_dout = dOut[8]
@@ -843,6 +856,12 @@ class DeepConvNetTorch(object):
             phase=self.phase,
         )
 
+<<<<<<< HEAD
+=======
+        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient1_torch', grads['W1'])
+        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad1_torch', dOut[1])
+
+>>>>>>> b51e4d2e2af88c235adf280e8ffdd453999ea9f8
 
         dOut[0], grads['W0'], grads['gamma0'], grads['beta0'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[1],
@@ -852,6 +871,11 @@ class DeepConvNetTorch(object):
             save_hex=self.save_hex,
             phase=self.phase,
         )
+<<<<<<< HEAD
+=======
+        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient0_torch', grads['W0'])
+        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad0_torch', dOut[0])
+>>>>>>> b51e4d2e2af88c235adf280e8ffdd453999ea9f8
 
         return dOut, grads
 
@@ -2402,8 +2426,8 @@ class Torch_SpatialBatchNorm(object):
 
         output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
         
-        running_mean = running_mean * momentum + (1 - momentum) * avg
-        running_var = running_var * momentum + (1 - momentum) * scale
+        running_mean = running_mean.cpu() * momentum + (1 - momentum) * avg
+        running_var = running_var.cpu() * momentum + (1 - momentum) * scale
         
         cache = (x, gamma, beta, output, var, scale, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
         return output, cache
