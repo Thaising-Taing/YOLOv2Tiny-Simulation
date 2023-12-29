@@ -48,7 +48,6 @@ from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
-os.environ["CUDA_VISIBLE_DEVICES"]="7"
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
