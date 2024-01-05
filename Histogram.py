@@ -8,12 +8,14 @@ def load_pickle(Pickle_Path):
         data = pickle.load(handle)
     return data
 
-Output_PyTorch = load_pickle("/home/msis/Desktop/Python/yolov2/Thaising_Sim_PyTorch/Loss_Grad")
+Output_PyTorch = load_pickle("/home/msis/Desktop/Python/yolov2/Output_Sim_Python_Bfloat16/Backward_Input_Gradient_Layer5")
 print(Output_PyTorch.shape)
-Output_Wathna_PyTorch = load_pickle("/home/msis/Desktop/Python/yolov2/Wathna_PyTorch/Loss_Grad")
+print(Output_PyTorch[0][0][0][0:100])
+Output_Wathna_PyTorch = load_pickle("/home/msis/Desktop/Python/yolov2/Output_Sim_PyTorch_Bfloat16/Backward_Input_Gradient_Layer5")
 # Output_FPGA = np.array(Output_FPGA)
 # Output_FPGA = torch.tensor(np.concatenate(Output_FPGA, axis=0)).reshape(8, 3, 416, 416)
 print(Output_Wathna_PyTorch.shape)
+print(Output_Wathna_PyTorch[0][0][0][0:100])
 
 # Output_List = []
 # for i in range(8):
