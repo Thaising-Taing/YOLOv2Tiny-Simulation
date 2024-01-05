@@ -175,11 +175,11 @@ class App(customtkinter.CTk):
         self.PythonCUDA = customtkinter.CTkButton(self.mode_frame, text="Python CUDA" , command=self.PythonCUDA_click , width=button_width, height=button_height)
         self.PythonCUDA.place(x=10, y=250)
         
-        self.PythonCUDA = customtkinter.CTkButton(self.mode_frame, text="Python CUDA16" , command=self.PythonCUDA_click , width=button_width, height=button_height)
-        self.PythonCUDA.place(x=10, y=300)
+        self.PythonCUDA16 = customtkinter.CTkButton(self.mode_frame, text="Python CUDA16" , command=self.PythonCUDA16_click, width=button_width, height=button_height)
+        self.PythonCUDA16.place(x=10, y=300)
         
-        self.PythonCUDA = customtkinter.CTkButton(self.mode_frame, text="RFFP CUDA" , command=self.PythonCUDA_click , width=button_width, height=button_height)
-        self.PythonCUDA.place(x=10, y=350)
+        self.RFFP_CUDA = customtkinter.CTkButton(self.mode_frame, text="RFFP CUDA" , command=self.RFFP_CUDA_click , width=button_width, height=button_height)
+        self.RFFP_CUDA.place(x=10, y=350)
 
         self.FPGA_Python = customtkinter.CTkButton(self.mode_frame, text="FPGA"       , command=self.FPGA_Python_click , width=button_width, height=button_height)
         self.FPGA_Python.place(x=10, y=400)
@@ -654,9 +654,10 @@ class App(customtkinter.CTk):
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
         self.right_frame_2.lift(self.cover)
-        self.Show_Text(f"CUDA-32 mode selected.")
+        self.Show_Text(f"CUDA-16 mode selected.")
         self.update()
-    def RFFP_CUDA(self):
+        
+    def RFFP_CUDA_click(self):
         self.mode =  'RFFP_CUDA'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
@@ -680,7 +681,7 @@ class App(customtkinter.CTk):
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
         self.right_frame_2.lift(self.cover)
-        self.Show_Text(f"CUDA-32 mode selected.")
+        self.Show_Text(f"RFFP mode selected.")
         self.update()
     
     def FPGA_Python_click(self):
@@ -1296,7 +1297,7 @@ class App(customtkinter.CTk):
         if self.mode == "PytorchSim"   :  pass
         if self.mode == "PythonCUDA"   :  pass
         if self.mode == "PythonCUDA16" :  pass
-        if self.mode == "RFFP_CUDA" :  pass
+        if self.mode == "RFFP_CUDA"    :  pass
         if self.mode == "FPGA"         : self.FPGA.Before_Backward(self)
         
     def Backward(self):

@@ -37,7 +37,7 @@ class RFFP_CUDA(object):
                                         max_pools=[0, 1, 2, 3, 4],
                                         weight_scale='kaiming',
                                         batchnorm=True,
-                                        dtype=torch.float32, device='cpu')
+                                        dtype=torch.float32, device='cuda')
 
 
     def get_grads(self):

@@ -1,89 +1,15 @@
 import os
 import torch
 
+from copy import deepcopy as dc
+
 from Weight_Update_Algorithm.Test_with_train import *
-from Python_CUDA32_LN import *
 from Pre_Processing_Scratch.Pre_Processing import *
-    
-from Post_Processing_Scratch.Calculate_Loss_2Iterations import *
-def Save_File(path, data):
-    with open(path, 'wb') as handle:
-        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
-os.environ["CUDA_VISIBLE_DEVICES"] = '3'
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
-def save_pickle(Pickle_Path, Pickle_Data):
-    with open(Pickle_Path, 'wb') as handle:
-        pickle.dump(Pickle_Data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
-
-def save_file(fname, data, module=[], layer_no=[], save_txt=False, save_hex=False, phase=[]):
-    # print(f"Type of data: {type(data)}")
-    if save_txt or save_hex:
-        if type(data) is dict:
-            for _key in data.keys():
-                _fname = fname + f'_{_key}'
-                save_file(_fname, data[_key])
-
-        else:
-            if module == [] and layer_no == []:
-                Out_Path = f'Outputs_Python/{os.path.split(fname)[0]}'
-                fname = os.path.split(fname)[1]
-            else:
-                Out_Path = f'Outputs_Python/By_Layer/'
-                if layer_no != []: Out_Path += f'Layer{layer_no}/'
-                if module != []: Out_Path += f'{module}/'
-                if phase != []: Out_Path += f'{phase}/'
-                fname = fname
-
-            if save_txt: filename = os.path.join(Out_Path, fname + '.txt')
-            # if save_hex: hexname = os.path.join(Out_Path, fname + '_hex.txt')
-
-            Path(Out_Path).mkdir(parents=True, exist_ok=True)
-
-            if torch.is_tensor(data):
-                try:
-                    data = data.detach()
-                except:
-                    pass
-                data = data.numpy()
-
-            if save_txt: outfile = open(filename, mode='w')
-            if save_txt: outfile.write(f'{data.shape}\n')
-
-            # if save_hex: hexfile = open(hexname, mode='w')
-            # if save_hex: hexfile.write(f'{data.shape}\n')
-
-            if len(data.shape) == 0:
-                if save_txt: outfile.write(f'{data}\n')
-                # if save_hex: hexfile.write(f'{data}\n')
-                pass
-            elif len(data.shape) == 1:
-                for x in data:
-                    if save_txt: outfile.write(f'{x}\n')
-                    # if save_hex: hexfile.write(f'{convert_to_hex(x)}\n')
-                    pass
-            else:
-                w, x, y, z = data.shape
-                # if w != 0:
-                #     Out_Path += f'img{w+1}'
-                for _i in range(w):
-                    for _j in range(x):
-                        for _k in range(y):
-                            for _l in range(z):
-                                _value = data[_i, _j, _k, _l]
-                                if save_txt: outfile.write(f'{_value}\n')
-                                # if save_hex: hexfile.write(f'{convert_to_hex(_value)}\n')
-                                pass
-
-            # if save_hex: hexfile.close()
-            if save_txt: outfile.close()
-
-            if save_txt: print(f'\t\t--> Saved {filename}')
-            # if save_hex: print(f'\t\t--> Saved {hexname}')
+from src.Python_CUDA32_LN import *
 
 class CUDA32(object):
-    
+
     def __init__(self, parent):
         self.self           = parent
         self.model          = None
@@ -92,227 +18,169 @@ class CUDA32(object):
         self.scheduler      = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.train_loader   = None
-        self.save_debug_data = True
-        self.save_16_data = False
-        
+
+                
         self.Mode                 = self.self.Mode     
         self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
         self.Exponent_Bits        = self.self.Exponent_Bits             
-        self.Mantissa_Bits        = self.self.Mantissa_Bits             
+        self.Mantissa_Bits        = self.self.Mantissa_Bits   
 
-        self.PreProcessing = Pre_Processing(Mode =   self.Mode,
-                            Brain_Floating_Point =   self.Brain_Floating_Point,
-                            Exponent_Bits        =   self.Exponent_Bits,
-                            Mantissa_Bits        =   self.Mantissa_Bits)
+
+        self.PreProcessing = Pre_Processing(Mode =   self.self.Mode,
+                                Brain_Floating_Point =   self.self.Brain_Floating_Point,
+                                Exponent_Bits        =   self.self.Exponent_Bits,
+                                Mantissa_Bits        =   self.self.Mantissa_Bits)
+
+
+        self.python_model = DeepConvNet(input_dims=(3, 416, 416),
+                                        num_filters=[16, 32, 64, 128, 256, 512, 1024, 1024],
+                                        max_pools=[0, 1, 2, 3, 4],
+                                        weight_scale='kaiming',
+                                        batchnorm=True,
+                                        dtype=torch.float32, device='cuda')
+
+
+    def get_grads(self):
+        self.gWeight, self.gBias, self.gGamma, self.gBeta, self.gRunning_Mean_Dec, self.gRunning_Var_Dec = \
+            dc(self.Weight), dc(self.Bias), dc(self.Gamma), dc(self.Beta), dc(self.Running_Mean_Dec), dc(self.Running_Var_Dec)
+            
+        self.gWeight[0]  = self.grads['W0']              
+        self.gWeight[1]  = self.grads['W1']              
+        self.gWeight[2]  = self.grads['W2']              
+        self.gWeight[3]  = self.grads['W3']              
+        self.gWeight[4]  = self.grads['W4']              
+        self.gWeight[5]  = self.grads['W5']              
+        self.gWeight[6]  = self.grads['W6']              
+        self.gWeight[7]  = self.grads['W7']              
+        self.gWeight[8]  = self.grads['W8']              
+        self.gBias       = self.grads['b8']         
+        self.gGamma[0]   = self.grads['gamma0']                      
+        self.gGamma[1]   = self.grads['gamma1']                      
+        self.gGamma[2]   = self.grads['gamma2']                      
+        self.gGamma[3]   = self.grads['gamma3']                      
+        self.gGamma[4]   = self.grads['gamma4']                      
+        self.gGamma[5]   = self.grads['gamma5']                      
+        self.gGamma[6]   = self.grads['gamma6']                      
+        self.gGamma[7]   = self.grads['gamma7']                      
+        self.gBeta[0]    = self.grads['beta0']              
+        self.gBeta[1]    = self.grads['beta1']              
+        self.gBeta[2]    = self.grads['beta2']              
+        self.gBeta[3]    = self.grads['beta3']              
+        self.gBeta[4]    = self.grads['beta4']              
+        self.gBeta[5]    = self.grads['beta5']              
+        self.gBeta[6]    = self.grads['beta6']              
+        self.gBeta[7]    = self.grads['beta7']     
         
-    def load_weights(self, values):
-        if len(values)>4:
-            [self.Weight,     self.Bias,     self.Gamma,     self.Beta,     self.Running_Mean    , self.Running_Var    ] = values
-            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec] = values
-        else:
-            [self.Weight,     self.Bias,     self.Gamma,     self.Beta     ] = values
-            [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec ] = values
+    def get_weights(self):
+        self.Weight[0]              = self.python_model.params['W0']              
+        self.Weight[1]              = self.python_model.params['W1']              
+        self.Weight[2]              = self.python_model.params['W2']              
+        self.Weight[3]              = self.python_model.params['W3']              
+        self.Weight[4]              = self.python_model.params['W4']              
+        self.Weight[5]              = self.python_model.params['W5']              
+        self.Weight[6]              = self.python_model.params['W6']              
+        self.Weight[7]              = self.python_model.params['W7']              
+        self.Weight[8]              = self.python_model.params['W8']              
+        self.Bias                   = self.python_model.params['b8']         
+        self.Gamma[0]               = self.python_model.params['gamma0']                      
+        self.Gamma[1]               = self.python_model.params['gamma1']                      
+        self.Gamma[2]               = self.python_model.params['gamma2']                      
+        self.Gamma[3]               = self.python_model.params['gamma3']                      
+        self.Gamma[4]               = self.python_model.params['gamma4']                      
+        self.Gamma[5]               = self.python_model.params['gamma5']                      
+        self.Gamma[6]               = self.python_model.params['gamma6']                      
+        self.Gamma[7]               = self.python_model.params['gamma7']                      
+        self.Beta[0]                = self.python_model.params['beta0']              
+        self.Beta[1]                = self.python_model.params['beta1']              
+        self.Beta[2]                = self.python_model.params['beta2']              
+        self.Beta[3]                = self.python_model.params['beta3']              
+        self.Beta[4]                = self.python_model.params['beta4']              
+        self.Beta[5]                = self.python_model.params['beta5']              
+        self.Beta[6]                = self.python_model.params['beta6']              
+        self.Beta[7]                = self.python_model.params['beta7']              
+        self.Running_Mean_Dec[0]    = self.python_model.params['running_mean0']                        
+        self.Running_Mean_Dec[1]    = self.python_model.params['running_mean1']                        
+        self.Running_Mean_Dec[2]    = self.python_model.params['running_mean2']                        
+        self.Running_Mean_Dec[3]    = self.python_model.params['running_mean3']                        
+        self.Running_Mean_Dec[4]    = self.python_model.params['running_mean4']                        
+        self.Running_Mean_Dec[5]    = self.python_model.params['running_mean5']                        
+        self.Running_Mean_Dec[6]    = self.python_model.params['running_mean6']                        
+        self.Running_Mean_Dec[7]    = self.python_model.params['running_mean7']                        
+        self.Running_Var_Dec[0]     = self.python_model.params['running_var0']                       
+        self.Running_Var_Dec[1]     = self.python_model.params['running_var1']                       
+        self.Running_Var_Dec[2]     = self.python_model.params['running_var2']                       
+        self.Running_Var_Dec[3]     = self.python_model.params['running_var3']                       
+        self.Running_Var_Dec[4]     = self.python_model.params['running_var4']                       
+        self.Running_Var_Dec[5]     = self.python_model.params['running_var5']                       
+        self.Running_Var_Dec[6]     = self.python_model.params['running_var6']                       
+        self.Running_Var_Dec[7]     = self.python_model.params['running_var7']                       
         
+        
+    def load_weights(self, data):
+        try: self.Weight, self.Bias, self.Gamma, self.Beta, self.Running_Mean_Dec, self.Running_Var_Dec = data
+        except: self.Weight, self.Bias, self.Gamma, self.Beta = data
+        self.python_model.params['W0']            = self.Weight[0]
+        self.python_model.params['W1']            = self.Weight[1]
+        self.python_model.params['W2']            = self.Weight[2]
+        self.python_model.params['W3']            = self.Weight[3]
+        self.python_model.params['W4']            = self.Weight[4]
+        self.python_model.params['W5']            = self.Weight[5]
+        self.python_model.params['W6']            = self.Weight[6]
+        self.python_model.params['W7']            = self.Weight[7]
+        self.python_model.params['W8']            = self.Weight[8]
+        self.python_model.params['b8']            = self.Bias
+        self.python_model.params['gamma0']        = self.Gamma[0]
+        self.python_model.params['gamma1']        = self.Gamma[1]
+        self.python_model.params['gamma2']        = self.Gamma[2]
+        self.python_model.params['gamma3']        = self.Gamma[3]
+        self.python_model.params['gamma4']        = self.Gamma[4]
+        self.python_model.params['gamma5']        = self.Gamma[5]
+        self.python_model.params['gamma6']        = self.Gamma[6]
+        self.python_model.params['gamma7']        = self.Gamma[7]
+        self.python_model.params['beta0']         = self.Beta[0]
+        self.python_model.params['beta1']         = self.Beta[1]
+        self.python_model.params['beta2']         = self.Beta[2]
+        self.python_model.params['beta3']         = self.Beta[3]
+        self.python_model.params['beta4']         = self.Beta[4]
+        self.python_model.params['beta5']         = self.Beta[5]
+        self.python_model.params['beta6']         = self.Beta[6]
+        self.python_model.params['beta7']         = self.Beta[7]
+        self.python_model.params['running_mean0'] = self.Running_Mean_Dec[0]
+        self.python_model.params['running_mean1'] = self.Running_Mean_Dec[1]
+        self.python_model.params['running_mean2'] = self.Running_Mean_Dec[2]
+        self.python_model.params['running_mean3'] = self.Running_Mean_Dec[3]
+        self.python_model.params['running_mean4'] = self.Running_Mean_Dec[4]
+        self.python_model.params['running_mean5'] = self.Running_Mean_Dec[5]
+        self.python_model.params['running_mean6'] = self.Running_Mean_Dec[6]
+        self.python_model.params['running_mean7'] = self.Running_Mean_Dec[7]
+        self.python_model.params['running_var0']  = self.Running_Var_Dec[0]
+        self.python_model.params['running_var1']  = self.Running_Var_Dec[1]
+        self.python_model.params['running_var2']  = self.Running_Var_Dec[2]
+        self.python_model.params['running_var3']  = self.Running_Var_Dec[3]
+        self.python_model.params['running_var4']  = self.Running_Var_Dec[4]
+        self.python_model.params['running_var5']  = self.Running_Var_Dec[5]
+        self.python_model.params['running_var6']  = self.Running_Var_Dec[6]
+        self.python_model.params['running_var7']  = self.Running_Var_Dec[7]
+
+    def Before_Forward(self,Input):
+        pass
+
     def Forward(self, data):
-        
         self.gt_boxes       = data.gt_boxes  
         self.gt_classes     = data.gt_classes
         self.num_boxes      = data.num_obj 
         self.num_obj        = data.num_obj 
-        self.image          = data.im_data
-        self.im_data        = data.im_data
+        self.image          = data.im_data.cuda()
         
-        im_data             = self.im_data.cuda()
-        Weight_Tensor       = self.Weight_Dec
-        Gamma_Tensor        = self.Gamma_Dec
-        Beta_Tensor         = self.Beta_Dec
-        bias                = self.Bias_Dec
-        running_mean        = self.Running_Mean_Dec
-        running_var         = self.Running_Var_Dec
-        filter_size     = 3
-        conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
-        pool_param_stride2 = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
-        cache = {}
-        temp_Out = {}
-        temp_cache = {}
-
-        # Layer0: Conv-BN-ReLU-Pool
-        temp_Out[0], temp_cache['0'] = Python_Conv_Pool.forward(im_data, Weight_Tensor[0], conv_param, pool_param_stride2)
-
-        mean, var = Cal_mean_var_junaid.forward(temp_Out[0])
+        X = data.im_data
+        self.out, self.cache, self.Out_all_layers = self.python_model.forward(X)
         
-        Out0, cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.forward(im_data, Weight_Tensor[0], Gamma_Tensor[0],
-                                                                Beta_Tensor[0], conv_param, running_mean[0], 
-                                                                running_var[0], mean, var, pool_param_stride2)
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Image", im_data)
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Conv_0", Weight_Tensor[0])
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_Forward0", Out0)
-  
- 
-
-        # Layer1: Conv-BN-ReLU-Pool
-        temp_Out[1], temp_cache['1'] = Python_Conv.forward(Out0, Weight_Tensor[1], conv_param)
-        mean, var = Cal_mean_var.forward(temp_Out[1])
         
-        Out1, cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out0, Weight_Tensor[1], Gamma_Tensor[1], Beta_Tensor[1],
-                                                                conv_param, running_mean[1], running_var[1],
-                                                                mean, var, pool_param_stride2)
-
-        # Layer2: Conv-BN-ReLU-Pool
-        temp_Out[2], temp_cache['2'] = Python_Conv.forward(Out1, Weight_Tensor[2], conv_param)
-
-        mean, var = Cal_mean_var.forward(temp_Out[2])
-
-        Out2, cache['2'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out1, Weight_Tensor[2], Gamma_Tensor[2], Beta_Tensor[2],
-                                                                conv_param, running_mean[2], running_var[2],
-                                                                mean, var, pool_param_stride2)
-
-        # Layer3: Conv-BN-ReLU-Pool
-        temp_Out[3], temp_cache['3'] = Python_Conv.forward(Out2, Weight_Tensor[3], conv_param)
-
-        mean, var = Cal_mean_var.forward(temp_Out[3])
-        
-        Out3, cache['3'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out2, Weight_Tensor[3], Gamma_Tensor[3], Beta_Tensor[3],
-                                                                conv_param, running_mean[3], running_var[3],
-                                                                mean, var, pool_param_stride2)
-
-        # Layer4: Conv-BN-ReLU-Pool
-        temp_Out[4], temp_cache['4'] = Python_Conv.forward(Out3, Weight_Tensor[4], conv_param)
-
-        mean, var = Cal_mean_var.forward(temp_Out[4])
-        
-        Out4, cache['4'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], Beta_Tensor[4],
-                                                                conv_param, running_mean[4], running_var[4],
-                                                                mean, var, pool_param_stride2)
-
-        # Layer5: Conv-BN-ReLU
-        temp_Out[5], temp_cache['5'] = Python_Conv.forward(Out4, Weight_Tensor[5], conv_param)
-
-        mean, var = Cal_mean_var.forward(temp_Out[5])
-
-        Out5, cache['5'] = Python_Conv_BatchNorm_ReLU.forward(Out4, Weight_Tensor[5], Gamma_Tensor[5], Beta_Tensor[5],
-                                                            conv_param, running_mean[5], running_var[5],
-                                                            mean, var)
-
-        # Layer6: Conv-BN-ReLU
-        temp_Out[6], temp_cache['6'] = Python_Conv.forward(Out5, Weight_Tensor[6], conv_param)
-      
-        mean, var = Cal_mean_var.forward(temp_Out[6])
-
-        Out6, cache['6'] = Python_Conv_BatchNorm_ReLU.forward(Out5, Weight_Tensor[6], Gamma_Tensor[6],
-                                                            Beta_Tensor[6], conv_param, running_mean[6], running_var[6],
-                                                            mean, var)
-
-        # Layer7: Conv-BN-ReLU
-        temp_Out[7], temp_cache['7'] = Python_Conv.forward(Out6, Weight_Tensor[7], conv_param)
-
-        mean, var = Cal_mean_var.forward(temp_Out[7])
-   
-        Out7, cache['7'] = Python_Conv_BatchNorm_ReLU.forward(Out6, Weight_Tensor[7], Gamma_Tensor[7], Beta_Tensor[7],
-                                                            conv_param, running_mean[7], running_var[7],
-                                                            mean, var)
-
-        # Layer8: ConvWB
-        conv_param['pad'] = 0
-        Out8, cache['8'] = Python_ConvB.forward(Out7, Weight_Tensor[8], bias, conv_param)
-        Output_Image = Out8
-        self.Output_Image, self.cache = Output_Image, cache 
-        Output_Image16 = Output_Image.to(torch.bfloat16)
-
-        if self.save_debug_data: 
-           if self.save_16_data: 
-            Save_File("./Output_Sim_Python/Output_Forward", Output_Image16)
-           else:
-            Save_File("./Output_Sim_Python/Output_Forward", Output_Image)  
-        # return Output_Image, cache
-    
     def Calculate_Loss(self,data):
-        self.Loss, self.Loss_Gradient = loss(out=self.Output_Image, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_boxes)
+        out = self.out
+        self.loss, self.dout = self.python_model.loss(out, self.gt_boxes, self.gt_classes, self.num_boxes)
         
     def Backward(self,data):
-
-        Loss_Gradient, cache = self.Loss_Gradient, self.cache
-        Loss_Gradient16 = Loss_Gradient.to(torch.bfloat16)
-        if self.save_debug_data: 
-            if self.save_16_data: 
-                Save_File("./Output_Sim_Python/Loss_Gradient", Loss_Gradient16)
-            else:
-                Save_File("./Output_Sim_Python/Loss_Gradient", Loss_Gradient)
-        Input_Grad_Layer8, Weight_Gradient_Layer8, Bias_Grad  = Python_ConvB.backward(Loss_Gradient, cache['8'])
-        Input_Grad_Layer8_16 = Input_Grad_Layer8.to(torch.bfloat16)
-        Weight_Gradient_Layer8_16 = Weight_Gradient_Layer8.to(torch.bfloat16)
-        if self.save_debug_data: 
-            if self.save_16_data: 
-                Save_File("./Output_Sim_Python/Layer_8_Backward_Input_Gradient", Input_Grad_Layer8_16)
-            else:
-                Save_File("./Output_Sim_Python/Layer_8_Backward_Input_Gradient", Input_Grad_Layer8)
-        if self.save_debug_data: 
-            if self.save_16_data: 
-                Save_File("./Output_Sim_Python/Layer_8_Backward_Weight_Gradient", Weight_Gradient_Layer8_16)
-            else:
-                Save_File("./Output_Sim_Python/Layer_8_Backward_Weight_Gradient", Weight_Gradient_Layer8)
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Bias_Grad", Bias_Grad)
-        Input_Grad_Layer7, Weight_Gradient_Layer7, Gamma_Gradient_Layer7, Beta_Gradient_Layer7  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer8, cache['7'])
-        Input_Grad_Layer7_16 = Input_Grad_Layer7.to(torch.bfloat16)
-        Weight_Gradient_Layer7_16 = Weight_Gradient_Layer7.to(torch.bfloat16)
-        if self.save_debug_data: 
-            if self.save_16_data: 
-                Save_File("./Output_Sim_Python/Layer_7_Backward_Input_Gradient", Input_Grad_Layer7_16)
-            else:
-                Save_File("./Output_Sim_Python/Layer_7_Backward_Input_Gradient", Input_Grad_Layer7)
-        if self.save_debug_data: 
-            if self.save_16_data: 
-                Save_File("./Output_Sim_Python/Layer_7_Backward_Weight_Gradient", Weight_Gradient_Layer7_16)
-            else:
-                Save_File("./Output_Sim_Python/Layer_7_Backward_Weight_Gradient", Weight_Gradient_Layer7)
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer7", Gamma_Gradient_Layer7)
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer7", Beta_Gradient_Layer7)
-        Input_Grad_Layer6, Weight_Gradient_Layer6, Gamma_Gradient_Layer6, Beta_Gradient_Layer6  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer7, cache['6'])
-        Input_Grad_Layer5, Weight_Gradient_Layer5, Gamma_Gradient_Layer5, Beta_Gradient_Layer5  = Python_Conv_BatchNorm_ReLU.backward (Input_Grad_Layer6, cache['5'])
-        Input_Grad_Layer4, Weight_Gradient_Layer4, Gamma_Gradient_Layer4, Beta_Gradient_Layer4  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer5, cache['4'])
-        Input_Grad_Layer3, Weight_Gradient_Layer3, Gamma_Gradient_Layer3, Beta_Gradient_Layer3  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer4, cache['3'])
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Grad_Layer3", Input_Grad_Layer3)
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Gradient_Layer3", Weight_Gradient_Layer3)            
-        Input_Grad_Layer2, Weight_Gradient_Layer2, Gamma_Gradient_Layer2, Beta_Gradient_Layer2  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer3, cache['2'])
-        Input_Grad_Layer2_16 = Input_Grad_Layer2.to(torch.bfloat16)
-        Weight_Gradient_Layer2_16 = Weight_Gradient_Layer2.to(torch.bfloat16)
-        if self.save_debug_data: 
-            if self.save_16_data: 
-                Save_File("./Output_Sim_Python/Layer_2_Backward_Input_Gradient", Input_Grad_Layer2_16)
-            else:
-                 Save_File("./Output_Sim_Python/Layer_2_Backward_Input_Gradient", Input_Grad_Layer2)
-        if self.save_debug_data: 
-            if self.save_16_data: 
-                Save_File("./Output_Sim_Python/Layer_2_Backward_Weight_Gradient", Weight_Gradient_Layer2_16)
-            else:
-                Save_File("./Output_Sim_Python/Layer_2_Backward_Weight_Gradient", Weight_Gradient_Layer2)
-                
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer2", Gamma_Gradient_Layer2)
-        if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer2", Beta_Gradient_Layer2)        
-        Input_Grad_Layer1, Weight_Gradient_Layer1, Gamma_Gradient_Layer1, Beta_Gradient_Layer1  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer2, cache['1'])
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Grad_Layer1", Input_Grad_Layer1)
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Gradient_Layer1", Weight_Gradient_Layer1)
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer1", Gamma_Gradient_Layer1)
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer1", Beta_Gradient_Layer1)
-        Input_Grad_Layer0, Weight_Gradient_Layer0, Gamma_Gradient_Layer0, Beta_Gradient_Layer0  = Python_Conv_BatchNorm_ReLU_Pool.backward (Input_Grad_Layer1, cache['0'])
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Grad_Layer0", Input_Grad_Layer0)
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Gradient_Layer0", Weight_Gradient_Layer0)
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Gamma_Gradient_Layer0", Gamma_Gradient_Layer0)
-        # if self.save_debug_data: Save_File("./Output_Sim_Python/Beta_Gradient_Layer0", Beta_Gradient_Layer0)
-        
-        # Gradient Value for Weight Update
-        self.gWeight = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 
-                        Weight_Gradient_Layer4, Weight_Gradient_Layer5, Weight_Gradient_Layer6, Weight_Gradient_Layer7, 
-                        Weight_Gradient_Layer8]
-        
-        self.gBias  = Bias_Grad
-        
-        self.gGamma = [Gamma_Gradient_Layer0, Gamma_Gradient_Layer1, Gamma_Gradient_Layer2, Gamma_Gradient_Layer3, 
-                        Gamma_Gradient_Layer4, Gamma_Gradient_Layer5, Gamma_Gradient_Layer6, Gamma_Gradient_Layer7]
-        
-        self.gBeta  = [Beta_Gradient_Layer0, Beta_Gradient_Layer1, Beta_Gradient_Layer2, Beta_Gradient_Layer3, 
-                        Beta_Gradient_Layer4, Beta_Gradient_Layer5,Beta_Gradient_Layer6, Beta_Gradient_Layer7]
-        
-        
-        
-        # return Weight_Gradient, Bias_Grad, Gamma_Gradient, Beta_Gradient
+        self.dout, self.grads = self.python_model.backward(self.dout, self.cache)
+        self.get_weights()
+        self.get_grads()
