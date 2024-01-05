@@ -12,7 +12,7 @@ import os
 import os.path as osp
 
 root_dir = osp.join(osp.dirname(__file__), '..')
-data_dir = osp.join(root_dir, 'data')
+data_dir = osp.join(root_dir, '../../Dataset/Dataset')
 
 
 class imdb(object):

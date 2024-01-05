@@ -47,13 +47,12 @@ from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"]="7"
+os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
 from Thaising_Python import PythonSimulation
-from Junaid import Junaid
+# from Junaid import Junaid
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -62,7 +61,7 @@ MAX_LINE_LENGTH = 1000
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
-save_debug_data = False
+save_debug_data = True
 
 
 class App(customtkinter.CTk):
@@ -556,7 +555,7 @@ class App(customtkinter.CTk):
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        
+       
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
         self.right_frame_2.lower(self.cover)
@@ -882,12 +881,12 @@ class App(customtkinter.CTk):
             # self.data_iter = iter(self.small_train_dataloader)
             self.Adjust_Learning_Rate()
             
-            for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
-            # for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+            # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
+            for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
                 # self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
@@ -921,9 +920,9 @@ class App(customtkinter.CTk):
         self.data_iter = iter(self.test_dataloader)
         
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
-            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
             # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
             self.Before_Forward() ######################### - Individual Functions
@@ -956,9 +955,9 @@ class App(customtkinter.CTk):
         self.whole_process_start = time.time()
         self.data_iter = iter(self.small_test_dataloader)
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
-            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
             # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
+            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
             self.Before_Forward() ######################### - Individual Functions
@@ -1025,13 +1024,13 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=160, type=int)
+                            default=1, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=16, type=int)
+                            default=8, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
-                            default=16, type=int)
+                            default=10, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
                             default=8, type=int)
         parser.add_argument('--nw', dest='num_workers',
@@ -1042,8 +1041,8 @@ class App(customtkinter.CTk):
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
-                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
-                            # default="Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth", type=str)
+                            # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            default="Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
@@ -1145,13 +1144,13 @@ class App(customtkinter.CTk):
         self.test_dataset = self.get_dataset(self.imdb_test_name)
         # Whole Training Dataset 
         self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-            # # Small Training Dataset
-            # self.small_test_dataset = torch.utils.data.Subset(self.test_dataloader, range(0, self.args.total_inference_set))
-            # # print("Sub Training Dataset: " + str(len(small_dataset)))
-            # self.s = time.time()
-            # self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-            # self.e = time.time()
-            # print("Data Loader : ",self.e-self.s)
+        # Small Training Dataset
+        self.small_test_dataset = torch.utils.data.Subset(self.test_dataloader, range(0, self.args.total_inference_set))
+        # print("Sub Training Dataset: " + str(len(small_dataset)))
+        self.s = time.time()
+        self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.e = time.time()
+        print("Data Loader : ",self.e-self.s)
         self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
@@ -1523,4 +1522,3 @@ class App(customtkinter.CTk):
 if __name__ == "__main__":
     app = App()
     app.mainloop()
-

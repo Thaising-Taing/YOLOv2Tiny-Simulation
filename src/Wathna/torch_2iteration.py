@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from my_config import config as cfg
+from config import config as cfg
 from pathlib import Path
 from torch.autograd import Variable
 import numpy as np
@@ -16,7 +16,6 @@ import math
 
 # Zip the pickle file
 import bz2file as bz2
-SAVE_RESULTS = False
 
 torch.manual_seed(3407)
 
@@ -25,6 +24,7 @@ warnings.simplefilter("ignore", UserWarning)
 def Save_File(path, data):
     with open(path, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 def convert_to_hex(value):
     # We will Use Single-Precision, Truncated and Rounding into Brain Floating Point
@@ -429,6 +429,21 @@ class DeepConvNetTorch(object):
 
         # return out, cache, loss, loss_grad, lDout, grads
         return out, loss
+    
+    def forward_pred(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
+
+        bsize, _, h, w = out.size()
+
+        out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 25)
+
+        xy_pred = torch.sigmoid(out[:, :, 0:2])
+        conf_pred = torch.sigmoid(out[:, :, 4:5])
+        hw_pred = torch.exp(out[:, :, 2:4])
+        class_score = out[:, :, 5:]
+        class_pred = F.softmax(class_score, dim=-1)
+        delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
+
+        return delta_pred, conf_pred, class_pred
 
     def forward(self, X):
         y = 1
@@ -469,6 +484,8 @@ class DeepConvNetTorch(object):
         temp_cache = {}
         
         #0
+        # Save_File('PyTorch_Output/Input_Image', X.to(torch.bfloat16))
+        # # Save_File('PyTorch_Output/img_torch', X)
         temp_Out[0], temp_cache['0'] = Torch_Conv_Pool.forward(X,
                                                     self.params['W0'],
                                                     conv_param,
@@ -495,6 +512,10 @@ class DeepConvNetTorch(object):
                                                     save_hex=self.save_hex,
                                                     phase=self.phase,
                                                     )
+        # # Save_File('PyTorch_Output/Weights0', self.params['W0'])
+        # Save_File('PyTorch_Output/Weight_Conv_0', self.params['W0'].to(torch.bfloat16))
+        # # Save_File('PyTorch_Output/Out1_2ndIter', Out[0])
+
         #1   
         temp_Out[1], temp_cache['1'] = Torch_FastConv.forward(Out[0],
                                                     self.params['W1'],
@@ -712,7 +733,9 @@ class DeepConvNetTorch(object):
         out = Out[8]
         # print('\n\nFwd Out', out.dtype, out[out != 0], '\n\n')
 
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/out_torch', out)
+        # Save_File('PyTorch_Output/Output_Forward', out.to(torch.bfloat16))
+
+        # # Save_File('PyTorch_Output/Out_last', out)
 
         return out, cache, Out
 
@@ -771,6 +794,9 @@ class DeepConvNetTorch(object):
         dOut = {}
         self.phase = 'Backwards'
 
+        # Save_File('PyTorch_Output/Loss_Gradient', dout.to(torch.bfloat16))
+
+
         dOut[8], grads['W8'], grads['b8'] = Torch_FastConvWB.backward(dout,
                                                                   cache['8'],
                                                                   layer_no=8,
@@ -778,8 +804,9 @@ class DeepConvNetTorch(object):
                                                                   save_hex=True,
                                                                   phase=self.phase)
 
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient8_torch', grads['W8'])
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad8_torch', dOut[8])
+
+        # Save_File('PyTorch_Output/Layer_8_Backward_Input_Gradient', dOut[8].to(torch.bfloat16))
+        # Save_File('PyTorch_Output/Layer_8_Backward_Weight_Gradient', grads['W8'].to(torch.bfloat16))
 
 
         dw, db = grads['W8'], grads['b8'] 
@@ -794,7 +821,9 @@ class DeepConvNetTorch(object):
             phase=self.phase,
         )
 
-  
+        # Save_File('PyTorch_Output/Layer_7_Backward_Input_Gradient', dOut[7].to(torch.bfloat16))
+        # Save_File('PyTorch_Output/Layer_7_Backward_Weight_Gradient', grads['W7'].to(torch.bfloat16))
+
 
         dOut[6], grads['W6'], grads['gamma6'], grads['beta6'] = Torch_Conv_BatchNorm_ReLU.backward(
             dOut[7],
@@ -805,6 +834,10 @@ class DeepConvNetTorch(object):
             phase=self.phase,
         )
 
+        # Save_File('PyTorch_Output/Layer_6_Backward_Input_Gradient', dOut[6].to(torch.bfloat16))
+        # Save_File('PyTorch_Output/Layer_6_Backward_Weight_Gradient', grads['W6'].to(torch.bfloat16))
+
+
         dOut[5], grads['W5'], grads['gamma5'], grads['beta5'] = Torch_Conv_BatchNorm_ReLU.backward(
             dOut[6],
             cache['5'],
@@ -813,6 +846,10 @@ class DeepConvNetTorch(object):
             save_hex=self.save_hex,
             phase=self.phase,
         )
+
+
+        # Save_File('PyTorch_Output/Layer_5_Backward_Input_Gradient', dOut[5].to(torch.bfloat16))
+        # Save_File('PyTorch_Output/Layer_5_Backward_Weight_Gradient', grads['W5'].to(torch.bfloat16))
 
         dOut[4], grads['W4'], grads['gamma4'], grads['beta4'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[5],
@@ -841,6 +878,9 @@ class DeepConvNetTorch(object):
             phase=self.phase,
         )
 
+        # Save_File('PyTorch_Output/Layer_2_Backward_Input_Gradient', dOut[2].to(torch.bfloat16))
+        # Save_File('PyTorch_Output/Layer_2_Backward_Weight_Gradient', grads['W2'].to(torch.bfloat16))
+
         dOut[1], grads['W1'], grads['gamma1'], grads['beta1'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[2],
             cache['1'],
@@ -850,8 +890,7 @@ class DeepConvNetTorch(object):
             phase=self.phase,
         )
 
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient1_torch', grads['W1'])
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad1_torch', dOut[1])
+
 
 
         dOut[0], grads['W0'], grads['gamma0'], grads['beta0'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
@@ -862,8 +901,7 @@ class DeepConvNetTorch(object):
             save_hex=self.save_hex,
             phase=self.phase,
         )
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient0_torch', grads['W0'])
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad0_torch', dOut[0])
+
 
         return dOut, grads
 
@@ -2414,8 +2452,8 @@ class Torch_SpatialBatchNorm(object):
 
         output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
         
-        running_mean = running_mean.cpu() * momentum + (1 - momentum) * avg
-        running_var = running_var.cpu() * momentum + (1 - momentum) * scale
+        running_mean = running_mean * momentum + (1 - momentum) * avg
+        running_var = running_var * momentum + (1 - momentum) * scale
         
         cache = (x, gamma, beta, output, var, scale, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
         return output, cache

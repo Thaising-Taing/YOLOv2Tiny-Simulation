@@ -11,8 +11,13 @@ import ctypes
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 warnings.simplefilter("ignore", UserWarning)
+<<<<<<< HEAD
 libconv = ctypes.CDLL('/data/Circuit_Team/Junaid/yolov2/convolution_cuda.so')
+os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+=======
+# libconv = ctypes.CDLL('/data/Circuit_Team/Junaid/yolov2/convolution_cuda.so')
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+>>>>>>> b51e4d2e2af88c235adf280e8ffdd453999ea9f8
 
 
 # Python_Convolution without Bias
@@ -79,9 +84,7 @@ class Python_Conv(object):
         libconv.conv2d_backward_dw(
             N, C, H, W, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), 
             F, HH, WW,ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), ctypes.cast(dw_ptr,ctypes.POINTER(ctypes.c_float)), H, W, stride, pad)
-        
-        
-
+           
         reshaped_w = w.permute(1, 0, 2, 3)
         w_flipped = torch.flip(reshaped_w, dims=(2, 3))
         FF, CC, HH, WW = w_flipped.shape

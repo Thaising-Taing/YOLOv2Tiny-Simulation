@@ -685,12 +685,10 @@ class Cal_mean_var(object):
 '''
 
 class Cal_mean_var(object):
-
+    import math
     @staticmethod
     def forward(x):
-    
         out, cache = None, None
-        
         eps = 1e-5
         num_chunks = 8
         B, C, H, W = x.shape
@@ -698,12 +696,15 @@ class Cal_mean_var(object):
         y = y.view(C, num_chunks, B * H * W // num_chunks)
         avg_max = y.max(-1)[0].mean(-1)  # C
         avg_min = y.min(-1)[0].mean(-1)  # C
-        # avg_max = y.max(-1)[0].max(-1)[0]  # C
-        # avg_min = y.min(-1)[0].min(-1)[0]  # C
         avg = y.view(C, -1).mean(-1)  # C
         max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
         min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
         scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
+<<<<<<< HEAD
+        scale_ = 1 / ((avg_max - avg_min) * scale_fix) 
+        avg = avg.view(1, -1, 1, 1)
+        scale_ = scale_.view(1, -1, 1, 1)
+=======
         # scale_fix = 1 / ((2 * math.log(num_chunks)) ** 0.5)
         scale = 1 / ((avg_max - avg_min) * scale_fix + eps) 
         # scale_ = 1 / ((avg_max - avg_min) * scale_fix) 
@@ -712,6 +713,7 @@ class Cal_mean_var(object):
         # scale_ = scale_.view(1, -1, 1, 1)
         scale = scale.view(1, -1, 1, 1)
 
+>>>>>>> b51e4d2e2af88c235adf280e8ffdd453999ea9f8
         cache = x
         return avg, scale
     

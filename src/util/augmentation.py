@@ -105,6 +105,8 @@ def random_distort(img, hue=.1, sat=1.5, val=1.5):
     return img
 
 
+
+
 def random_hue(img, rate=.1):
     """
     adjust hue
