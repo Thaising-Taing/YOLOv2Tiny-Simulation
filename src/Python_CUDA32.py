@@ -2,7 +2,7 @@ import os
 import torch
 
 from Weight_Update_Algorithm.Test_with_train import *
-from Pre_Processing_Scratch.Neural_Network_Operations_Python_LightNorm_Junaid import *
+from Python_CUDA32_LN import *
 from Pre_Processing_Scratch.Pre_Processing import *
     
 from Post_Processing_Scratch.Calculate_Loss_2Iterations import *
@@ -82,7 +82,7 @@ def save_file(fname, data, module=[], layer_no=[], save_txt=False, save_hex=Fals
             if save_txt: print(f'\t\t--> Saved {filename}')
             # if save_hex: print(f'\t\t--> Saved {hexname}')
 
-class Junaid(object):
+class CUDA32(object):
     
     def __init__(self, parent):
         self.self           = parent

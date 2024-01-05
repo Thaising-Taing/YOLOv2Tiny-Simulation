@@ -18,7 +18,8 @@ import time
 
 # Zip the pickle file
 import bz2file as bz2
-libconv = ctypes.CDLL('/data/Circuit_Team/Junaid/yolov2/convolution_cuda.so')
+libpool = ctypes.CDLL('convolution_cuda.so')
+libconv = ctypes.CDLL('SEFP.so')
 warnings.simplefilter("ignore", UserWarning)
 
 def Save_File(path, data):
@@ -1774,27 +1775,28 @@ class Python_Conv(object):
         x = x.to(device)
         w = w.to(device)
         out = None
-        # pad = conv_param['pad']
         pad = 1
         stride = conv_param['stride']
         N, C, H, W = x.shape
         F, C, HH, WW = w.shape
+        exp_bits = 8
+        pad = conv_param['pad']
         H_out = int(1 + (H + 2 * pad - HH) / stride)
         W_out = int(1 + (W + 2 * pad - WW) / stride)
-       
-        _curr_time = time.time()
-        out = torch.zeros((N, F, H_out, W_out), dtype=x.dtype, device= "cuda")
-        input_ptr = x.flatten().contiguous().data_ptr()
-        kernel_ptr = w.flatten().contiguous().data_ptr()
+        out = torch.zeros((N, F, H_out, W_out), dtype=torch.float32, device="cuda")
         output_ptr = out.flatten().contiguous().data_ptr()
+        x_ptr = x.flatten().contiguous().data_ptr()
+        w_ptr = w.flatten().contiguous().data_ptr()
 
-        libconv.conv2d(N, C, H, W, ctypes.cast(input_ptr, ctypes.POINTER(ctypes.c_float)),
-               F, HH, WW, ctypes.cast(kernel_ptr, ctypes.POINTER(ctypes.c_float)),
-               ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_float)),
-               pad, stride)
+        libconv.conv2d(N, C, H, W, 
+               F, HH, WW, 
+               ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)),
+               ctypes.cast(w_ptr, ctypes.POINTER(ctypes.c_float)),
+               ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_float)),        
+               pad, stride, exp_bits)
+            
         out = out.reshape(N, F, H_out, W_out)
-        _time= (time.time() - _curr_time)  
-        # print("Time taken by Layer is: ",_time)
+
         cache = (x, w, conv_param)
  
         return out, cache
@@ -1823,11 +1825,13 @@ class Python_Conv(object):
         dout_ptr = dout_gpu.flatten().data_ptr()
         dw_ptr = dw.flatten().data_ptr()
         dx_ptr = dx.flatten().data_ptr()
-        _curr_time = time.time()
 
+        exp_bits = 8
         libconv.conv2d_backward_dw(
             N, C, H, W, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), 
-            F, HH, WW,ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), ctypes.cast(dw_ptr,ctypes.POINTER(ctypes.c_float)), H, W, stride, pad)
+            F, HH, WW,ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), 
+            ctypes.cast(dw_ptr,ctypes.POINTER(ctypes.c_float)), 
+            H, W, stride, pad, exp_bits)
            
         reshaped_w = w.permute(1, 0, 2, 3)
         w_flipped = torch.flip(reshaped_w, dims=(2, 3))
@@ -1835,29 +1839,25 @@ class Python_Conv(object):
         w_transpose = w_flipped.contiguous()
         w_ptr_transpose = w_transpose.flatten().data_ptr()
 
-        libconv.conv2d(N, F, H, W, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),
-                    FF, HH, WW, ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_float)),
-                    ctypes.cast(dx_ptr, ctypes.POINTER(ctypes.c_float)), stride, pad)
-
-        
-        _time = (time.time() - _curr_time)  
-        # print("Time taken by Backward Layer is:", _time)
-        
+        libconv.conv2d(N, F, H, W, 
+                       FF, HH, WW, 
+                       ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),
+                       ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_float)),
+                       ctypes.cast(dx_ptr, ctypes.POINTER(ctypes.c_float)),
+                       pad, stride, exp_bits)
 
         dx = dx.reshape(N, C, H, W)
      
         return dx, dw 
 
-
-# Python_Convolution with Bias
 # Python_Convolution with Bias
 class Python_ConvB(object):
 
     @staticmethod
     def forward(x, w, b, conv_param):
-        out = None
         pad = conv_param['pad']
         stride = conv_param['stride']
+        exp_bits = 8
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         x = x.to(device)
         w = w.to(device)
@@ -1867,23 +1867,21 @@ class Python_ConvB(object):
         H_out = int(1 + (H + 2 * pad - HH) / stride)
         W_out = int(1 + (W + 2 * pad - WW) / stride)
         
-        _curr_time = time.time()
-        # Flatten the arrays and get pointers to their data
-        out = torch.zeros((N, F, H_out, W_out), dtype=x.dtype, device= "cuda")
-        input_ptr  = x.flatten().contiguous().data_ptr()
-        kernel_ptr = w.flatten().contiguous().data_ptr()
+        out = torch.zeros((N, F, H_out, W_out), dtype=torch.float32, device="cuda")
+        x_ptr = x.flatten().contiguous().data_ptr()
+        w_ptr = w.flatten().contiguous().data_ptr()
+        b_ptr = b.flatten().contiguous().data_ptr()
         output_ptr = out.flatten().contiguous().data_ptr()
-        bias_ptr   = b.flatten().contiguous().data_ptr()
 
-        libconv.conv2d_WB(N, C, H, W, ctypes.cast(input_ptr, ctypes.POINTER(ctypes.c_float)),
-               F, HH, WW, ctypes.cast(kernel_ptr, ctypes.POINTER(ctypes.c_float)),
-               ctypes.cast(bias_ptr, ctypes.POINTER(ctypes.c_float)),
-               ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_float)),
-               pad, stride)
+        libconv.conv2d_WB(N, C, H, W, 
+               ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)),
+               F, HH, WW, 
+               ctypes.cast(w_ptr, ctypes.POINTER(ctypes.c_float)),
+               ctypes.cast(b_ptr, ctypes.POINTER(ctypes.c_float)),
+               ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_float)),      
+               pad, stride, exp_bits)
         out = out.reshape(N, F, H_out, W_out)
-                          
-        _time= (time.time() - _curr_time)  
-        # print("Time taken by Layer WB","is: ",_time)
+
         cache = (x, w, b, conv_param)
 
         return out, cache
@@ -1892,35 +1890,39 @@ class Python_ConvB(object):
     def backward(dout, cache):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         x, w, b, conv_param = cache
-        dx, dw_bias, db = None, None, None
         w = w.to(device)
         b = b.to(device)
 
         pad = conv_param['pad']
         stride = conv_param['stride']
+        stride = conv_param['stride']
         N, F, H_dout, W_dout = dout.shape
         F, C, HH, WW = w.shape
-        db = torch.zeros_like(b,device="cuda")
-        dw_bias = torch.zeros_like(w,device="cuda")
-        A,B,X,Y = x.shape
-        dx_bias = torch.zeros((A,B,X,Y), dtype=x.dtype, device= "cuda")
+        
+        db = torch.zeros_like(b, dtype=torch.float32, device=device)
+        dw_bias = torch.zeros_like(w, dtype=torch.float32, device=device)
+        A, B, X, Y = x.shape
+        dx_bias = torch.zeros((A, B, X, Y), dtype=torch.float32, device=device)
 
         dout_ptr = dout.flatten().contiguous().data_ptr()
         db_ptr = db.flatten().contiguous().data_ptr()
         x_ptr = x.flatten().contiguous().data_ptr()
         dw_ptr_bias = dw_bias.flatten().contiguous().data_ptr()
         dx_ptr_bias = dx_bias.flatten().contiguous().data_ptr()
+        exp_bits = 8
         
-        _curr_time = time.time()
-
-        # Call CUDA kernels
         libconv.conv2d_backward_db(
-            N, F, H_dout, W_dout, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), ctypes.cast(db_ptr, ctypes.POINTER(ctypes.c_float)),
+            N, F, H_dout, W_dout, 
+            ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), 
+            ctypes.cast(db_ptr, ctypes.POINTER(ctypes.c_float)),
+            exp_bits
         )
         
         libconv.conv2d_backward_dw(
-            N, C, H_dout, W_dout, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), F, HH, WW,
-            ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), ctypes.cast(dw_ptr_bias, ctypes.POINTER(ctypes.c_float)), H_dout, W_dout, stride, pad)
+            N, C, H_dout, W_dout, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), 
+            F, HH, WW,ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), 
+            ctypes.cast(dw_ptr_bias, ctypes.POINTER(ctypes.c_float)), 
+            H_dout, W_dout, stride, pad,exp_bits)
         
         reshaped_w = w.permute(1, 0, 2, 3)
         w_flipped = torch.flip(reshaped_w, dims=(2, 3))
@@ -1928,12 +1930,14 @@ class Python_ConvB(object):
         w_transpose = w_flipped.contiguous()
         w_ptr_transpose = w_transpose.flatten().data_ptr()
         N, C, H, W = x.shape
-        libconv.conv2d(N, F, H, W, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),
-            FF, HH, WW, ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_float)),
-            ctypes.cast(dx_ptr_bias, ctypes.POINTER(ctypes.c_float)), pad, stride)
 
-        _time= (time.time() - _curr_time)  
-        # print("Time taken by Backward Layer is: ",_time)
+        libconv.conv2d(N, F, H, W, 
+                       FF, HH, WW,
+                       ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),
+                       ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_float)),
+                       ctypes.cast(dx_ptr_bias, ctypes.POINTER(ctypes.c_float)),
+                       pad, stride, exp_bits)
+
 
         dx_bias = dx_bias.reshape(A,B,X,Y)
         
@@ -1970,7 +1974,7 @@ class Python_MaxPool(object):
         pos_ptr = positions_gpu.flatten().data_ptr()
         _curr_time = time.time()
         # Launch the kernel
-        libconv.max_pooling_forward(N, C, H, W, 
+        libpool.max_pooling_forward(N, C, H, W, 
                                     ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), 
                                     ctypes.cast(out_ptr, ctypes.POINTER(ctypes.c_float)), 
                                     ctypes.cast(pos_ptr, ctypes.POINTER(ctypes.c_float)), 
@@ -2003,7 +2007,7 @@ class Python_MaxPool(object):
         dx_ptr = dx.flatten().contiguous().data_ptr()
         
         # Call the CUDA function
-        libconv.max_pooling_backward(N, C, H, W, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),  ctypes.cast(dx_ptr, ctypes.POINTER(ctypes.c_float)),
+        libpool.max_pooling_backward(N, C, H, W, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),  ctypes.cast(dx_ptr, ctypes.POINTER(ctypes.c_float)),
                                       ctypes.cast(positions_ptr, ctypes.POINTER(ctypes.c_int32)),
                                     pool_height, pool_width, stride)
 
