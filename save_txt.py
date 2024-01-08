@@ -69,5 +69,5 @@ if __name__ == "__main__":
     # Read new results
     loaded_data = load_pickle(str(args.data))
     if isinstance(loaded_data, list): loaded_data = torch.tensor(np.array([x.numpy() for x in loaded_data]))
-    loaded_data = loaded_data.contiguous().view(-1).detach().cpu().numpy()
+    loaded_data = loaded_data.float().contiguous().view(-1).detach().cpu().numpy()
     save_file(args.data,loaded_data)
