@@ -306,8 +306,11 @@ def backward_LightNorm(grad_output, cache):
     backward_const = scale
     
     # Final output calculation
-    ####dL_dxi = dL_dxi_ * backward_const
     dL_dxi = (dL_dxi_hat + avg_pc)*backward_const
+    
+    gamma = gamma.view(-1)
+    avg_pc = avg_pc.view(-1)
+    backward_const = backward_const.view(-1)
 
     return dL_dgamma, dL_dbeta, avg_pc, backward_const, gamma
 
@@ -3591,7 +3594,16 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Backward_Layer8 = Weight_Hardware_Backward_ReOrdering_Layer8(128, 1024, data.Weight_Bfloat[8]+["0000"]*3072, ["0000"]*128, ["0000"]*128)
         e = time.time()
         if DEBUG: print("Weight Reordering : ",e-s)
-        
+        if DEBUG2: 
+            test_out = 'result/Weight_Backward_Layer8.txt'
+            origin = pd.DataFrame(Weight_Backward_Layer8)
+            origin_ar = np.array(origin)
+            with open(test_out, 'w+') as test_output:
+                for item in origin_ar:
+                    test_output.write(str(item) + "\n")
+            test_output.close()
+            
+
         # Break 256To32 and Flip the Data: 
         s = time.time()
         Weight_Backward_CH0 = data_256_32(Weight_Backward_Layer8[0])
@@ -3606,6 +3618,7 @@ class YOLOv2_Tiny_FPGA(object):
         e = time.time()
         if DEBUG: print("Write DDR : ",e-s)
         
+
         # Loss Gradient for Soft2Hardware
         Loss_Gradient1_layer8 = Loss_Gradient[0:1]  
         Loss_Gradient2_layer8 = Loss_Gradient[1:2]  
@@ -3708,6 +3721,12 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad1_Layer8_CH0 = Read_DDR(Rd_Address=0x86E58000,  End_Address=0x86E8C000)
         Output_Grad1_Layer8_CH0_16 = flip_lines_16(Output_Grad1_Layer8_CH0)
         #if DEBUG: print("Read Output_Grad1_Layer8_CH0")
+        if DEBUG2: 
+            test_out = 'result/Output_Grad1_Layer8_CH0_16.txt'
+            with open(test_out, 'w+') as test_output:
+                for item in Output_Grad1_Layer8_CH0_16:
+                    test_output.write(str(item) + "\n")
+            test_output.close()
 
         Output_Grad1_Layer8_CH1 = Read_DDR(Rd_Address=0x96E58000,  End_Address=0x96E8C000)
         Output_Grad1_Layer8_CH1_16 = flip_lines_16(Output_Grad1_Layer8_CH1)
@@ -3859,6 +3878,8 @@ class YOLOv2_Tiny_FPGA(object):
         
         ReLu_Marking_Layer7 = torch.tensor([float(value) for value in ReLu_Marking_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
         
+        if DEBUG2 : Save_File(ReLu_Marking_Layer7, "result/ReLu_Marking_Layer7")
+        
         # BReLu Calculate
         s = time.time()
         # Output_Grad_layer8_input = torch.tensor(Output_Grad_Layer8, dtype=torch.float32).reshape(8,1024,13,13)
@@ -3867,15 +3888,22 @@ class YOLOv2_Tiny_FPGA(object):
         grad_relu_output = backward_active(Output_Grad_Layer8, relu_mask)
         #grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_7, dL_dbeta_7, avg_pc_7, backward_const_7, gamma_7 = backward_LightNorm(grad_relu_output, layer7_cache)
-        
         e = time.time()
+        
+        
+        avg_pc_7 = avg_pc_7/gamma_7
+        backward_const_7 = backward_const_7* gamma_7
+        
+        if DEBUG2 : Save_File(avg_pc_7, "result/avg_pc_7")
+        if DEBUG2 : Save_File(backward_const_7, "result/backward_const_7")
+        
         if DEBUG: print("Software Calculate : ",e-s)
         # if DEBUG2 : Save_File(result_7, "result/BN_out_Layer7")
         # avg_pc_7 = avg_pc_7.squeeze()
         # backward_const_7 = backward_const_7.squeeze()
-        gamma_7 = gamma_7.squeeze()*0.1
         s = time.time()
-        avg_pc_7, backward_const_7, gamma_7 = Mean_Var_Dec2Bfloat_Back(avg_pc_7, backward_const_7, gamma_7, Exponent_Bits, Mantissa_Bits)
+        # avg_pc_7, backward_const_7, gamma_7 = Mean_Var_Dec2Bfloat_Back(avg_pc_7, backward_const_7, gamma_7, Exponent_Bits, Mantissa_Bits)
+        avg_pc_7, backward_const_7 = Mean_Var_Dec2Bfloat(avg_pc_7, backward_const_7, Exponent_Bits, Mantissa_Bits)
         e = time.time()
         if DEBUG: print("Dec to Bfloat : ",e-s)
         
@@ -4104,7 +4132,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Weight_Backward_Layer7 for Soft2Hardware
         s = time.time()
-        Weight_Backward_Layer7 = Weight_Hardware_Backward_ReOrdering_OtherLayer(1024, 1024, data.Weight_Bfloat[7], backward_const_7, avg_pc_7, gamma_7)
+        Weight_Backward_Layer7 = Weight_Hardware_Backward_ReOrdering_OtherLayer(1024, 1024, data.Weight_Bfloat[7], backward_const_7, avg_pc_7)
         e = time.time()
         if DEBUG: print("Weight Reordering : ",e-s)
         if DEBUG2 : Save_File(data.Weight_Dec[7], "result/Layer_7_Weight")
@@ -4286,12 +4314,14 @@ class YOLOv2_Tiny_FPGA(object):
         grad_relu_output = backward_active(Output_Grad_Layer7, relu_mask)
         #grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_6, dL_dbeta_6, avg_pc_6, backward_const_6, gamma_6 = backward_LightNorm(grad_relu_output, layer6_cache)
+        avg_pc_6 = avg_pc_6/gamma_6
+        backward_const_6 = backward_const_6*gamma_6
 
         # avg_pc_6 = avg_pc_6.squeeze()
         # backward_const_6 = backward_const_6.squeeze()
         e = time.time()
         if DEBUG: print("Backward ReLu & Backward Maxpoolin Time : ",e-s)
-        gamma_6 = gamma_6.squeeze()*0.1
+        # gamma_6 = gamma_6.squeeze()*0.1
 
         s = time.time()
         avg_pc_6, backward_const_6, gamma_6 = Mean_Var_Dec2Bfloat_Back(avg_pc_6, backward_const_6, gamma_6, Exponent_Bits, Mantissa_Bits)
@@ -4300,7 +4330,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Weight_Backward_Layer6 for Soft2Hardware
         s = time.time()
-        Weight_Backward_Layer6 = Weight_Hardware_Backward_ReOrdering_OtherLayer(1024, 512, data.Weight_Bfloat[6], backward_const_6, avg_pc_6, gamma_6)
+        Weight_Backward_Layer6 = Weight_Hardware_Backward_ReOrdering_OtherLayer(1024, 512, data.Weight_Bfloat[6], backward_const_6, avg_pc_6)
         e = time.time()
         if DEBUG: print("Weight_Hardware_Backward_ReOrdering_OtherLayer Time : ",e-s)
 
@@ -4612,6 +4642,8 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grads_Layer6 = Output_Grad1_Layer6 + Output_Grad2_Layer6 + Output_Grad3_Layer6 + Output_Grad4_Layer6 + \
                                 Output_Grad5_Layer6 + Output_Grad6_Layer6 + Output_Grad7_Layer6 + Output_Grad8_Layer6    
         Output_Grad_Layer6 = torch.tensor([float(value) for value in Output_Grads_Layer6], dtype=torch.float32).reshape(8, 512, 13, 13)
+        
+        if DEBUG2 : Save_File(Output_Grad_Layer6, "result/Layer_6_Backward_Input_Gradient")
 
 
         # BReLu Marking
@@ -4694,11 +4726,13 @@ class YOLOv2_Tiny_FPGA(object):
         #grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_5, dL_dbeta_5, avg_pc_5, backward_const_5, gamma_5 = backward_LightNorm(grad_relu_output, layer5_cache)
         e = time.time()
+        avg_pc_5 = avg_pc_5/gamma_5
+        backward_const_5 = backward_const_5*gamma_5
         if DEBUG: print("Software : ",e-s)
 
         # avg_pc_5 = avg_pc_5.squeeze()
         # backward_const_5 = backward_const_5.squeeze()
-        gamma_5 = gamma_5.squeeze()*0.1
+        # gamma_5 = gamma_5.squeeze()*0.1
         s = time.time()
         avg_pc_5, backward_const_5, gamma_5 = Mean_Var_Dec2Bfloat_Back(avg_pc_5, backward_const_5, gamma_5, Exponent_Bits, Mantissa_Bits)
         e = time.time()
@@ -4706,7 +4740,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Weight_Backward_Layer5 for Soft2Hardware
         s = time.time()
-        Weight_Backward_Layer5 = Weight_Hardware_Backward_ReOrdering_OtherLayer(512, 256, data.Weight_Bfloat[5], backward_const_5, avg_pc_5, gamma_5)
+        Weight_Backward_Layer5 = Weight_Hardware_Backward_ReOrdering_OtherLayer(512, 256, data.Weight_Bfloat[5], backward_const_5, avg_pc_5)
         e = time.time()
         if DEBUG: print("Weight Reordering : ",e-s)
 
@@ -4931,6 +4965,8 @@ class YOLOv2_Tiny_FPGA(object):
         
          
         Weight_Gradient_Layer6 = torch.tensor([float(value) for value in Weight_Gradient_Layer6], dtype=torch.float32).reshape(1024, 512, 3, 3)  
+        
+        if DEBUG2 : Save_File(Weight_Gradient_Layer6, "result/Layer_6_Backward_Weight_Gradient")
 
         layer6_end = time.time()
         process_time = layer6_end - layer6_start
@@ -5028,6 +5064,8 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grads_Layer5 = Output_Grad1_Layer5 + Output_Grad2_Layer5 + Output_Grad3_Layer5 + Output_Grad4_Layer5 + \
                                 Output_Grad5_Layer5 + Output_Grad6_Layer5 + Output_Grad7_Layer5 + Output_Grad8_Layer5    
         Output_Grad_Layer5 = torch.tensor([float(value) for value in Output_Grads_Layer5], dtype=torch.float32).reshape(8, 256, 13, 13)
+        
+        if DEBUG2 : Save_File(Output_Grad_Layer5, "result/Layer_5_Backward_Input_Gradient")
 
         # ReLU
         s = time.time()
@@ -5109,6 +5147,8 @@ class YOLOv2_Tiny_FPGA(object):
         grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_4, dL_dbeta_4, avg_pc_4, backward_const_4, gamma_4 = backward_LightNorm(grad_maxpool_output, layer4_cache)
         e = time.time()
+        avg_pc_4 = avg_pc_4/gamma_4
+        backward_const_4 = backward_const_4*gamma_4
         if DEBUG: print("Software : ",e-s)
 
         '''
@@ -5123,7 +5163,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # avg_pc_4 = avg_pc_4.squeeze()
         # backward_const_4 = backward_const_4.squeeze()
-        gamma_4 = gamma_4.squeeze()*0.1
+        # gamma_4 = gamma_4.squeeze()*0.1
         s = time.time()
         avg_pc_4, backward_const_4, gamma_4 = Mean_Var_Dec2Bfloat_Back(avg_pc_4, backward_const_4, gamma_4, Exponent_Bits, Mantissa_Bits)
         e = time.time()
@@ -5131,7 +5171,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Weight_Backward_Layer4 for Soft2Hardware
         s = time.time()
-        Weight_Backward_Layer4 = Weight_Hardware_Backward_ReOrdering_OtherLayer(256, 128, data.Weight_Bfloat[4], backward_const_4, avg_pc_4, gamma_4)
+        Weight_Backward_Layer4 = Weight_Hardware_Backward_ReOrdering_OtherLayer(256, 128, data.Weight_Bfloat[4], backward_const_4, avg_pc_4)
         e =time.time()
         if DEBUG: print("Weight Reordering : ",e-s)
 
@@ -5355,6 +5395,8 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient_Layer5 = list(np.sum(np.array(Weight_Gradient_Layer5), axis=0))
         
         Weight_Gradient_Layer5 = torch.tensor([float(value) for value in Weight_Gradient_Layer5], dtype=torch.float32).reshape(512, 256, 3, 3)  
+        
+        if DEBUG2 : Save_File(Weight_Gradient_Layer5, "result/Layer_5_Backward_Weight_Gradient")
 
         layer5_end = time.time()
         process_time = layer5_end - layer5_start
@@ -5453,6 +5495,8 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grads_Layer4 = Output_Grad1_Layer4 + Output_Grad2_Layer4 + Output_Grad3_Layer4 + Output_Grad4_Layer4 + \
                                 Output_Grad5_Layer4 + Output_Grad6_Layer4 + Output_Grad7_Layer4 + Output_Grad8_Layer4    
         Output_Grad_Layer4 = torch.tensor([float(value) for value in Output_Grads_Layer4], dtype=torch.float32).reshape(8, 128, 26, 26)
+        
+        if DEBUG2 : Save_File(Output_Grad_Layer4, "result/Layer_4_Backward_Input_Gradient")
 
         # BReLu Marking
         s = time.time()
@@ -5534,11 +5578,13 @@ class YOLOv2_Tiny_FPGA(object):
         grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_3, dL_dbeta_3, avg_pc_3, backward_const_3, gamma_3 = backward_LightNorm(grad_maxpool_output, layer3_cache)
         e = time.time()
+        avg_pc_3 = avg_pc_3/gamma_3
+        backward_const_3 = backward_const_3*gamma_3
         if DEBUG: print("Software : ",e-s)
 
         # avg_pc_3 = avg_pc_3.squeeze()
         # backward_const_3 = backward_const_3.squeeze()
-        gamma_3 = gamma_3.squeeze()*0.1
+        # gamma_3 = gamma_3.squeeze()*0.1
         s = time.time()
         avg_pc_3, backward_const_3, gamma_3 = Mean_Var_Dec2Bfloat_Back(avg_pc_3, backward_const_3, gamma_3, Exponent_Bits, Mantissa_Bits)
         e = time.time()
@@ -5546,7 +5592,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Weight_Backward_Layer3 for Soft2Hardware
         s = time.time()
-        Weight_Backward_Layer3 = Weight_Hardware_Backward_ReOrdering_OtherLayer(128, 64, data.Weight_Bfloat[3], backward_const_3, avg_pc_3, gamma_3)
+        Weight_Backward_Layer3 = Weight_Hardware_Backward_ReOrdering_OtherLayer(128, 64, data.Weight_Bfloat[3], backward_const_3, avg_pc_3)
         e = time.time()
         if DEBUG: print("Weight Reordering : ",e-s)
 
@@ -5770,7 +5816,9 @@ class YOLOv2_Tiny_FPGA(object):
         # Weight_Gradient_Layer4 = list(np.mean(np.array(Weight_Gradient_Layer4), axis=0))
         Weight_Gradient_Layer4 = list(np.sum(np.array(Weight_Gradient_Layer4), axis=0))
         
-        Weight_Gradient_Layer4 = torch.tensor([float(value) for value in Weight_Gradient_Layer4], dtype=torch.float32).reshape(256, 128, 3, 3)   
+        Weight_Gradient_Layer4 = torch.tensor([float(value) for value in Weight_Gradient_Layer4], dtype=torch.float32).reshape(256, 128, 3, 3) 
+        
+        if DEBUG2 : Save_File(Weight_Gradient_Layer4, "result/Layer_4_Backward_Weight_Gradient")  
 
         Blayer4_end = time.time()
         if DEBUG: print("Layer4 Process Time : ",Blayer4_end-Blayer4_start)
@@ -5851,6 +5899,8 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grads_Layer3 = Output_Grad1_Layer3 + Output_Grad2_Layer3 + Output_Grad3_Layer3 + Output_Grad4_Layer3 + \
                                 Output_Grad5_Layer3 + Output_Grad6_Layer3 + Output_Grad7_Layer3 + Output_Grad8_Layer3    
         Output_Grad_Layer3 = torch.tensor([float(value) for value in Output_Grads_Layer3], dtype=torch.float32).reshape(8, 64, 52, 52)
+        
+        if DEBUG2 : Save_File(Output_Grad_Layer3, "result/Layer_3_Backward_Input_Gradient")
 
         # BReLu Marking
         s = time.time()
@@ -5932,11 +5982,13 @@ class YOLOv2_Tiny_FPGA(object):
         grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_2, dL_dbeta_2, avg_pc_2, backward_const_2, gamma_2 = backward_LightNorm(grad_maxpool_output, layer2_cache)
         e = time.time()
+        avg_pc_2 = avg_pc_2/gamma_2
+        backward_const_2 = backward_const_2*gamma_2
         if DEBUG: print("Software : ",e-s)
 
         # avg_pc_2 = avg_pc_2.squeeze()
         # backward_const_2 = backward_const_2.squeeze()
-        gamma_2 = gamma_2.squeeze()*0.1
+        # gamma_2 = gamma_2.squeeze()*0.1
         s = time.time()
         avg_pc_2, backward_const_2, gamma_2 = Mean_Var_Dec2Bfloat_Back(avg_pc_2, backward_const_2, gamma_2, Exponent_Bits, Mantissa_Bits)
         e = time.time()
@@ -5944,7 +5996,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Weight_Backward_Layer2 for Soft2Hardware
         s = time.time()
-        Weight_Backward_Layer2 = Weight_Hardware_Backward_ReOrdering_OtherLayer(64, 32, data.Weight_Bfloat[2], backward_const_2, avg_pc_2, gamma_2)
+        Weight_Backward_Layer2 = Weight_Hardware_Backward_ReOrdering_OtherLayer(64, 32, data.Weight_Bfloat[2], backward_const_2, avg_pc_2)
         e = time.time()
         if DEBUG: print("Weight Reordering : ",e-s)
 
@@ -6168,6 +6220,8 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient_Layer3 = list(np.sum(np.array(Weight_Gradient_Layer3), axis=0))
          
         Weight_Gradient_Layer3 = torch.tensor([float(value) for value in Weight_Gradient_Layer3], dtype=torch.float32).reshape(128, 64, 3, 3)   
+        
+        if DEBUG2 : Save_File(Weight_Gradient_Layer3, "result/Layer_3_Backward_Weight_Gradient")
 
         Blayer3_end = time.time()
         if DEBUG: print("Layer3 Process Time : ",Blayer3_end-Blayer3_start)
@@ -6250,6 +6304,7 @@ class YOLOv2_Tiny_FPGA(object):
                                 Output_Grad5_Layer2 + Output_Grad6_Layer2 + Output_Grad7_Layer2 + Output_Grad8_Layer2    
                                 
         Output_Grad_Layer2 = torch.tensor([float(value) for value in Output_Grads_Layer2], dtype=torch.float32).reshape(8, 32, 104, 104)
+        
 
         if DEBUG2 : Save_File(Output_Grad_Layer2, "result/Layer_2_Backward_Input_Gradient")
         
@@ -6344,11 +6399,13 @@ class YOLOv2_Tiny_FPGA(object):
         be = time.time()
         if DEBUG: print("Lightnorm : ", be-bs)
         e = time.time()
+        avg_pc_1 = avg_pc_1/gamma_1
+        backward_const_1 = backward_const_1*gamma_1
         if DEBUG: print("Software : ",e-s)
 
         # avg_pc_1 = avg_pc_1.squeeze()
         # backward_const_1 = backward_const_1.squeeze()
-        gamma_1 = gamma_1.squeeze()*0.1
+        # gamma_1 = gamma_1.squeeze()*0.1
         s = time.time()
         avg_pc_1, backward_const_1, gamma_1 = Mean_Var_Dec2Bfloat_Back(avg_pc_1, backward_const_1, gamma_1, Exponent_Bits, Mantissa_Bits)
         e = time.time()
@@ -6356,7 +6413,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Weight_Backward_Layer1 for Soft2Hardware
         s = time.time()
-        Weight_Backward_Layer1 = Weight_Hardware_Backward_ReOrdering_OtherLayer(32, 16, data.Weight_Bfloat[1], backward_const_1, avg_pc_1, gamma_1)
+        Weight_Backward_Layer1 = Weight_Hardware_Backward_ReOrdering_OtherLayer(32, 16, data.Weight_Bfloat[1], backward_const_1, avg_pc_1)
         e = time.time()
         if DEBUG: print("Weight Reordering : ",e-s)
 
@@ -6745,11 +6802,13 @@ class YOLOv2_Tiny_FPGA(object):
         # grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
         dL_dgamma_0, dL_dbeta_0, avg_pc_0, backward_const_0, gamma_0 = backward_LightNorm(grad_relu_output, layer0_cache)
         e = time.time()
+        avg_pc_0 = avg_pc_0/gamma_0
+        backward_const_0 = backward_const_0*gamma_0
         if DEBUG: print("Software : ",e-s)
 
         # avg_pc_0 = avg_pc_0.squeeze()
         # backward_const_0 = backward_const_0.squeeze()
-        gamma_0 = gamma_0.squeeze()*0.1
+        # gamma_0 = gamma_0.squeeze()*0.1
         s = time.time()
         avg_pc_0, backward_const_0, gamma_0 = Mean_Var_Dec2Bfloat_Back(avg_pc_0, backward_const_0, gamma_0, Exponent_Bits, Mantissa_Bits)
         e= time.time()
@@ -6757,7 +6816,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Weight_Backward_Layer0 for Soft2Hardware
         s = time.time()
-        Weight_Backward_Layer0 = Weight_Hardware_Backward_ReOrdering_Layer0(16, 16, data.Weight_Bfloat[0], backward_const_0, avg_pc_0, gamma_0)
+        Weight_Backward_Layer0 = Weight_Hardware_Backward_ReOrdering_Layer0(16, 16, data.Weight_Bfloat[0], backward_const_0, avg_pc_0)
         e = time.time()
         if DEBUG: print("Weight Reordering : ",e-s)
         #if DEBUG: print("Weight_Backward_Layer0: " + str(len(Weight_Backward_Layer0[0])))
