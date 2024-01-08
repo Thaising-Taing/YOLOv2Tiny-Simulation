@@ -680,6 +680,8 @@ class App(customtkinter.CTk):
         self.Clear_Text()
         self.Show_Text(f"Reset.")
         self.update()
+          
+          
             
     # Select Operations        
     def Load_PCIe_click(self):
@@ -884,14 +886,14 @@ class App(customtkinter.CTk):
             # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
             for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-                # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+                # self.Save_File("Dataset/Dataset/default_data2.pickle", next(self.data_iter))
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data2.pickle")
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
                 # self.show_image(self.im_data[0])
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
-                # self.Visualize()
+                self.Visualize()
                 self.Calculate_Loss()
                 self.Before_Backward() ######################## - Individual Functions
                 self.Backward() ############################### - Individual Functions
@@ -1042,7 +1044,7 @@ class App(customtkinter.CTk):
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
-                            default="Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth", type=str)
+                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
