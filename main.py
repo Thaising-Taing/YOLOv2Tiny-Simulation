@@ -893,7 +893,7 @@ class App(customtkinter.CTk):
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
-                self.Visualize()
+                # self.Visualize()
                 self.Calculate_Loss()
                 self.Before_Backward() ######################## - Individual Functions
                 self.Backward() ############################### - Individual Functions
