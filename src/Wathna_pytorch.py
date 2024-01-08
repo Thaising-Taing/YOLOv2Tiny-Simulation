@@ -40,7 +40,7 @@ class Pytorch(object):
                                         max_pools=[0, 1, 2, 3, 4],
                                         weight_scale='kaiming',
                                         batchnorm=True,
-                                        dtype=torch.float32, device='cuda')
+                                        dtype=torch.float32, device='cpu')
 
     def get_grads(self):
         self.gWeight, self.gBias, self.gGamma, self.gBeta, self.gRunning_Mean_Dec, self.gRunning_Var_Dec = \
