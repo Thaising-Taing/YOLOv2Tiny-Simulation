@@ -1174,17 +1174,13 @@ class App(customtkinter.CTk):
         # -------------------------------------- Train - 80 - Dataset -----------------------------------------------------
         self.imdb_train_name = 'voc_2007_train80'
         self.train_dataset_custom = self.get_dataset(self.imdb_train_name)
-        # Whole Training Dataset 
         self.train_dataloader_custom = DataLoader(self.train_dataset_custom, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_train_custom = int(len(self.train_dataset_custom) / self.args.batch_size)
         # -------------------------------------- Train Dataset -----------------------------------------------------
         self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
         self.train_dataset = self.get_dataset(self.imdb_train_name)
-        # Whole Training Dataset 
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
-        # Small Training Dataset
-        self.small_train_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
         # -------------------------------------- Test Dataset -----------------------------------------------------
         self.imdb_test_name = 'voc_2007_test'
         self.test_dataset = self.get_dataset(self.imdb_test_name)
