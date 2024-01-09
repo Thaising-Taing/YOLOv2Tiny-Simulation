@@ -700,14 +700,9 @@ class Cal_mean_var(object):
         max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
         min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
         scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
-        # scale_fix = 1 / ((2 * math.log(num_chunks)) ** 0.5)
         scale = 1 / ((avg_max - avg_min) * scale_fix + eps) 
-        # scale_ = 1 / ((avg_max - avg_min) * scale_fix) 
-
         avg = avg.view(1, -1, 1, 1)
-        # scale_ = scale_.view(1, -1, 1, 1)
         scale = scale.view(1, -1, 1, 1)
-
         cache = x
         return avg, scale
     

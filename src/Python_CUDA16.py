@@ -6,9 +6,9 @@ from copy import deepcopy as dc
 from Weight_Update_Algorithm.Test_with_train import *
 from Pre_Processing_Scratch.Pre_Processing import *
 
-from src.Junaid_2iterations import *
+from src.Python_CUDA16_LN import *
 
-class Junaid(object):
+class CUDA16(object):
 
     def __init__(self, parent):
         self.self           = parent

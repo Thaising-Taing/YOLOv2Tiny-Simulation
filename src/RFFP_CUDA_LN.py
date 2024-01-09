@@ -7,25 +7,25 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import config as cfg
+from src.Wathna.config import config as cfg
 from pathlib import Path
-from torch.autograd import Variable
+import ctypes
+
 import numpy as np
 import pickle
 import math
+import time
 
 # Zip the pickle file
 import bz2file as bz2
-
-torch.manual_seed(3407)
-
+libpool = ctypes.CDLL('convolution_cuda.so')
+libconv = ctypes.CDLL('SEFP.so')
 warnings.simplefilter("ignore", UserWarning)
 
 def Save_File(path, data):
     with open(path, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-
+        
 def convert_to_hex(value):
     # We will Use Single-Precision, Truncated and Rounding into Brain Floating Point
     # IEEE754 Single-Precision: Sign=1, Exponent_Bit=8, Mantissa_Bit=23
@@ -52,10 +52,10 @@ def save_file(fname, data, module=[], layer_no=[], save_txt=False, save_hex=Fals
 
         else:
             if module == [] and layer_no == []:
-                Out_Path = f'Outputs_Torch_2Iterations/{os.path.split(fname)[0]}'
+                Out_Path = f'Outputs_Python_2Iterations/{os.path.split(fname)[0]}'
                 fname = os.path.split(fname)[1]
             else:
-                Out_Path = f'Outputs_Torch_2Iterations/By_Layer/'
+                Out_Path = f'Outputs_Python_2Iterations/By_Layer/'
                 if layer_no != []: Out_Path += f'Layer{layer_no}/'
                 if module != []: Out_Path += f'{module}/'
                 if phase != []: Out_Path += f'{phase}/'
@@ -147,7 +147,7 @@ def save_cache(fname, data):
         print(f'\n\t\t--> Saved {fname}')
 
 
-class DeepConvNetTorch(object):
+class DeepConvNet(object):
     """
   A convolutional neural network with an arbitrary number of convolutional
   layers in VGG-Net style. All convolution layers will use kernel size 3 and 
@@ -160,7 +160,7 @@ class DeepConvNetTorch(object):
   {conv - [batchnorm?] - relu - [pool?]} x (L - 1) - linear
 
   Each {...} structure is a "macro layer" consisting of a convolution layer,
-  an optional batch normalization layer, a Torch_ReLU nonlinearity, and an optional
+  an optional batch normalization layer, a Python_ReLU nonlinearity, and an optional
   pooling layer. After L-1 such macro layers, a single fully-connected layer
   is used to predict the class scores.
 
@@ -208,15 +208,14 @@ class DeepConvNetTorch(object):
         self.num_filters = num_filters
         self.save_pickle = False
         self.save_output = False
-        self.save_txt = False
-        self.save_hex = False
-        self.device = device
+        self.save_debug_data = False
+        self.save_16_data = False
 
         if device == 'cuda':
             device = 'cuda:0'
 
         ############################################################################
-        # TO DO: Initialize the parameters for the DeepConvNet. All weights,        #
+        # TODO: Initialize the parameters for the DeepConvNet. All weights,        #
         # biases, and batchnorm scale and shift parameters should be stored in the #
         # dictionary self.params.                                                  #
         #                                                                          #
@@ -253,21 +252,12 @@ class DeepConvNetTorch(object):
                 self.params['W{}'.format(i)] += weight_scale * torch.randn(num_filter, pred_filters, filter_size,
                                                                            filter_size, dtype=dtype, device=device)
             pred_filters = num_filter
-            # print('W_out',W_out)
-            # filter_size = W_out
+
         i += 1
-        # if weight_scale == 'kaiming':
-        #     self.params['W{}'.format(i)] = kaiming_initializer(num_filter*H_out*W_out, num_classes, relu=False, device=device,dtype=dtype)
-        # else:
-        #     self.params['W{}'.format(i)] = torch.zeros(num_filter*H_out*W_out, num_classes, dtype=dtype,device = device)
-        #     self.params['W{}'.format(i)] += weight_scale*torch.randn(num_filter*H_out*W_out, num_classes, dtype=dtype,device= device)
-        # self.params['b{}'.format(i)] = torch.zeros(num_classes, dtype=dtype,device= device)
-        # print(i)
+
         if weight_scale == 'kaiming':
             self.params['W{}'.format(i)] = kaiming_initializer(125, 1024, K=1, relu=False, device=device, dtype=dtype)
-        # else:
-        #     self.params['W{}'.format(i)] = torch.zeros(num_filter*H_out*W_out, num_classes, dtype=dtype,device = device)
-        #     self.params['W{}'.format(i)] += weight_scale*torch.randn(num_filter*H_out*W_out, num_classes, dtype=dtype,device= device)
+
         self.params['b{}'.format(i)] = torch.zeros(125, dtype=dtype, device=device)
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -293,7 +283,6 @@ class DeepConvNetTorch(object):
         num_params = params_per_macro_layer * len(num_filters) + 2
         msg = 'self.params has the wrong number of elements. Got %d; expected %d'
         msg = msg % (len(self.params), num_params)
-        # assert len(self.params) == num_params, msg
 
         # Check that all parameters have the correct device and dtype:
         for k, param in self.params.items():
@@ -337,115 +326,66 @@ class DeepConvNetTorch(object):
 
     def train(self, X, gt_boxes=None, gt_classes=None, num_boxes=None):
         
-        learning_rate = 1e6
-        out, cache, FOut = self.forward(X)
-        loss, loss_grad = self.loss(out, gt_boxes=gt_boxes, gt_classes=gt_classes, num_boxes=num_boxes)
-        lDout, grads = self.backward(loss_grad, cache)
-        # for k, v in grads.items():
-            # print(k)
-        for i in range(8):
-            self.params[f'W{i}'] -= learning_rate * grads[f'W{i}']
-            self.params[f'gamma{i}'] -= learning_rate * grads[f'gamma{i}'].shape[1]
-            self.params[f'beta{i}'] -= learning_rate * grads[f'beta{i}'].shape[1]
-            
-        self.params['W8'] -= learning_rate * grads['W8']
-        self.params['b8'] -= learning_rate * grads['b8']
-        
+        if self.save_module_output:
+            self.save_txt = self.save_in_dec_format
+            self.save_hex = self.save_in_hex_format
 
-        # if self.save_module_output:
-        #     self.save_txt = self.save_in_dec_format
-        #     self.save_hex = self.save_in_hex_format
+        if self.forward_prop:
+            out, cache, FOut = self.forward(X)
+            if self.save_pickle:
+                Path("Temp_Files/Python").mkdir(parents=True, exist_ok=True)
+                with open('Temp_Files/Python/Forward_Out_last_layer.pickle', 'wb') as handle:
+                    pickle.dump(out, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                with open('Temp_Files/Python/Forward_cache.pickle', 'wb') as handle:
+                    pickle.dump(cache, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                with open('Temp_Files/Python/Forward_Out_all_layers.pickle', 'wb') as handle:
+                    pickle.dump(FOut, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        else:
+            print("Loading previous files for Forward Propagation.")
+            with open('Temp_Files/Python/Forward_Out_last_layer.pickle', 'rb') as handle:
+                out = pickle.load(handle)
+                out.requires_grad = True
+                out.retain_grad()
+            with open('Temp_Files/Python/Forward_Out_all_layers.pickle', 'rb') as handle:
+                FOut = pickle.load(handle)
+            with open('Temp_Files/Python/Forward_cache.pickle', 'rb') as handle:
+                cache = pickle.load(handle)
 
-        # if self.forward_prop:
-        #     out, cache, FOut = self.forward(X)
-        #     if self.save_pickle:
-        #         Path("Temp_Files/Python").mkdir(parents=True, exist_ok=True)
-        #         with open('Temp_Files/Python/Forward_Out_last_layer.pickle', 'wb') as handle:
-        #             pickle.dump(out, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #         with open('Temp_Files/Python/Forward_cache.pickle', 'wb') as handle:
-        #             pickle.dump(cache, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #         with open('Temp_Files/Python/Forward_Out_all_layers.pickle', 'wb') as handle:
-        #             pickle.dump(FOut, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # else:
-        #     print("Loading previous files for Forward Propagation.")
-        #     with open('Temp_Files/Python/Forward_Out_last_layer.pickle', 'rb') as handle:
-        #         out = pickle.load(handle)
-        #         out.requires_grad = True
-        #         out.retain_grad()
-        #     with open('Temp_Files/Python/Forward_Out_all_layers.pickle', 'rb') as handle:
-        #         FOut = pickle.load(handle)
-        #     with open('Temp_Files/Python/Forward_cache.pickle', 'rb') as handle:
-        #         cache = pickle.load(handle)
+        if self.cal_loss:
+            # print(out.shape)
+            loss, loss_grad = self.loss(out, gt_boxes=gt_boxes, gt_classes=gt_classes, num_boxes=num_boxes)
 
-        # if self.cal_loss:
-        #     print(out.shape)
-        #     loss, loss_grad = self.loss(out, gt_boxes=gt_boxes, gt_classes=gt_classes, num_boxes=num_boxes)
-        #     if self.save_pickle:
-        #         with open('Temp_Files/Python/loss.pickle', 'wb') as handle:
-        #             pickle.dump(loss, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #         with open('Temp_Files/Python/loss_gradients.pickle', 'wb') as handle:
-        #             pickle.dump(loss_grad, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # else:
-        #     print("Loading previous files for Loss Calculation.")
-        #     with open('Temp_Files/Python/loss.pickle', 'rb') as handle:
-        #         loss = pickle.load(handle)
-        #     with open('Temp_Files/Python/loss_gradients.pickle', 'rb') as handle:
-        #         loss_grad = pickle.load(handle)
+                
+            if self.save_pickle:
+                with open('Temp_Files/Python/loss.pickle', 'wb') as handle:
+                    pickle.dump(loss, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                with open('Temp_Files/Python/loss_gradients.pickle', 'wb') as handle:
+                    pickle.dump(loss_grad, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        else:
+            print("Loading previous files for Loss Calculation.")
+            with open('Temp_Files/Python/loss.pickle', 'rb') as handle:
+                loss = pickle.load(handle)
+            with open('Temp_Files/Python/loss_gradients.pickle', 'rb') as handle:
+                loss_grad = pickle.load(handle)
 
-        # if self.backward_prop:
-        #     lDout, grads = self.backward(loss_grad, cache)
-        #     if self.save_pickle:
-        #         with open('Temp_Files/Python/Backward_lDout.pickle', 'wb') as handle:
-        #             pickle.dump(lDout, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #         with open('Temp_Files/Python/Backward_grads.pickle', 'wb') as handle:
-        #             pickle.dump(grads, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # else:
-        #     print("Loading previous files for Backwards Propagation.")
-        #     with open('Temp_Files/Python/Backward_lDout.pickle', 'rb') as handle:
-        #         lDout = pickle.load(handle)
-        #     with open('Temp_Files/Python/Backward_grads.pickle', 'rb') as handle:
-        #         grads = pickle.load(handle)
+        if self.backward_prop:
+            lDout, grads = self.backward(loss_grad, cache)
+            if self.save_pickle:
+                with open('Temp_Files/Python/Backward_lDout.pickle', 'wb') as handle:
+                    pickle.dump(lDout, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                with open('Temp_Files/Python/Backward_grads.pickle', 'wb') as handle:
+                    pickle.dump(grads, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        else:
+            print("Loading previous files for Backwards Propagation.")
+            with open('Temp_Files/Python/Backward_lDout.pickle', 'rb') as handle:
+                lDout = pickle.load(handle)
+            with open('Temp_Files/Python/Backward_grads.pickle', 'rb') as handle:
+                grads = pickle.load(handle)
 
-
-
-        # Save output for circuit team.
-        # if self.save_layer_output:
-        #     save_file(f'Python/Forward/Out_Last_Layer', out, save_hex=self.save_in_hex_format,
-        #               save_txt=self.save_in_dec_format)
-        #     save_file(f'Python/Forward/Out_Layer', FOut, save_hex=self.save_in_hex_format,
-        #               save_txt=self.save_in_dec_format)
-        #     save_file(f'Python/Loss/loss', loss, save_hex=self.save_in_hex_format, save_txt=self.save_in_dec_format)
-        #     save_file(f'Python/Loss/loss_grad', loss_grad, save_hex=self.save_in_hex_format,
-        #               save_txt=self.save_in_dec_format)
-        #     save_file(f'Python/Backwards/Gradients_of_Input_Features', lDout, save_hex=self.save_in_hex_format,
-        #               save_txt=self.save_in_dec_format)
-        #     save_file(f'Python/Backwards/Gradients_', grads, save_hex=self.save_in_hex_format,
-        #               save_txt=self.save_in_dec_format)
-        #     save_file(f'Python/Input_Image', X, save_hex=self.save_in_hex_format, save_txt=self.save_in_dec_format)
-        #     save_file(f'Python/Parameters/', self.params, save_hex=self.save_in_hex_format,
-        #               save_txt=self.save_in_dec_format)
-        #     # save_file(f'Python/Forward/cache_Layer'                 , cache       , save_hex=self.save_hex )
-        #     print('Outputs have been saved')
-
-        # return out, cache, loss, loss_grad, lDout, grads
-        return out, loss
-    
-    def forward_pred(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
-
-        bsize, _, h, w = out.size()
-
-        out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 25)
-
-        xy_pred = torch.sigmoid(out[:, :, 0:2])
-        conf_pred = torch.sigmoid(out[:, :, 4:5])
-        hw_pred = torch.exp(out[:, :, 2:4])
-        class_score = out[:, :, 5:]
-        class_pred = F.softmax(class_score, dim=-1)
-        delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
-
-        return delta_pred, conf_pred, class_pred
+        return out, cache, loss, loss_grad, lDout, grads
 
     def forward(self, X):
+        # print(f'\nThis is python-based forward propagation code\n')
         y = 1
         X = X.to(self.dtype)
         mode = 'test' if y is None else 'train'
@@ -484,9 +424,7 @@ class DeepConvNetTorch(object):
         temp_cache = {}
         
         #0
-        # Save_File('PyTorch_Output/Input_Image', X.to(torch.bfloat16))
-        # # Save_File('PyTorch_Output/img_torch', X)
-        temp_Out[0], temp_cache['0'] = Torch_Conv_Pool.forward(X,
+        temp_Out[0], temp_cache['0'] = Python_Conv_Pool.forward(X,
                                                     self.params['W0'],
                                                     conv_param,
                                                     pool_param,
@@ -496,9 +434,9 @@ class DeepConvNetTorch(object):
                                                     phase=self.phase,
                                                     )
         
-        mean, var = Cal_mean_var.forward(temp_Out[0], layer_no=0, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[0], layer_no=0, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[0], cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(X,
+        Out[0], cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.forward(X,
                                                     self.params['W0'],
                                                     self.params['gamma0'],
                                                     self.params['beta0'],
@@ -508,28 +446,19 @@ class DeepConvNetTorch(object):
                                                     var,
                                                     pool_param,
                                                     layer_no=0,
-                                                    save_txt=self.save_txt,
-                                                    save_hex=self.save_hex,
-                                                    phase=self.phase,
-                                                    )
-        # # Save_File('PyTorch_Output/Weights0', self.params['W0'])
-        # Save_File('PyTorch_Output/Weight_Conv_0', self.params['W0'].to(torch.bfloat16))
-        # # Save_File('PyTorch_Output/Out1_2ndIter', Out[0])
-
-        #1   
-        temp_Out[1], temp_cache['1'] = Torch_FastConv.forward(Out[0],
-                                                    self.params['W1'],
-                                                    conv_param,
-                                                    # pool_param,
-                                                    layer_no=1,
                                                     save_txt=False,
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
+        #1 
+        temp_Out[1], temp_cache['1'] = Python_Conv.forward(Out[0],
+                                                    self.params['W1'],
+                                                    conv_param
+                                                    )
         
-        mean, var = Cal_mean_var.forward(temp_Out[1], layer_no=1, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[1], layer_no=1, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[1], cache['1'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out[0],
+        Out[1], cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[0],
                                                     self.params['W1'],
                                                     self.params['gamma1'],
                                                     self.params['beta1'],
@@ -539,24 +468,19 @@ class DeepConvNetTorch(object):
                                                     var,
                                                     pool_param,
                                                     layer_no=1,
-                                                    save_txt=self.save_txt,
-                                                    save_hex=self.save_hex,
-                                                    phase=self.phase,
-                                                    )
-        #2
-        temp_Out[2], temp_cache['2'] = Torch_FastConv.forward(Out[1],
-                                                    self.params['W2'],
-                                                    conv_param,
-                                                    # pool_param,
-                                                    layer_no=2,
                                                     save_txt=False,
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
+        #2
+        temp_Out[2], temp_cache['2'] = Python_Conv.forward(Out[1],
+                                                    self.params['W2'],
+                                                    conv_param
+                                                    )
         
-        mean, var = Cal_mean_var.forward(temp_Out[2], layer_no=2, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[2], layer_no=2, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[2], cache['2'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out[1],
+        Out[2], cache['2'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[1],
                                                     self.params['W2'],
                                                     self.params['gamma2'],
                                                     self.params['beta2'],
@@ -566,24 +490,19 @@ class DeepConvNetTorch(object):
                                                     var,
                                                     pool_param,
                                                     layer_no=2,
-                                                    save_txt=self.save_txt,
-                                                    save_hex=self.save_hex,
-                                                    phase=self.phase,
-                                                    )
-        #3
-        temp_Out[3], temp_cache['3'] = Torch_FastConv.forward(Out[2],
-                                                    self.params['W3'],
-                                                    conv_param,
-                                                    # pool_param,
-                                                    layer_no=3,
                                                     save_txt=False,
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
+        #3   
+        temp_Out[3], temp_cache['3'] = Python_Conv.forward(Out[2],
+                                                    self.params['W3'],
+                                                    conv_param
+                                                    )
         
-        mean, var = Cal_mean_var.forward(temp_Out[3], layer_no=3, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[3], layer_no=3, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[3], cache['3'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out[2],
+        Out[3], cache['3'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[2],
                                                     self.params['W3'],
                                                     self.params['gamma3'],
                                                     self.params['beta3'],
@@ -593,25 +512,20 @@ class DeepConvNetTorch(object):
                                                     var,
                                                     pool_param,
                                                     layer_no=3,
-                                                    save_txt=self.save_txt,
-                                                    save_hex=self.save_hex,
-                                                    phase=self.phase,
-                                                    )
-
-       #4
-        temp_Out[4], temp_cache['4'] = Torch_FastConv.forward(Out[3],
-                                                    self.params['W4'],
-                                                    conv_param,
-                                                    # pool_param,
-                                                    layer_no=4,
                                                     save_txt=False,
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
-        
-        mean, var = Cal_mean_var.forward(temp_Out[4], layer_no=4, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
 
-        Out[4], cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out[3],
+        #4
+        temp_Out[4], temp_cache['4'] = Python_Conv.forward(Out[3],
+                                                    self.params['W4'],
+                                                    conv_param
+                                                    )
+        
+        mean, var = Cal_mean_var.forward(temp_Out[4], layer_no=4, save_txt=False, save_hex=False, phase=self.phase)
+
+        Out[4], cache['4'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[3],
                                                     self.params['W4'],
                                                     self.params['gamma4'],
                                                     self.params['beta4'],
@@ -621,25 +535,21 @@ class DeepConvNetTorch(object):
                                                     var,
                                                     pool_param,
                                                     layer_no=4,
-                                                    save_txt=self.save_txt,
-                                                    save_hex=self.save_hex,
-                                                    phase=self.phase,
-                                                    )
-        
-        #5    
-        temp_Out[5], temp_cache['5'] = Torch_FastConv.forward(Out[4],
-                                                    self.params['W5'],
-                                                    conv_param,
-                                                    layer_no=5,
                                                     save_txt=False,
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
         
-        mean, var = Cal_mean_var.forward(temp_Out[5], layer_no=5, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+        #5
+        temp_Out[5], temp_cache['5'] = Python_Conv.forward(Out[4],
+                                                    self.params['W5'],
+                                                    conv_param
+                                                    )
+        
+        mean, var = Cal_mean_var.forward(temp_Out[5], layer_no=5, save_txt=False, save_hex=False, phase=self.phase)
 
 
-        Out[5], cache['5'] = Torch_Conv_BatchNorm_ReLU.forward(Out[4],
+        Out[5], cache['5'] = Python_Conv_BatchNorm_ReLU.forward(Out[4],
                                                     self.params['W5'],
                                                     self.params['gamma5'],
                                                     self.params['beta5'],
@@ -648,24 +558,20 @@ class DeepConvNetTorch(object):
                                                     mean,
                                                     var,
                                                     layer_no=5,
-                                                    save_txt=self.save_txt,
-                                                    save_hex=self.save_hex,
-                                                    phase=self.phase,
-                                                    )
-        #6    
-        temp_Out[6], temp_cache['6'] = Torch_FastConv.forward(Out[5],
-                                                    self.params['W6'],
-                                                    conv_param,
-                                                    layer_no=6,
                                                     save_txt=False,
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
+        #6
+        temp_Out[6], temp_cache['6'] = Python_Conv.forward(Out[5],
+                                                    self.params['W6'],
+                                                    conv_param
+                                                    )
         
-        mean, var = Cal_mean_var.forward(temp_Out[6], layer_no=6, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[6], layer_no=6, save_txt=False, save_hex=False, phase=self.phase)
 
 
-        Out[6], cache['6'] = Torch_Conv_BatchNorm_ReLU.forward(Out[5],
+        Out[6], cache['6'] = Python_Conv_BatchNorm_ReLU.forward(Out[5],
                                                     self.params['W6'],
                                                     self.params['gamma6'],
                                                     self.params['beta6'],
@@ -674,25 +580,21 @@ class DeepConvNetTorch(object):
                                                     mean,
                                                     var,
                                                     layer_no=6,
-                                                    save_txt=self.save_txt,
-                                                    save_hex=self.save_hex,
-                                                    phase=self.phase,
-                                                    )
-
-        #7    
-        temp_Out[7], temp_cache['7'] = Torch_FastConv.forward(Out[6],
-                                                    self.params['W7'],
-                                                    conv_param,
-                                                    layer_no=7,
                                                     save_txt=False,
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
+
+        #7
+        temp_Out[7], temp_cache['7'] = Python_Conv.forward(Out[6],
+                                                    self.params['W7'],
+                                                    conv_param
+                                                    )
         
-        mean, var = Cal_mean_var.forward(temp_Out[7], layer_no=7, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[7], layer_no=7, save_txt=False, save_hex=False, phase=self.phase)
 
 
-        Out[7], cache['7'] = Torch_Conv_BatchNorm_ReLU.forward(Out[6],
+        Out[7], cache['7'] = Python_Conv_BatchNorm_ReLU.forward(Out[6],
                                                     self.params['W7'],
                                                     self.params['gamma7'],
                                                     self.params['beta7'],
@@ -701,48 +603,51 @@ class DeepConvNetTorch(object):
                                                     mean,
                                                     var,
                                                     layer_no=7,
-                                                    save_txt=self.save_txt,
-                                                    save_hex=self.save_hex,
+                                                    save_txt=False,
+                                                    save_hex=False,
                                                     phase=self.phase,
                                                     )
         
         #8
         conv_param['pad'] = 0
-        temp_Out[8], temp_cache['8'] = Torch_FastConvWB.forward(Out[7],
+        temp_Out[8], temp_cache['8'] = Python_ConvB.forward(Out[7],
                                                             self.params['W8'],
                                                             self.params['b8'],
-                                                            conv_param,
-                                                            layer_no=8,
-                                                            save_txt=False,
-                                                            save_hex=False,
-                                                            phase=self.phase)
+                                                            conv_param)
 
         mean, var = Cal_mean_var.forward(temp_Out[8], layer_no=8, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[8], cache['8'] = Torch_FastConvWB.forward(Out[7],
+        Out[8], cache['8'] = Python_ConvB.forward(Out[7],
                                                 self.params["W8"],
                                                 self.params["b8"],
-                                                conv_param,
-                                                layer_no=8,
-                                                save_txt=self.save_txt,
-                                                save_hex=self.save_hex,
-                                                phase=self.phase,
+                                                conv_param
                                                 )
 
 
         out = Out[8]
         # print('\n\nFwd Out', out.dtype, out[out != 0], '\n\n')
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/out_torch', out)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Input_Image", X)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Weight_Conv_0", self.params['W0'],)
+        if self.save_debug_data: Save_File("./Output_Sim_Python/Output_Forward0", Out[0])
+        
+        Output_Image16 = out.to(torch.bfloat16)
+        Output_Image16 = Output_Image16.to(torch.float32)
+        if self.save_debug_data: 
+           if self.save_16_data: 
+            Save_File("./Output_Sim_Python/Output_Forward", Output_Image16)
+           else:
+            Save_File("./Output_Sim_Python/Output_Forward", out) 
+
         return out, cache, Out
 
     def loss(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
-        """
-    Evaluate loss and gradient for the deep convolutional network.
-    Input / output: Same API as ThreeLayerConvNet.
-    """
-        out = torch.tensor(out, requires_grad=True)
 
-        scores = out
+        # print('Calculating the loss and its gradients for python model.')
+        out = torch.tensor(out, requires_grad=True)
+        gt_boxes = gt_boxes.to("cuda")
+        gt_classes = gt_classes.to("cuda")
+        num_boxes = num_boxes
+        scores = out.to("cuda")
         bsize, _, h, w = out.shape
         out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)
 
@@ -763,26 +668,14 @@ class DeepConvNetTorch(object):
         box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
         loss = box_loss + iou_loss + class_loss
 
+        # print(f"\nLoss = {loss}\n")
         out = scores
         out.retain_grad()
         loss.backward(retain_graph=True)
         dout = out.grad.detach()
-        # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
-        # dout = pickle.load(dout)
-        # print('\n\n',dout.dtype, dout[dout!=0])
-        # print(f'\n\nLoss Gradients\n\t{dout.dtype}\n\t{dout[dout != 0][:10]}')
-        # print(dout.shape)
-
-        # # Save output for circuit team and pickle for future.
-        # if self.save_pickle:
-        #   Path("Temp_Files/Python").mkdir(parents=True, exist_ok=True)
-        #   with open('Temp_Files/Python/Backward_loss_gradients.pickle','wb') as handle:
-        #     pickle.dump(dout,handle, protocol=pickle.HIGHEST_PROTOCOL)
-        # if self.save_output:
-        #   Path("Outputs/Python/Backwards/").mkdir(parents=True, exist_ok=True)
-        #   save_file(f'Outputs/Python/Backwards/Backward_loss_gradients.txt', dout)
-        #   # save_file(f'Outputs/Python/Backwards/Loss.txt', loss)
-
+        # Loss_Gradient16 = dout.to(torch.bfloat16)
+        # Loss_Gradient16 = Loss_Gradient16.to(torch.float32)
+        # Save_File("./Output_Sim_Python/Loss_Gradient", Loss_Gradient16)
         return loss, dout
 
     def backward(self, dout, cache):
@@ -790,122 +683,120 @@ class DeepConvNetTorch(object):
         dOut = {}
         self.phase = 'Backwards'
 
-        # Save_File('PyTorch_Output/Loss_Gradient', dout.to(torch.bfloat16))
+        dOut[8], grads['W8'], grads['b8'] = Python_ConvB.backward(dout,
+                                                                  cache['8'])
 
-
-        dOut[8], grads['W8'], grads['b8'] = Torch_FastConvWB.backward(dout,
-                                                                  cache['8'],
-                                                                  layer_no=8,
-                                                                  save_txt=True,
-                                                                  save_hex=True,
-                                                                  phase=self.phase)
-
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient8_torch', grads['W8'])
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad8_torch', dOut[8])
-
-        # Save_File('PyTorch_Output/Layer_8_Backward_Input_Gradient', dOut[8].to(torch.bfloat16))
-        # Save_File('PyTorch_Output/Layer_8_Backward_Weight_Gradient', grads['W8'].to(torch.bfloat16))
-
-
-
-        dw, db = grads['W8'], grads['b8'] 
-        last_dout = dOut[8]
         
-        dOut[7], grads['W7'], grads['gamma7'], grads['beta7'] = Torch_Conv_BatchNorm_ReLU.backward(
+        dOut[7], grads['W7'], grads['gamma7'], grads['beta7'] = Python_Conv_BatchNorm_ReLU.backward(
             dOut[8],
             cache['7'],
             layer_no=7,
-            save_txt=self.save_txt,
-            save_hex=self.save_hex,
+            save_txt=False,
+            save_hex=False,
             phase=self.phase,
         )
 
-        # Save_File('PyTorch_Output/Layer_7_Backward_Input_Gradient', dOut[7].to(torch.bfloat16))
-        # Save_File('PyTorch_Output/Layer_7_Backward_Weight_Gradient', grads['W7'].to(torch.bfloat16))
+    
 
-
-        dOut[6], grads['W6'], grads['gamma6'], grads['beta6'] = Torch_Conv_BatchNorm_ReLU.backward(
+        dOut[6], grads['W6'], grads['gamma6'], grads['beta6'] = Python_Conv_BatchNorm_ReLU.backward(
             dOut[7],
             cache['6'],
             layer_no=6,
-            save_txt=self.save_txt,
-            save_hex=self.save_hex,
+            save_txt=False,
+            save_hex=False,
             phase=self.phase,
         )
 
-        # Save_File('PyTorch_Output/Layer_6_Backward_Input_Gradient', dOut[6].to(torch.bfloat16))
-        # Save_File('PyTorch_Output/Layer_6_Backward_Weight_Gradient', grads['W6'].to(torch.bfloat16))
-
-
-        dOut[5], grads['W5'], grads['gamma5'], grads['beta5'] = Torch_Conv_BatchNorm_ReLU.backward(
+        dOut[5], grads['W5'], grads['gamma5'], grads['beta5'] = Python_Conv_BatchNorm_ReLU.backward(
             dOut[6],
             cache['5'],
             layer_no=5,
-            save_txt=self.save_txt,
-            save_hex=self.save_hex,
+            save_txt=False,
+            save_hex=False,
             phase=self.phase,
         )
 
-
-        # Save_File('PyTorch_Output/Layer_5_Backward_Input_Gradient', dOut[5].to(torch.bfloat16))
-        # Save_File('PyTorch_Output/Layer_5_Backward_Weight_Gradient', grads['W5'].to(torch.bfloat16))
-
-        dOut[4], grads['W4'], grads['gamma4'], grads['beta4'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+        dOut[4], grads['W4'], grads['gamma4'], grads['beta4'] = Python_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[5],
             cache['4'],
             layer_no=4,
-            save_txt=self.save_txt,
-            save_hex=self.save_hex,
+            save_txt=False,
+            save_hex=False,
             phase=self.phase,
         )
 
-        dOut[3], grads['W3'], grads['gamma3'], grads['beta3'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+        dOut[3], grads['W3'], grads['gamma3'], grads['beta3'] = Python_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[4],
             cache['3'],
             layer_no=3,
-            save_txt=self.save_txt,
-            save_hex=self.save_hex,
+            save_txt=False,
+            save_hex=False,
             phase=self.phase,
         )
 
-        dOut[2], grads['W2'], grads['gamma2'], grads['beta2'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+        dOut[2], grads['W2'], grads['gamma2'], grads['beta2'] = Python_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[3],
             cache['2'],
             layer_no=2,
-            save_txt=self.save_txt,
-            save_hex=self.save_hex,
+            save_txt=False,
+            save_hex=False,
             phase=self.phase,
         )
 
-        # Save_File('PyTorch_Output/Layer_2_Backward_Input_Gradient', dOut[2].to(torch.bfloat16))
-        # Save_File('PyTorch_Output/Layer_2_Backward_Weight_Gradient', grads['W2'].to(torch.bfloat16))
-
-        dOut[1], grads['W1'], grads['gamma1'], grads['beta1'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+        dOut[1], grads['W1'], grads['gamma1'], grads['beta1'] = Python_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[2],
             cache['1'],
             layer_no=1,
-            save_txt=self.save_txt,
-            save_hex=self.save_hex,
+            save_txt=False,
+            save_hex=False,
             phase=self.phase,
         )
 
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient1_torch', grads['W1'])
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad1_torch', dOut[1])
-
-
-
-        dOut[0], grads['W0'], grads['gamma0'], grads['beta0'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
+        dOut[0], grads['W0'], grads['gamma0'], grads['beta0'] = Python_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[1],
             cache['0'],
             layer_no=0,
-            save_txt=self.save_txt,
-            save_hex=self.save_hex,
+            save_txt=False,
+            save_hex=False,
             phase=self.phase,
         )
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient0_torch', grads['W0'])
-        if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad0_torch', dOut[0])
-
-
+        
+        if self.save_debug_data: 
+            
+            if self.save_16_data: 
+                Input_Grad_Layer8_16 = dOut[8].to(torch.bfloat16)
+                Input_Grad_Layer8_16 = Input_Grad_Layer8_16.to(torch.float32)
+                Weight_Gradient_Layer8_16 = grads['W8'].to(torch.bfloat16)
+                Weight_Gradient_Layer8_16 = Weight_Gradient_Layer8_16.to(torch.float32)
+                Input_Grad_Layer7_16 = dOut[7].to(torch.bfloat16)
+                Input_Grad_Layer7_16 = Input_Grad_Layer7_16.to(torch.float32)
+                Weight_Gradient_Layer7_16 = grads['W7'].to(torch.bfloat16)
+                Weight_Gradient_Layer7_16 = Weight_Gradient_Layer7_16.to(torch.float32)
+                Input_Grad_Layer2_16 = dOut[2].to(torch.bfloat16)
+                Input_Grad_Layer2_16 = Input_Grad_Layer2_16.to(torch.float32)
+                Weight_Gradient_Layer2_16 = grads['W2'].to(torch.bfloat16)
+                Weight_Gradient_Layer2_16 = Weight_Gradient_Layer2_16.to(torch.float32)
+                
+                Save_File("./Output_Sim_Python/Layer_8_Backward_Input_Gradient", Input_Grad_Layer8_16)
+                Save_File("./Output_Sim_Python/Layer_8_Backward_Weight_Gradient", Weight_Gradient_Layer8_16)
+                Save_File("./Output_Sim_Python/Layer_7_Backward_Input_Gradient", Input_Grad_Layer7_16)
+                Save_File("./Output_Sim_Python/Layer_7_Backward_Weight_Gradient", Weight_Gradient_Layer7_16)
+                Save_File("./Output_Sim_Python/Layer_2_Backward_Input_Gradient", Input_Grad_Layer2_16)
+                Save_File("./Output_Sim_Python/Layer_2_Backward_Weight_Gradient", Weight_Gradient_Layer2_16)
+            else:
+                Save_File("./Output_Sim_Python/Layer_8_Backward_Input_Gradient", dOut[8])
+                Save_File("./Output_Sim_Python/Layer_8_Backward_Weight_Gradient", grads['W8'])
+                Save_File("./Output_Sim_Python/Layer_7_Backward_Input_Gradient", dOut[7])
+                Save_File("./Output_Sim_Python/Layer_7_Backward_Weight_Gradient", grads['W7'])
+                Save_File("./Output_Sim_Python/Layer_2_Backward_Input_Gradient", dOut[2])
+                Save_File("./Output_Sim_Python/Layer_2_Backward_Weight_Gradient", grads['W2'])
+                
+            Save_File("./Output_Sim_Python/Bias_Grad", grads['b8'])
+            Save_File("./Output_Sim_Python/Gamma_Gradient_Layer7", grads['gamma7'])    
+            Save_File("./Output_Sim_Python/Beta_Gradient_Layer7", grads['beta7'])   
+            Save_File("./Output_Sim_Python/Gamma_Gradient_Layer2",  grads['gamma2'])
+            Save_File("./Output_Sim_Python/Beta_Gradient_Layer2", grads['beta2'])      
+                         
         return dOut, grads
 
 
@@ -1148,8 +1039,8 @@ def kaiming_initializer(Din, Dout, K=None, relu=True, device='cpu',
     dimensions and Dout output dimensions. Otherwise if K is a nonnegative
     integer then initialize the weights for a convolution layer with Din input
     channels, Dout output channels, and a kernel size of KxK.
-  - relu: If Torch_ReLU=True, then initialize weights with a gain of 2 to account for
-    a Torch_ReLU nonlinearity (Kaiming initializaiton); otherwise initialize weights
+  - relu: If Python_ReLU=True, then initialize weights with a gain of 2 to account for
+    a Python_ReLU nonlinearity (Kaiming initializaiton); otherwise initialize weights
     with a gain of 1 (Xavier initialization).
   - device, dtype: The device and datatype for the output tensor.
 
@@ -1164,7 +1055,7 @@ def kaiming_initializer(Din, Dout, K=None, relu=True, device='cpu',
         ###########################################################################
 
         # The weight scale is sqrt(gain / fan_in),                                #
-        # where gain is 2 if Torch_ReLU is followed by the layer, or 1 if not,          #
+        # where gain is 2 if Python_ReLU is followed by the layer, or 1 if not,          #
         # and fan_in = num_in_channels (= Din).                                   #
         # The output should be a tensor in the designated size, dtype, and device.#
         ###########################################################################
@@ -1175,7 +1066,7 @@ def kaiming_initializer(Din, Dout, K=None, relu=True, device='cpu',
     else:
         ###########################################################################
         # The weight scale is sqrt(gain / fan_in),                                #
-        # where gain is 2 if Torch_ReLU is followed by the layer, or 1 if not,          #
+        # where gain is 2 if Python_ReLU is followed by the layer, or 1 if not,          #
         # and fan_in = num_in_channels (= Din) * K * K                            #
         # The output should be a tensor in the designated size, dtype, and device.#
         ###########################################################################
@@ -1718,101 +1609,9 @@ class WeightLoader(object):
         # make sure the loaded weight is right
         assert size == self.start
         return self.scratch
-    
-
-def origin_idx_calculator(idx, B, H, W, num_chunks):
-    origin_idx = []
-    if num_chunks < H*W//num_chunks:
-        for i in range(len(idx)):
-            for j in range(len(idx[0])):
-                origin_idx.append([(j*num_chunks*B+int(idx[i][j]))//(H*W), i, 
-                        ((j*num_chunks*B+int(idx[i][j]))%(H*W))//H, ((j*num_chunks*B+int(idx[i][j]))%(H*W))%H])
-    else:
-        for i in range(len(idx)):
-            for j in range(len(idx[0])):
-                origin_idx.append([(j*B*H*W//num_chunks+int(idx[i][j]))//(H*W), i,
-                        ((j*B*H*W//num_chunks+int(idx[i][j]))%(H*W))//H, ((j*B*H*W//num_chunks+int(idx[i][j]))%(H*W))%H])
-    return origin_idx
 
 
-class RangeBN(nn.Module):
-    def __init__(self, num_features, momentum=0.1, affine=True, num_chunks=8, eps=1e-5):
-        super(RangeBN, self).__init__()
-        self.register_buffer('running_mean', torch.zeros(num_features))
-        self.register_buffer('running_var', torch.zeros(num_features))
-
-        self.momentum = momentum
-        if affine:
-            self.bias = nn.Parameter(torch.Tensor(num_features))
-            self.weight = nn.Parameter(torch.Tensor(num_features))
-        self.eps = eps
-        self.num_chunks = num_chunks
-        self.reset_params()
-
-    def reset_params(self):
-        if self.weight is not None:
-            self.weight.data.uniform_()
-        if self.bias is not None:
-            self.bias.data.zero_()
-
-    def forward(self, x, calculated_mean, calculated_var):
-        input_ = x
-        gamma_ = self.weight
-        #if self.training:
-        B, C, H, W = input_.shape
-        y = input_.transpose(0, 1).contiguous()  # C x B x H x W
-        y = y.view(C, self.num_chunks, B * H * W // self.num_chunks)
-        mean_max = y.max(-1)[0].mean(-1)  # C
-        mean_min = y.min(-1)[0].mean(-1)  # C
-        mean = y.view(C, -1).mean(-1)  # C
-        #scale_fix = (0.5 * 0.35) * (1 + (math.pi * math.log(4)) **
-        #                            0.5) / ((2 * math.log(y.size(-1))) ** 0.5)
-        scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
-        scale = 1 / ((mean_max - mean_min) * scale_fix + self.eps)
-        #print('scale', scale)
-        self.running_mean.detach().mul_(self.momentum).add_(
-            mean * (1 - self.momentum))
-
-        self.running_var.detach().mul_(self.momentum).add_(
-            scale * (1 - self.momentum))
-        """else:
-            mean = self.running_mean
-            scale = self.running_var"""
-        out = (x - calculated_mean) * calculated_var
-        out = out * gamma_.view(1, gamma_.size(0), 1, 1) + self.bias.view(1, self.bias.size(0), 1, 1)
-
-        return out
-
-class Cal_mean_var(object):
-
-    @staticmethod
-    def forward(x):
-    
-        out, cache = None, None
-        
-        eps = 1e-5
-        num_chunks = 8
-        B, C, H, W = x.shape
-        y = x.transpose(0, 1).contiguous()  # C x B x H x W
-        y = y.view(C, num_chunks, B * H * W // num_chunks)
-        avg_max = y.max(-1)[0].mean(-1)  # C
-        avg_min = y.min(-1)[0].mean(-1)  # C
-        avg = y.view(C, -1).mean(-1)  # C
-        max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
-        min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
-        scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
-        scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
-
-        avg = avg.view(1, -1, 1, 1)
-        scale = scale.view(1, -1, 1, 1)
-
-
-        cache = x
-        return avg, scale
-
-
-class  Yolov2(nn.Module):
-
+class Yolov2(nn.Module):
     num_classes = 20
     num_anchors = 5
 
@@ -1820,95 +1619,58 @@ class  Yolov2(nn.Module):
         super(Yolov2, self).__init__()
         if classes:
             self.num_classes = len(classes)
-            
+
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.lrelu = nn.LeakyReLU(0.1, inplace=True)
         self.slowpool = nn.MaxPool2d(kernel_size=2, stride=1)
 
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn1 = RangeBN(16)
+        self.bn1 = nn.BatchNorm2d(16)
 
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = RangeBN(32)
+        self.bn2 = nn.BatchNorm2d(32)
 
         self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn3 = RangeBN(64)
+        self.bn3 = nn.BatchNorm2d(64)
 
         self.conv4 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn4 = RangeBN(128)
+        self.bn4 = nn.BatchNorm2d(128)
 
         self.conv5 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn5 = RangeBN(256)
+        self.bn5 = nn.BatchNorm2d(256)
 
         self.conv6 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn6 = RangeBN(512)
+        self.bn6 = nn.BatchNorm2d(512)
 
         self.conv7 = nn.Conv2d(in_channels=512, out_channels=1024, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn7 = RangeBN(1024)
+        self.bn7 = nn.BatchNorm2d(1024)
 
         self.conv8 = nn.Conv2d(in_channels=1024, out_channels=1024, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn8 = RangeBN(1024)
+        self.bn8 = nn.BatchNorm2d(1024)
 
-        self.conv9 = nn.Sequential(nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1))
+        self.conv9 = nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1)
 
     def forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
         """
-        x: Variable
-        gt_boxes, gt_classes, num_boxes: Tensor
-        """
-        temp_x = self.maxpool(self.conv1(x))
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
-        
-        
-        x = self.maxpool(self.lrelu(self.bn1(self.conv1(x), cal_mean, cal_var)))
-        
-        temp_x = self.conv2(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
-        
-        x = self.maxpool(self.lrelu(self.bn2(self.conv2(x), cal_mean, cal_var)))
-        
-        temp_x = self.conv3(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+    x: Variable
+    gt_boxes, gt_classes, num_boxes: Tensor
+    """
 
-        x = self.maxpool(self.lrelu(self.bn3(self.conv3(x), cal_mean, cal_var)))
-        
-        temp_x = self.conv4(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
-
-        x = self.maxpool(self.lrelu(self.bn4(self.conv4(x), cal_mean, cal_var)))
-        
-        temp_x = self.conv5(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
-
-       
-        x = self.maxpool(self.lrelu(self.bn5(self.conv5(x), cal_mean, cal_var)))
-        
-        temp_x = self.conv6(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
-        
-        x = self.lrelu(self.bn6(self.conv6(x), cal_mean, cal_var))
-        
-        temp_x = self.conv7(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
-        
- 
-        x = self.lrelu(self.bn7(self.conv7(x), cal_mean, cal_var))
-        
-        temp_x = self.conv8(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
- 
-        x = self.lrelu(self.bn8(self.conv8(x), cal_mean, cal_var))
-
+        x = self.maxpool(self.lrelu(self.bn1(self.conv1(x))))
+        x = self.maxpool(self.lrelu(self.bn2(self.conv2(x))))
+        x = self.maxpool(self.lrelu(self.bn3(self.conv3(x))))
+        x = self.maxpool(self.lrelu(self.bn4(self.conv4(x))))
+        x = self.maxpool(self.lrelu(self.bn5(self.conv5(x))))
+        x = self.lrelu(self.bn6(self.conv6(x)))
+        # x = F.pad(x, (0, 1, 0, 1))
+        # x = self.slowpool(x)
+        x = self.lrelu(self.bn7(self.conv7(x)))
+        x = self.lrelu(self.bn8(self.conv8(x)))
         out = self.conv9(x)
-    
-
 
         # out -- tensor of shape (B, num_anchors * (5 + num_classes), H, W)
         bsize, _, h, w = out.size()
 
-        # 5 + num_class tensor represents (t_x, t_y, t_h, t_w, t_c) and (class1_score, class2_score, ...)
-        # reorganize the output tensor to shape (B, H * W * num_anchors, 5 + num_classes)
-    
         # 5 + num_class tensor represents (t_x, t_y, t_h, t_w, t_c) and (class1_score, class2_score, ...)
         # reorganize the output tensor to shape (B, H * W * num_anchors, 5 + num_classes)
         out = out.permute(0, 2, 3, 1).contiguous().view(bsize, h * w * self.num_anchors, 5 + self.num_classes)
@@ -1930,7 +1692,7 @@ class  Yolov2(nn.Module):
             gt_data = (gt_boxes, gt_classes, num_boxes)
             target_data = build_target(output_data, gt_data, h, w)
 
-            target_variable = [Variable(v) for v in target_data]
+            target_variable = [v for v in target_data]
             box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
 
             return box_loss, iou_loss, class_loss
@@ -2003,55 +1765,430 @@ def Truncating_Rounding(Truncated_Hexadecimal):
 ################################################################################
 ################################################################################
 
-class Torch_ReLU(object):
+
+# Python_Convolution without Bias
+class Python_Conv(object):
+
+    @staticmethod
+    def forward(x, w, conv_param):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        x = x.to(device)
+        w = w.to(device)
+        out = None
+        pad = 1
+        stride = conv_param['stride']
+        N, C, H, W = x.shape
+        F, C, HH, WW = w.shape
+        exp_bits = 8
+        pad = conv_param['pad']
+        H_out = int(1 + (H + 2 * pad - HH) / stride)
+        W_out = int(1 + (W + 2 * pad - WW) / stride)
+        out = torch.zeros((N, F, H_out, W_out), dtype=torch.float32, device="cuda")
+        output_ptr = out.flatten().contiguous().data_ptr()
+        x_ptr = x.flatten().contiguous().data_ptr()
+        w_ptr = w.flatten().contiguous().data_ptr()
+
+        libconv.conv2d(N, C, H, W, 
+               F, HH, WW, 
+               ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)),
+               ctypes.cast(w_ptr, ctypes.POINTER(ctypes.c_float)),
+               ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_float)),        
+               pad, stride, exp_bits)
+            
+        out = out.reshape(N, F, H_out, W_out)
+
+        cache = (x, w, conv_param)
+ 
+        return out, cache
+
+    @staticmethod
+    def backward(dout, cache):
+        x, w, conv_param = cache
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        dout = dout.to(device)
+        x = x.to(device)
+        w = w.to(device)
+        pad = 1 
+        stride = conv_param['stride']
+        N, C, H, W = x.shape
+        F, _, HH, WW = w.shape
+
+        dout_gpu = dout.contiguous()
+        x_gpu = x.contiguous()
+        w_gpu = w.contiguous()
+
+        dx = torch.zeros_like(x_gpu)
+        dw = torch.zeros_like(w_gpu)
+
+        x_ptr = x_gpu.flatten().data_ptr()
+        w_ptr = w_gpu.flatten().data_ptr()
+        dout_ptr = dout_gpu.flatten().data_ptr()
+        dw_ptr = dw.flatten().data_ptr()
+        dx_ptr = dx.flatten().data_ptr()
+
+        exp_bits = 8
+        libconv.conv2d_backward_dw(
+            N, C, H, W, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), 
+            F, HH, WW,ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), 
+            ctypes.cast(dw_ptr,ctypes.POINTER(ctypes.c_float)), 
+            H, W, stride, pad, exp_bits)
+           
+        reshaped_w = w.permute(1, 0, 2, 3)
+        w_flipped = torch.flip(reshaped_w, dims=(2, 3))
+        FF, CC, HH, WW = w_flipped.shape
+        w_transpose = w_flipped.contiguous()
+        w_ptr_transpose = w_transpose.flatten().data_ptr()
+
+        libconv.conv2d(N, F, H, W, 
+                       FF, HH, WW, 
+                       ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),
+                       ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_float)),
+                       ctypes.cast(dx_ptr, ctypes.POINTER(ctypes.c_float)),
+                       pad, stride, exp_bits)
+
+        dx = dx.reshape(N, C, H, W)
+     
+        return dx, dw 
+
+# Python_Convolution with Bias
+class Python_ConvB(object):
+
+    @staticmethod
+    def forward(x, w, b, conv_param):
+        pad = conv_param['pad']
+        stride = conv_param['stride']
+        exp_bits = 8
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        x = x.to(device)
+        w = w.to(device)
+        b = b.to(device)
+        N, C, H, W = x.shape
+        F, C, HH, WW = w.shape
+        H_out = int(1 + (H + 2 * pad - HH) / stride)
+        W_out = int(1 + (W + 2 * pad - WW) / stride)
+        
+        out = torch.zeros((N, F, H_out, W_out), dtype=torch.float32, device="cuda")
+        x_ptr = x.flatten().contiguous().data_ptr()
+        w_ptr = w.flatten().contiguous().data_ptr()
+        b_ptr = b.flatten().contiguous().data_ptr()
+        output_ptr = out.flatten().contiguous().data_ptr()
+
+        libconv.conv2d_WB(N, C, H, W, 
+               ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)),
+               F, HH, WW, 
+               ctypes.cast(w_ptr, ctypes.POINTER(ctypes.c_float)),
+               ctypes.cast(b_ptr, ctypes.POINTER(ctypes.c_float)),
+               ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_float)),      
+               pad, stride, exp_bits)
+        out = out.reshape(N, F, H_out, W_out)
+
+        cache = (x, w, b, conv_param)
+
+        return out, cache
+
+    @staticmethod
+    def backward(dout, cache):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        x, w, b, conv_param = cache
+        w = w.to(device)
+        b = b.to(device)
+
+        pad = conv_param['pad']
+        stride = conv_param['stride']
+        stride = conv_param['stride']
+        N, F, H_dout, W_dout = dout.shape
+        F, C, HH, WW = w.shape
+        
+        db = torch.zeros_like(b, dtype=torch.float32, device=device)
+        dw_bias = torch.zeros_like(w, dtype=torch.float32, device=device)
+        A, B, X, Y = x.shape
+        dx_bias = torch.zeros((A, B, X, Y), dtype=torch.float32, device=device)
+
+        dout_ptr = dout.flatten().contiguous().data_ptr()
+        db_ptr = db.flatten().contiguous().data_ptr()
+        x_ptr = x.flatten().contiguous().data_ptr()
+        dw_ptr_bias = dw_bias.flatten().contiguous().data_ptr()
+        dx_ptr_bias = dx_bias.flatten().contiguous().data_ptr()
+        exp_bits = 8
+        
+        libconv.conv2d_backward_db(
+            N, F, H_dout, W_dout, 
+            ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), 
+            ctypes.cast(db_ptr, ctypes.POINTER(ctypes.c_float)),
+            exp_bits
+        )
+        
+        libconv.conv2d_backward_dw(
+            N, C, H_dout, W_dout, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), 
+            F, HH, WW,ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), 
+            ctypes.cast(dw_ptr_bias, ctypes.POINTER(ctypes.c_float)), 
+            H_dout, W_dout, stride, pad,exp_bits)
+        
+        reshaped_w = w.permute(1, 0, 2, 3)
+        w_flipped = torch.flip(reshaped_w, dims=(2, 3))
+        FF, CC, HH, WW = w_flipped.shape
+        w_transpose = w_flipped.contiguous()
+        w_ptr_transpose = w_transpose.flatten().data_ptr()
+        N, C, H, W = x.shape
+
+        libconv.conv2d(N, F, H, W, 
+                       FF, HH, WW,
+                       ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),
+                       ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_float)),
+                       ctypes.cast(dx_ptr_bias, ctypes.POINTER(ctypes.c_float)),
+                       pad, stride, exp_bits)
+
+
+        dx_bias = dx_bias.reshape(A,B,X,Y)
+        
+
+        return dx_bias, dw_bias, db   
+
+
+class Python_MaxPool(object):
+
+    @staticmethod
+    def forward(x, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+        # Extract pooling parameters
+        stride = pool_param['stride']
+        pool_width = pool_param['pool_width']
+        pool_height = pool_param['pool_height']
+
+        # Get input dimensions
+        N, C, H, W = x.shape
+
+        # Calculate output dimensions
+        H_out = int(1 + (H - pool_height) / stride)
+        W_out = int(1 + (W - pool_width) / stride)
+
+        # Allocate memory for output and positions on GPU
+    
+        out = torch.zeros((N, C, H_out, W_out), dtype=x.dtype, device="cuda")
+        positions = torch.zeros((N, C, H_out, W_out), dtype=torch.int32, device="cuda")
+        # Ensure input tensor is on GPU and contiguous
+        x_gpu = x.contiguous().cuda() if not x.is_cuda else x.contiguous()
+        positions_gpu = positions.contiguous().cuda()if not positions.is_cuda else positions.contiguous()
+        # Get pointers to the data
+        x_ptr = x_gpu.flatten().data_ptr()
+        out_ptr = out.flatten().data_ptr()
+        pos_ptr = positions_gpu.flatten().data_ptr()
+        _curr_time = time.time()
+        # Launch the kernel
+        libpool.max_pooling_forward(N, C, H, W, 
+                                    ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), 
+                                    ctypes.cast(out_ptr, ctypes.POINTER(ctypes.c_float)), 
+                                    ctypes.cast(pos_ptr, ctypes.POINTER(ctypes.c_float)), 
+                                    pool_height, pool_width, stride)
+
+        # Ensure synchronization of CUDA operations
+        
+        out = out.reshape(N, C, H_out, W_out)
+        cache = (x, positions_gpu, pool_param)
+        _time= (time.time() - _curr_time)  
+        # print("Time taken by Pooling Layer",layer_no,"is: ",_time)
+                
+        return out, cache
+
+    @staticmethod
+    def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+        x, positions, pool_param = cache
+
+        N, C, H, W = x.shape
+        stride = pool_param['stride']
+        pool_width = pool_param['pool_width']
+        pool_height = pool_param['pool_height']
+
+        # Create an output tensor dx
+        dx = torch.zeros((N, C, H, W), dtype=x.dtype, device="cuda")
+
+        # Convert tensors to contiguous if they are not already
+        dout_ptr = dout.flatten().contiguous().data_ptr()
+        positions_ptr = positions.flatten().contiguous().data_ptr()
+        dx_ptr = dx.flatten().contiguous().data_ptr()
+        
+        # Call the CUDA function
+        libpool.max_pooling_backward(N, C, H, W, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),  ctypes.cast(dx_ptr, ctypes.POINTER(ctypes.c_float)),
+                                      ctypes.cast(positions_ptr, ctypes.POINTER(ctypes.c_int32)),
+                                    pool_height, pool_width, stride)
+
+        dx = dx.reshape(N, C, H, W)
+
+        return dx
+
+class Python_BatchNorm(object):
+
+    @staticmethod
+    def forward(x, gamma, beta, bn_params, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+
+
+        mode = bn_params['mode']
+        eps = bn_params.get('eps', 1e-5)
+        momentum = bn_params.get('momentum', 0.9)
+
+        N, D = x.shape
+        running_mean = bn_params.get('running_mean', torch.zeros(D, dtype=x.dtype, device=x.device))
+        running_var = bn_params.get('running_var', torch.zeros(D, dtype=x.dtype, device=x.device))
+
+
+        out, cache = None, None
+        if mode == 'train':
+
+            # step1: calculate mean
+            mu = 1. / N * torch.sum(x, axis=0)
+            running_mean = momentum * running_mean + (1 - momentum) * mu
+
+            # step2: subtract mean vector of every trainings example
+            xmu = x - mu
+
+            # step3: following the lower branch - calculation denominator
+            sq = xmu ** 2
+
+            # step4: calculate variance
+            var = 1. / N * torch.sum(sq, axis=0)
+            running_var = momentum * running_var + (1 - momentum) * var
+            
+            # step5: add eps for numerical stability, then sqrt
+            sqrtvar = torch.sqrt(var + eps)
+
+            # step6: invert sqrtwar
+            ivar = 1. / sqrtvar
+
+            # step7: execute normalization
+            xhat = xmu * ivar
+
+            # step8: Nor the two transformation steps
+            # print(gamma)
+
+            gammax = gamma * xhat
+
+            # step9
+            out = gammax + beta
+
+            cache = (xhat, gamma, xmu, ivar, sqrtvar, var, eps)
+
+        elif mode == 'test':
+
+            normolized = ((x - running_mean) / (running_var + eps) ** (1 / 2))
+            out = normolized * gamma + beta
+
+        else:
+            raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
+
+        # Store the updated running means back into bn_params
+        bn_params['running_mean'] = running_mean.detach()
+        bn_params['running_var'] = running_var.detach()
+
+
+
+        return out, cache
+
+    @staticmethod
+    def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+ 
+        dx, dgamma, dbeta = None, None, None
+
+        xhat, gamma, xmu, ivar, sqrtvar, var, eps = cache
+
+        N, D = dout.shape
+
+        # step9
+        dbeta = torch.sum(dout, axis=0)
+        dgammax = dout  # not necessary, but more understandable
+
+        # step8
+        dgamma = torch.sum(dgammax * xhat, axis=0)
+        dxhat = dgammax * gamma
+
+        # step7
+        divar = torch.sum(dxhat * xmu, axis=0)
+        dxmu1 = dxhat * ivar
+
+        # step6
+        dsqrtvar = -1. / (sqrtvar ** 2) * divar
+
+        # step5
+        dvar = 0.5 * 1. / torch.sqrt(var + eps) * dsqrtvar
+
+        # step4
+        dsq = 1. / N * torch.ones((N, D), device=dout.device) * dvar
+
+        # step3
+        dxmu2 = 2 * xmu * dsq
+
+        # step2
+        dx1 = (dxmu1 + dxmu2)
+        dmu = -1 * torch.sum(dxmu1 + dxmu2, axis=0)
+
+        # step1
+        dx2 = 1. / N * torch.ones((N, D), device=dout.device) * dmu
+
+        # step0
+        dx = dx1 + dx2
+
+        return dx, dgamma, dbeta
+
+    @staticmethod
+    def backward_alt(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+        """
+    Alternative backward pass for batch normalization.
+    For this implementation you should work out the derivatives for the batch
+    normalizaton backward pass on paper and simplify as much as possible. You
+    should be able to derive a simple expression for the backward pass. 
+    See the jupyter notebook for more hints.
+    
+    Note: This implementation should expect to receive the same cache variable
+    as batchnorm_backward, but might not use all of the values in the cache.
+
+    Inputs / outputs: Same as batchnorm_backward
+    """
+        dx, dgamma, dbeta = None, None, None
+
+        xhat, gamma, xmu, ivar, sqrtvar, var, eps = cache
+        N, D = dout.shape
+        # get the dimensions of the input/output
+        dbeta = torch.sum(dout, dim=0)
+        dgamma = torch.sum(xhat * dout, dim=0)
+        dx = (gamma * ivar / N) * (N * dout - xhat * dgamma - dbeta)
+
+        return dx, dgamma, dbeta
+
+class Python_ReLU(object):
 
     @staticmethod
     def forward(x, alpha=0.1, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
         out = None
         out = x.clone()
         out[out < 0] = out[out < 0] * alpha
         cache = x
-        
+
         # Generating the Sign for Leaky ReLU
         sign = torch.zeros_like(x) 
         sign[x<0] = 1
-        
+
         return out, cache
 
     @staticmethod
     def backward(dout, cache, alpha=0.1, layer_no=[], save_txt=False, save_hex=False, phase=[]):
         dx, x = None, cache
-        
+
         dl = torch.ones_like(x)
         dl[x < 0] = alpha
         dx = dout * dl
-        
+
+
         return dx
 
 
-class Torch_Conv_ReLU(object):
+class Python_Conv_ReLU(object):
 
     @staticmethod
     def forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        """
-    A convenience layer that performs a convolution followed by a Torch_ReLU.
-    Inputs:
-    - x: Input to the convolutional layer
-    - w, b, conv_param: Weights and parameters for the convolutional layer
-    Returns a tuple of:
-    - out: Output from the Torch_ReLU
-    - cache: Object to give to the backward pass
-    """
-        a, conv_cache = Torch_FastConv.forward(
+
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
-            conv_param,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase)
-        out, relu_cache = Torch_ReLU.forward(
+            conv_param)
+        out, relu_cache = Python_ReLU.forward(
             a,
             layer_no=layer_no,
             save_txt=save_txt,
@@ -2068,7 +2205,7 @@ class Torch_Conv_ReLU(object):
     Backwards pass for the conv-relu convenience layer.
     """
         conv_cache, relu_cache = cache
-        da = Torch_ReLU.backward(
+        da = Python_ReLU.backward(
             dout,
             relu_cache,
             layer_no=layer_no,
@@ -2076,33 +2213,34 @@ class Torch_Conv_ReLU(object):
             save_hex=save_hex,
             phase=phase
         )
-        dx, dw = Torch_FastConv.backward(
+        dx, dw = Python_Conv.backward(
             da,
-            conv_cache,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase
+            conv_cache
         )
         # print(f'{layer_no}', end=',')
         return dx, dw
 
-class Torch_Conv_Pool(object):
+class Python_Conv_Pool(object):
 
     @staticmethod
     def forward(x, w, conv_param, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
-        a, conv_cache = Torch_FastConv.forward(
+        """
+    A convenience layer that performs a convolution, a Python_ReLU, and a pool.
+    Inputs:
+    - x: Input to the convolutional layer
+    - w, b, conv_param: Weights and parameters for the convolutional layer
+    - pool_param: Parameters for the pooling layer
+    Returns a tuple of:
+    - out: Output from the pooling layer
+    - cache: Object to give to the backward pass
+    """
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
-            conv_param,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase
+            conv_param
         )
 
-        out, pool_cache = Torch_FastMaxPool.forward(
+        out, pool_cache = Python_MaxPool.forward(
             a,
             pool_param,
             layer_no=layer_no,
@@ -2117,9 +2255,9 @@ class Torch_Conv_Pool(object):
 
     @staticmethod
     def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
+
         conv_cache, pool_cache = cache
-        ds = Torch_FastMaxPool.backward(
+        ds = Python_MaxPool.backward(
             dout,
             pool_cache,
             layer_no=layer_no,
@@ -2128,34 +2266,28 @@ class Torch_Conv_Pool(object):
             phase=phase
         )
 
-        dx, dw = Torch_FastConv.backward(
+
+
+        dx, dw = Python_Conv.backward(
             ds,
-            conv_cache,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase
+            conv_cache
         )
 
         # print(f'{layer_no}', end=',')
         return dx, dw
 
-class Torch_Conv_ReLU_Pool(object):
+class Python_Conv_ReLU_Pool(object):
 
     @staticmethod
     def forward(x, w, conv_param, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
-        a, conv_cache = Torch_FastConv.forward(
+
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
-            conv_param,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase
+            conv_param
         )
 
-        s, relu_cache = Torch_ReLU.forward(
+        s, relu_cache = Python_ReLU.forward(
             a,
             layer_no=layer_no,
             save_txt=save_txt,
@@ -2163,7 +2295,7 @@ class Torch_Conv_ReLU_Pool(object):
             phase=phase
         )
 
-        out, pool_cache = Torch_FastMaxPool.forward(
+        out, pool_cache = Python_MaxPool.forward(
             s,
             pool_param,
             layer_no=layer_no,
@@ -2178,11 +2310,9 @@ class Torch_Conv_ReLU_Pool(object):
 
     @staticmethod
     def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        """
-    Backwards pass for the conv-relu-pool convenience layer
-    """
+
         conv_cache, relu_cache, pool_cache = cache
-        ds = Torch_FastMaxPool.backward(
+        ds = Python_MaxPool.backward(
             dout,
             pool_cache,
             layer_no=layer_no,
@@ -2191,7 +2321,7 @@ class Torch_Conv_ReLU_Pool(object):
             phase=phase
         )
 
-        da = Torch_ReLU.backward(
+        da = Python_ReLU.backward(
             ds,
             relu_cache,
             layer_no=layer_no,
@@ -2200,33 +2330,25 @@ class Torch_Conv_ReLU_Pool(object):
             phase=phase
         )
 
-        dx, dw = Torch_FastConv.backward(
+        dx, dw = Python_Conv.backward(
             da,
-            conv_cache,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase
+            conv_cache
         )
 
         # print(f'{layer_no}', end=',')
         return dx, dw
 
 
-class Torch_Conv_BatchNorm_ReLU(object):
+class Python_Conv_BatchNorm_ReLU(object):
 
     @staticmethod
     def forward(x, w, gamma, beta, conv_param, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        a, conv_cache = Torch_FastConv.forward(
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
-            conv_param,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase)
+            conv_param)
 
-        an, bn_cache = Torch_SpatialBatchNorm.forward(
+        an, bn_cache = Python_SpatialBatchNorm.forward(
             a,
             gamma,
             beta,
@@ -2238,7 +2360,7 @@ class Torch_Conv_BatchNorm_ReLU(object):
             save_hex=save_hex,
             phase=phase)
 
-        out, relu_cache = Torch_ReLU.forward(
+        out, relu_cache = Python_ReLU.forward(
             an,
             layer_no=layer_no,
             save_txt=save_txt,
@@ -2253,7 +2375,7 @@ class Torch_Conv_BatchNorm_ReLU(object):
     def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
         conv_cache, bn_cache, relu_cache = cache
 
-        dan = Torch_ReLU.backward(
+        dan = Python_ReLU.backward(
             dout,
             relu_cache,
             layer_no=layer_no,
@@ -2262,7 +2384,7 @@ class Torch_Conv_BatchNorm_ReLU(object):
             phase=phase
         )
 
-        da, dgamma, dbeta = Torch_SpatialBatchNorm.backward(
+        da, dgamma, dbeta = Python_SpatialBatchNorm.backward(
             dan,
             bn_cache,
             layer_no=layer_no,
@@ -2271,35 +2393,27 @@ class Torch_Conv_BatchNorm_ReLU(object):
             phase=phase
         )
 
-        dx, dw = Torch_FastConv.backward(
+        dx, dw = Python_Conv.backward(
             da,
-            conv_cache,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase
+            conv_cache
         )
 
         # print(f'{layer_no}', end=',')
         return dx, dw, dgamma, dbeta
 
 
-class Torch_Conv_BatchNorm_ReLU_Pool(object):
+class Python_Conv_BatchNorm_ReLU_Pool(object):
 
     @staticmethod
     def forward(x, w, gamma, beta, conv_param, bn_params, mean, var, pool_param, layer_no=[], save_txt=False, save_hex=False,
                 phase=[]):
-        a, conv_cache = Torch_FastConv.forward(
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
-            conv_param,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase
+            conv_param
         )
 
-        an, bn_cache = Torch_SpatialBatchNorm.forward(
+        an, bn_cache = Python_SpatialBatchNorm.forward(
             a,
             gamma,
             beta,
@@ -2312,7 +2426,7 @@ class Torch_Conv_BatchNorm_ReLU_Pool(object):
             phase=phase
         )
 
-        s, relu_cache = Torch_ReLU.forward(
+        s, relu_cache = Python_ReLU.forward(
             an,
             layer_no=layer_no,
             save_txt=save_txt,
@@ -2320,7 +2434,7 @@ class Torch_Conv_BatchNorm_ReLU_Pool(object):
             phase=phase
         )
 
-        out, pool_cache = Torch_FastMaxPool.forward(
+        out, pool_cache = Python_MaxPool.forward(
             s,
             pool_param,
             layer_no=layer_no,
@@ -2337,7 +2451,7 @@ class Torch_Conv_BatchNorm_ReLU_Pool(object):
     def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
         conv_cache, bn_cache, relu_cache, pool_cache = cache
 
-        ds = Torch_FastMaxPool.backward(
+        ds = Python_MaxPool.backward(
             dout,
             pool_cache,
             layer_no=layer_no,
@@ -2346,7 +2460,7 @@ class Torch_Conv_BatchNorm_ReLU_Pool(object):
             phase=phase
         )
 
-        dan = Torch_ReLU.backward(
+        dan = Python_ReLU.backward(
             ds,
             relu_cache,
             layer_no=layer_no,
@@ -2355,7 +2469,7 @@ class Torch_Conv_BatchNorm_ReLU_Pool(object):
             phase=phase
         )
 
-        da, dgamma, dbeta = Torch_SpatialBatchNorm.backward(
+        da, dgamma, dbeta = Python_SpatialBatchNorm.backward(
             dan,
             bn_cache,
             layer_no=layer_no,
@@ -2364,13 +2478,9 @@ class Torch_Conv_BatchNorm_ReLU_Pool(object):
             phase=phase
         )
 
-        dx, dw = Torch_FastConv.backward(
+        dx, dw = Python_Conv.backward(
             da,
-            conv_cache,
-            layer_no=layer_no,
-            save_txt=save_txt,
-            save_hex=save_hex,
-            phase=phase
+            conv_cache
         )
 
         # print(f'{layer_no}', end=',')
@@ -2394,10 +2504,7 @@ class Cal_mean_var(object):
 
     @staticmethod
     def forward(x, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        # print(x.shape)
-    
         out, cache = None, None
-        
         eps = 1e-5
         num_chunks = 8
         B, C, H, W = x.shape
@@ -2413,7 +2520,7 @@ class Cal_mean_var(object):
 
         avg = avg.view(1, -1, 1, 1)
         scale = scale.view(1, -1, 1, 1)
-                
+
         cache = x
         return avg, scale
     
@@ -2427,17 +2534,24 @@ class Cal_mean_var(object):
         
         
         return avg_pc
+    
 
-class Torch_SpatialBatchNorm(object):
+class Python_SpatialBatchNorm(object):
 
     @staticmethod
     def forward(x, gamma, beta, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):  
         out, cache = None, None
+        gamma = gamma.to(x.device)
+        beta = beta.to(x.device)
+        mean = mean.to(x.device)
+        var = var.to(x.device)
         eps = 1e-5
         D = gamma.shape[0]
         num_chunks = 8
         running_mean = bn_params["running_mean"]
         running_var = bn_params["running_var"]
+        running_mean = running_mean.to(x.device)
+        running_var = running_var.to(x.device)
         B, C, H, W = x.shape
         y = x.transpose(0, 1).contiguous()  # C x B x H x W
         y = y.view(C, num_chunks, B * H * W // num_chunks)
@@ -2494,207 +2608,3 @@ class Torch_SpatialBatchNorm(object):
         dL_dxi = dL_dxi_ * backward_const
 
         return dL_dxi, dL_dgamma, dL_dbeta
-            
-# class Torch_SpatialBatchNorm(object):
-
-#     @staticmethod
-#     def forward(x, gamma, beta, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
-        
-#         out, cache = None, None
-        
-#         eps = 1e-5
-#         D = gamma.shape[0] 
-#         num_chunks = 8
-#         running_mean = bn_params.get('running_mean', torch.zeros(D, dtype=x.dtype, device=x.device))
-#         running_var = bn_params.get('running_var', torch.zeros(D, dtype=x.dtype, device=x.device))
-#         B, C, H, W = x.shape
-#         y = x.transpose(0, 1).contiguous()  # C x B x H x W
-#         y = y.view(C, num_chunks, B * H * W // num_chunks)
-#         avg_max = y.max(-1)[0].mean(-1)  # C
-#         avg_min = y.min(-1)[0].mean(-1)  # C
-#         avg = y.view(C, -1).mean(-1)  # C
-#         max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
-#         min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
-#         scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
-#         scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
-
-#         avg = avg.view(1, -1, 1, 1)
-#         scale = scale.view(1, -1, 1, 1)
-        
-        
-#         # ctx.avg = avg
-#         # ctx.avg_max = avg_max
-#         # ctx.avg_min = avg_min
-#         # ctx.eps = eps
-#         # ctx.scale = scale
-#         # ctx.scale_fix = scale_fix
-#         # ctx.num_chunks = num_chunks
-#         # ctx.max_index = max_index
-#         # ctx.min_index = min_index
-#         momentum = 0.1
-
-#         output = (x - mean) * var
-#         # ctx.save_for_backward(X, gamma, beta, output, scale)
-
-#         output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
-        
-#         running_mean = running_mean * momentum + (1 - momentum) * avg
-#         running_var = running_var * momentum + (1 - momentum) * scale
-        
-#         cache = (x, gamma, beta, output, var, scale_fix, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
-        
-#         # Subtraction: Mean 
-#         Sub = avg
-        
-#         # Multiplication: scale * gamma
-#         scale_reshape = scale.squeeze()
-#         Mul = scale_reshape * gamma
-        
-#         # Addition: Beta
-#         Add = beta
-        
-#         return output, cache
-    
-#     @staticmethod
-#     def backward(grad_output, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        
-#         X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
-#         B, C, H, W = X.shape  
-        
-#         #print('grad_output', grad_output)
-#         # print(grad_output.shape)
-#         dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
-#         """
-#         dL_dvar = dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)
-#         dL_dvar_tmp = torch.zeros(dL_dvar.size()).cuda()
-#         for idx in max_index:
-#             dL_dvar_tmp[idx[0], idx[1], idx[2], idx[3]] = dL_dvar[idx[0], idx[1], idx[2], idx[3]] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-#         for idx in min_index:
-#             dL_dvar_tmp[idx[0], idx[1], idx[2], idx[3]] = dL_dvar[idx[0], idx[1], idx[2], idx[3]]
-#         dL_dvar = dL_dvar_tmp.sum(dim=(0, 2, 3), keepdim=True)
-#         """
-#         dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True)
-#         dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
-#         dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
-#         dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
-#         dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
-#         # dL_davg = (dL_dxi_hat * -1.0 * scale).sum(dim=(0, 2, 3), keepdim=True)
-#         # dL_dxi = dL_davg / (B*H*W) + dL_dxi_hat * scale
-#         # for idx in max_index:
-#         #     dL_dxi[idx[0], idx[1], idx[2], idx[3]] += grad_output[idx[0], idx[1], idx[2], idx[3]]
-#         # for idx in min_index:
-#         #     dL_dxi[idx[0], idx[1], idx[2], idx[3]] -= grad_output[idx[0], idx[1], idx[2], idx[3]] #dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-#         #dL_dxi_max = dL_dxi + dL_dxmax
-#         #dL_dxi_min = dL_dxi + dL_dxmin
-#         dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True)
-#         dL_dbeta = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
-#         #for idx in max_index:
-#         #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmax[0, idx[1], 0, 0] #dL_dxi_max[idx[0], idx[1], idx[2], idx[3]] #
-#         #for idx in min_index:
-        
-#         #    dL_dxi[idx[0], idx[1], idx[2], idx[3]] += dL_dxmin[0, idx[1], 0, 0] #dL_dxi_min[idx[0], idx[1], idx[2], idx[3]] #
-#         dL_davg = (grad_output).sum(dim=(0, 2, 3), keepdim=True)
-        
-#         #average per channel
-#         avg_pc = dL_davg / (B*H*W) # write to file
-#         dL_dxi_ = avg_pc + grad_output
-        
-#         # backward coefficient
-#         backward_const = -1. * gamma.view(1, -1, 1, 1) / (scale + eps)   # write to file
-        
-#         dl_dxi = dL_dxi_ * backward_const
-        
-        
-#         # dL_dxi_hat = grad_output * gamma
-
-#         return dl_dxi, dL_dgamma, dL_dbeta    
-    
-class Torch_FastConv(object):
-
-    @staticmethod
-    def forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        N, C, H, W = x.shape
-        F, _, HH, WW = w.shape
-        stride, pad = conv_param['stride'], conv_param['pad']
-        layer = torch.nn.Conv2d(C, F, (HH, WW), stride=stride, padding=pad, bias=False)
-        layer.weight = torch.nn.Parameter(w)
-        # layer.bias = torch.nn.Parameter(b)
-        tx = x.detach()
-        tx.requires_grad = True
-        out = layer(tx)
-        
-        cache = (x, w, conv_param, tx, out, layer)
-        return out, cache
-
-    @staticmethod
-    def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        try:
-            x, _, _, tx, out, layer = cache
-            out.backward(dout)
-            dx = tx.grad.detach()
-            dw = layer.weight.grad.detach()
-            # db = layer.bias.grad.detach()
-            layer.weight.grad = None
-                      
-        except RuntimeError:
-            dx, dw = torch.zeros_like(tx), torch.zeros_like(layer.weight)
-        return dx, dw
-
-
-class Torch_FastConvWB(object):
-
-    @staticmethod
-    def forward(x, w, b, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        N, C, H, W = x.shape
-        F, _, HH, WW = w.shape
-
-        stride, pad = conv_param['stride'], conv_param['pad']
-        layer = torch.nn.Conv2d(C, F, (HH, WW), stride=stride, padding=pad)
-        layer.weight = torch.nn.Parameter(w)
-        layer.bias = torch.nn.Parameter(b)
-        tx = x.detach()
-        tx.requires_grad = True
-        out = layer(tx)
-        cache = (x, w, b, conv_param, tx, out, layer)
-        
-        return out, cache
-
-    @staticmethod
-    def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        # try:
-        x, _, _, _, tx, out, layer = cache
-        out.backward(dout)
-        # print(tx.grad)
-        dx = tx.grad.detach()
-        dw = layer.weight.grad.detach()
-        db = layer.bias.grad.detach()
-        layer.weight.grad = layer.bias.grad = None
-        # except RuntimeError:
-        #   dx, dw, db = torch.zeros_like(tx), torch.zeros_like(layer.weight), torch.zeros_like(layer.bias)
-        
-        return dx, dw, db
-
-class Torch_FastMaxPool(object):
-
-  @staticmethod
-  def forward(x, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-    N, C, H, W = x.shape
-    pool_height, pool_width = pool_param['pool_height'], pool_param['pool_width']
-    stride = pool_param['stride']
-    layer = torch.nn.MaxPool2d(kernel_size=(pool_height, pool_width), stride=stride)
-    tx = x.detach()
-    tx.requires_grad = True
-    out = layer(tx)
-    cache = (x, pool_param, tx, out, layer)
-    return out, cache
-
-  @staticmethod
-  def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-    try:
-      x, _, tx, out, layer = cache
-      out.backward(dout)
-      dx = tx.grad.detach()
-    except RuntimeError:
-      dx = torch.zeros_like(tx)
-    return dx
