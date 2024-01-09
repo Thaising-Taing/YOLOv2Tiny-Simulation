@@ -893,7 +893,6 @@ class DeepConvNetTorch(object):
         if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad1_torch', dOut[1])
 
 
-
         dOut[0], grads['W0'], grads['gamma0'], grads['beta0'] = Torch_Conv_BatchNorm_ReLU_Pool.backward(
             dOut[1],
             cache['0'],
@@ -904,7 +903,6 @@ class DeepConvNetTorch(object):
         )
         if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/weight_gradient0_torch', grads['W0'])
         if SAVE_RESULTS: Save_File('./original_torch_VS_simulation_python/loss_grad0_torch', dOut[0])
-
 
         return dOut, grads
 
