@@ -8,6 +8,7 @@ import customtkinter
 from PIL import Image, ImageTk
 from pypcie import Device
 from ast import literal_eval
+import shutil
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use("TkAgg")
@@ -879,17 +880,22 @@ class App(customtkinter.CTk):
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.data_iter = iter(self.train_dataloader)
-            # self.data_iter = iter(self.small_train_dataloader)
             self.Adjust_Learning_Rate()
             
+            ########## To use full dataset
+            # self.data_iter = iter(self.train_dataloader)            
             # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
-            for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+            
+            ########## To use all car images (4950) for training
+            # self.data_iter = iter(self.train_dataloader_car)
+            # for step in tqdm(range(self.iters_per_epoch_train_car), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_car):
+            
+            ########## To use 80 car images for training
+            self.data_iter = iter(self.train_dataloader_car_80)
+            for step in tqdm(range(self.iters_per_epoch_train_car_80), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_car_80):
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # self.Save_File("Dataset/Dataset/default_data2.pickle", next(self.data_iter))
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data2.pickle")
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
-                # self.show_image(self.im_data[0])
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data2.pickle")
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
@@ -1132,17 +1138,51 @@ class App(customtkinter.CTk):
         [ self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec ] = data
 
     def Load_Dataset(self):
+        # Remove previous cache
+        if os.path.isdir('data/cache'): shutil.rmtree("data/cache")
+        # -------------------------------------- Car - Dataset -----------------------------------------------------
+        ##### Train Images
+        self.imdb_train_name = 'voc_2007_trainval-car'
+        self.train_dataset_car = self.get_dataset(self.imdb_train_name)
+        self.train_dataloader_car = DataLoader(self.train_dataset_car, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_train_car = int(len(self.train_dataset_car) / self.args.batch_size)
+        ##### Train Images - 80
+        self.imdb_train_name = 'voc_2007_trainval-car-80'
+        self.train_dataset_car_80 = self.get_dataset(self.imdb_train_name)
+        self.train_dataloader_car_80 = DataLoader(self.train_dataset_car_80, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_train_car_80 = int(len(self.train_dataset_car_80) / self.args.batch_size)
+        ##### Test Images
+        self.imdb_test_name = 'voc_2007_test-car'
+        self.test_dataset = self.get_dataset(self.imdb_test_name)
+        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
+        # -------------------------------------- Full - Dataset -----------------------------------------------------
+        ##### Train Images
         self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
         self.train_dataset = self.get_dataset(self.imdb_train_name)
-        # Whole Training Dataset 
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
-        # Small Training Dataset
-        self.small_train_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
-        self.small_train_dataloader = DataLoader(self.small_train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_train_subset = int(len(self.small_train_dataset) / self.args.batch_size)
-        # -------------------------------------- Test Dataset -----------------------------------------------------
+        ##### Test Images
         self.imdb_test_name = 'voc_2007_test'
+        self.test_dataset = self.get_dataset(self.imdb_test_name)
+        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
+        
+        
+        # Remove previous cache
+        if os.path.isdir(''): shutil.rmtree("data/cache")
+        # -------------------------------------- Train - 80 - Dataset -----------------------------------------------------
+        self.imdb_train_name = 'voc_2007_train80'
+        self.train_dataset_custom = self.get_dataset(self.imdb_train_name)
+        self.train_dataloader_custom = DataLoader(self.train_dataset_custom, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_train_custom = int(len(self.train_dataset_custom) / self.args.batch_size)
+        # -------------------------------------- Train Dataset -----------------------------------------------------
+        self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
+        self.train_dataset = self.get_dataset(self.imdb_train_name)
+        self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
+        # -------------------------------------- Test Dataset -----------------------------------------------------
+        self.imdb_test_name = 'voc_2007_test-car'
         self.test_dataset = self.get_dataset(self.imdb_test_name)
         # Whole Training Dataset 
         self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
