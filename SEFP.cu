@@ -157,7 +157,8 @@ __device__ void accumulate(int& exp_sum, int& mantissa_sum, int& sign_sum,
 
     if (sign_sum == sign_mul) {
         mantissa_sum = temp_mantissa_a + temp_mantissa_b;
-    } else {
+    } 
+    else {
         if (temp_mantissa_a >= temp_mantissa_b) {
             mantissa_sum = temp_mantissa_a - temp_mantissa_b;
         } else {
@@ -167,8 +168,11 @@ __device__ void accumulate(int& exp_sum, int& mantissa_sum, int& sign_sum,
     }
     if (mantissa_sum != 0 && exponent_diff < 0) {
         exp_sum -= exponent_diff;
-    } else if (mantissa_sum == 0) {
+    } 
+    else if (mantissa_sum == 0 && exponent_diff == 0) {
         exp_sum = 0;
+        mantissa_sum =0;
+        sign_sum =0;
     }
 }
 

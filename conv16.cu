@@ -5,8 +5,8 @@
 #include <cfloat>
 
 __global__ void convolutionKernel(int N, int C, int H, int W,
-    __nv_bfloat16* input, int F, int HH, int WW,
-    __nv_bfloat16* kernel, __nv_bfloat16* output, int H_out, int W_out, int pad, int stride) {
+    float* input, int F, int HH, int WW,
+    float* kernel, float* output, int H_out, int W_out, int pad, int stride) {
 
     int w_out = blockIdx.x * blockDim.x + threadIdx.x;
     int h_out = blockIdx.y * blockDim.y + threadIdx.y;
@@ -23,23 +23,24 @@ __global__ void convolutionKernel(int N, int C, int H, int W,
                         int w_in = w_out * stride + ww - pad;
 
                         if (h_in >= 0 && h_in < H && w_in >= 0 && w_in < W) {
-                            sum = __hadd(sum, __hmul(input[n * (C * H * W) + c * (H * W) + h_in * W + w_in],
-                                                     kernel[f * (C * HH * WW) + c * (HH * WW) + hh * WW + ww]));
+                            __nv_bfloat16 input_bf16 = __float2bfloat16(input[n * (C * H * W) + c * (H * W) + h_in * W + w_in]);
+                            __nv_bfloat16 kernel_bf16 = __float2bfloat16(kernel[f * (C * HH * WW) + c * (HH * WW) + hh * WW + ww]);
+                            sum = __hadd(sum, __hmul(input_bf16, kernel_bf16));
                         }
                     }
                 }
             }
 
             output[n * (F * H_out * W_out) + f * (H_out * W_out) + h_out * W_out + w_out] =
-                __hadd(output[n * (F * H_out * W_out) + f * (H_out * W_out) + h_out * W_out + w_out], sum);
+                __bfloat162float(__hadd(__float2bfloat16(output[n * (F * H_out * W_out) + f * (H_out * W_out) + h_out * W_out + w_out]), sum));
         }
     }
 }
 
 extern "C" {
     void conv2d(int N, int C, int H, int W,
-        __nv_bfloat16* input, int F, int HH, int WW,
-        __nv_bfloat16* kernel, __nv_bfloat16* output, int pad, int stride) {
+        float* input, int F, int HH, int WW,
+        float* kernel, float* output, int pad, int stride) {
 
         int H_out = 1 + (H + 2 * pad - HH) / stride;
         int W_out = 1 + (W + 2 * pad - WW) / stride;
@@ -53,10 +54,11 @@ extern "C" {
     }
 }
 
+
 // Convolution with Bias
 __global__ void convolutionKernel_WB(int N, int C, int H, int W,
-    __nv_bfloat16* input, int F, int HH, int WW,
-    __nv_bfloat16* kernel, __nv_bfloat16* bias, __nv_bfloat16* output, int H_out, int W_out, int pad, int stride) {
+    float* input, int F, int HH, int WW,
+    float* kernel, float* bias, float* output, int H_out, int W_out, int pad, int stride) {
 
     int w_out = blockIdx.x * blockDim.x + threadIdx.x;
     int h_out = blockIdx.y * blockDim.y + threadIdx.y;
@@ -73,24 +75,25 @@ __global__ void convolutionKernel_WB(int N, int C, int H, int W,
                         int w_in = w_out * stride + ww - pad;
 
                         if (h_in >= 0 && h_in < H && w_in >= 0 && w_in < W) {
-                            sum = __hadd(sum, __hmul(input[n * (C * H * W) + c * (H * W) + h_in * W + w_in],
-                                                     kernel[f * (C * HH * WW) + c * (HH * WW) + hh * WW + ww]));
+                            __nv_bfloat16 input_val = __float2bfloat16(input[n * (C * H * W) + c * (H * W) + h_in * W + w_in]);
+                            __nv_bfloat16 kernel_val = __float2bfloat16(kernel[f * (C * HH * WW) + c * (HH * WW) + hh * WW + ww]);
+                            sum = __hadd(sum, __hmul(input_val, kernel_val));
                         }
                     }
                 }
             }
 
-            sum = __hadd(sum, bias[f]);
-            output[n * (F * H_out * W_out) + f * (H_out * W_out) + h_out * W_out + w_out] =
-                __hadd(output[n * (F * H_out * W_out) + f * (H_out * W_out) + h_out * W_out + w_out], sum);
+            __nv_bfloat16 bias_val = __float2bfloat16(bias[f]);
+            sum = __hadd(sum, bias_val);
+            output[n * (F * H_out * W_out) + f * (H_out * W_out) + h_out * W_out + w_out] += __bfloat162float(sum);
         }
     }
 }
 
 extern "C" {
     void conv2d_WB(int N, int C, int H, int W,
-        __nv_bfloat16* input, int F, int HH, int WW,
-        __nv_bfloat16* kernel, __nv_bfloat16* bias, __nv_bfloat16* output, int pad, int stride) {
+        float* input, int F, int HH, int WW,
+        float* kernel, float* bias, float* output, int pad, int stride) {
 
         int H_out = 1 + (H + 2 * pad - HH) / stride;
         int W_out = 1 + (W + 2 * pad - WW) / stride;
@@ -102,8 +105,10 @@ extern "C" {
     }
 }
 
+
+
 __global__ void convolutionBackwardKernel_dw(int N_nb, int C_nb, int H_nb, int W_nb,
-    __nv_bfloat16* x_nb, int F_nb, int HH_nb, int WW_nb, __nv_bfloat16* dout_nb, __nv_bfloat16* dw_nb, int H_dout_nb, int W_dout_nb, int stride_nb, int pad_nb) {
+    float* x_nb, int F_nb, int HH_nb, int WW_nb, float* dout_nb, float* dw_nb, int H_dout_nb, int W_dout_nb, int stride_nb, int pad_nb) {
     
     int f_nb = blockIdx.z;
     int c_nb = blockIdx.y;
@@ -118,19 +123,20 @@ __global__ void convolutionBackwardKernel_dw(int N_nb, int C_nb, int H_nb, int W
                     int h_x_nb = h_nb * stride_nb + hh_nb - pad_nb;
                     int w_x_nb = w_nb * stride_nb + ww_nb - pad_nb;
                     if (h_x_nb >= 0 && h_x_nb < H_nb && w_x_nb >= 0 && w_x_nb < W_nb) {
-                        grad_dw_nb = __hadd(grad_dw_nb, __hmul(x_nb[n_nb * (C_nb * H_nb * W_nb) + c_nb * (H_nb * W_nb) + h_x_nb * W_nb + w_x_nb],
-                                                             dout_nb[n_nb * (F_nb * H_dout_nb * W_dout_nb) + f_nb * (H_dout_nb * W_dout_nb) + h_nb * W_dout_nb + w_nb]));
+                        __nv_bfloat16 x_val = __float2bfloat16(x_nb[n_nb * (C_nb * H_nb * W_nb) + c_nb * (H_nb * W_nb) + h_x_nb * W_nb + w_x_nb]);
+                        __nv_bfloat16 dout_val = __float2bfloat16(dout_nb[n_nb * (F_nb * H_dout_nb * W_dout_nb) + f_nb * (H_dout_nb * W_dout_nb) + h_nb * W_dout_nb + w_nb]);
+                        grad_dw_nb = __hadd(grad_dw_nb, __hmul(x_val, dout_val));
                     }
                 }
             }
         }
-        dw_nb[f_nb * (C_nb * HH_nb * WW_nb) + c_nb * (HH_nb * WW_nb) + hh_nb * WW_nb + ww_nb] = grad_dw_nb;
+        dw_nb[f_nb * (C_nb * HH_nb * WW_nb) + c_nb * (HH_nb * WW_nb) + hh_nb * WW_nb + ww_nb] = __bfloat162float(grad_dw_nb);
     }
 }
 
 extern "C" {
     void conv2d_backward_dw(int N_nb, int C_nb, int H_nb, int W_nb,
-        __nv_bfloat16* x_nb, int F_nb, int HH_nb, int WW_nb, __nv_bfloat16* dout_nb, __nv_bfloat16* dw_nb, int H_dout_nb, int W_dout_nb, int stride_nb, int pad_nb) {
+        float* x_nb, int F_nb, int HH_nb, int WW_nb, float* dout_nb, float* dw_nb, int H_dout_nb, int W_dout_nb, int stride_nb, int pad_nb) {
 
         dim3 blockDim_nb(16, 16, 1);
         dim3 gridDim_nb((HH_nb + blockDim_nb.x - 1) / blockDim_nb.x, C_nb, F_nb);
@@ -140,7 +146,7 @@ extern "C" {
 }
 
 __global__ void convolutionBackwardKernel_db(int N, int F, int H_dout, int W_dout,
-    __nv_bfloat16* dout, __nv_bfloat16* db) {
+    float* dout, float* db) {
     
     int f = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -149,17 +155,18 @@ __global__ void convolutionBackwardKernel_db(int N, int F, int H_dout, int W_dou
         for (int n = 0; n < N; n++) {
             for (int h = 0; h < H_dout; h++) {
                 for (int w = 0; w < W_dout; w++) {
-                    grad_db = __hadd(grad_db, dout[n * (F * H_dout * W_dout) + f * (H_dout * W_dout) + h * W_dout + w]);
+                    __nv_bfloat16 dout_val = __float2bfloat16(dout[n * (F * H_dout * W_dout) + f * (H_dout * W_dout) + h * W_dout + w]);
+                    grad_db = __hadd(grad_db, dout_val);
                 }
             }
         }
-        db[f] = grad_db;
+        db[f] = __bfloat162float(grad_db);
     }
 }
 
 extern "C" {
     void conv2d_backward_db(int N, int F, int H_dout, int W_dout,
-        __nv_bfloat16* dout, __nv_bfloat16* db) {
+        float* dout, float* db) {
 
         int blockSize = 256;
         int gridSize = (F + blockSize - 1) / blockSize;
@@ -167,6 +174,7 @@ extern "C" {
         convolutionBackwardKernel_db<<<gridSize, blockSize>>>(N, F, H_dout, W_dout, dout, db);
     }
 }
+
 
 ///\\\ ******* For MAX Pooling ********** \\\///
 __global__ void max_pooling_forward_kernel(float *x, float *out, int *positions,

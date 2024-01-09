@@ -792,9 +792,16 @@ class DeepConvNet(object):
                 Save_File("./Output_Sim_Python/Layer_6_Backward_Weight_Gradient", grads['W6'])
                 Save_File("./Output_Sim_Python/Layer_5_Backward_Input_Gradient", dOut[5])
                 Save_File("./Output_Sim_Python/Layer_5_Backward_Weight_Gradient", grads['W5'])
-                
+                Save_File("./Output_Sim_Python/Layer_4_Backward_Input_Gradient", dOut[4])
+                Save_File("./Output_Sim_Python/Layer_4_Backward_Weight_Gradient", grads['W4'])
+                Save_File("./Output_Sim_Python/Layer_3_Backward_Input_Gradient", dOut[3])
+                Save_File("./Output_Sim_Python/Layer_3_Backward_Weight_Gradient", grads['W3'])                
                 Save_File("./Output_Sim_Python/Layer_2_Backward_Input_Gradient", dOut[2])
                 Save_File("./Output_Sim_Python/Layer_2_Backward_Weight_Gradient", grads['W2'])
+                Save_File("./Output_Sim_Python/Layer_1_Backward_Input_Gradient", dOut[1])
+                Save_File("./Output_Sim_Python/Layer_1_Backward_Weight_Gradient", grads['W1'])
+                Save_File("./Output_Sim_Python/Layer_0_Backward_Input_Gradient", dOut[0])
+                Save_File("./Output_Sim_Python/Layer_0_Backward_Weight_Gradient", grads['W0'])
                 
             Save_File("./Output_Sim_Python/Bias_Grad", grads['b8'])
             Save_File("./Output_Sim_Python/Gamma_Gradient_Layer7", grads['gamma7'])    
@@ -1773,13 +1780,11 @@ def Truncating_Rounding(Truncated_Hexadecimal):
 
 # Python_Convolution without Bias
 class Python_Conv(object):
-
-    @staticmethod
     def forward(x, w, conv_param):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         cache = (x, w, conv_param)
-        x = x.to(device).to(torch.bfloat16)
-        w = w.to(device).to(torch.bfloat16)
+        x = x.to(device)
+        w = w.to(device)
 
         out = None
         pad = 1
@@ -1788,34 +1793,31 @@ class Python_Conv(object):
         F, _, HH, WW = w.shape
         H_out = int(1 + (H + 2 * pad - HH) / stride)
         W_out = int(1 + (W + 2 * pad - WW) / stride)
-        
-        _curr_time = time.time()
-        out = torch.zeros((N, F, H_out, W_out), dtype=torch.bfloat16, device=device)
+
+        out = torch.zeros((N, F, H_out, W_out), dtype=torch.float32, device=device)
         input_ptr = x.flatten().contiguous().data_ptr()
         kernel_ptr = w.flatten().contiguous().data_ptr()
         output_ptr = out.flatten().contiguous().data_ptr()
 
-        # Assuming your C library function supports bfloat16
-        libconv.conv2d(N, C, H, W, ctypes.cast(input_ptr, ctypes.POINTER(ctypes.c_ushort)),
-                    F, HH, WW, ctypes.cast(kernel_ptr, ctypes.POINTER(ctypes.c_ushort)),
-                    ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_ushort)),
+        # Assuming your C library function supports float32
+        libconv.conv2d(N, C, H, W, ctypes.cast(input_ptr, ctypes.POINTER(ctypes.c_float)),
+                    F, HH, WW, ctypes.cast(kernel_ptr, ctypes.POINTER(ctypes.c_float)),
+                    ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_float)),
                     pad, stride)
 
         out = out.reshape(N, F, H_out, W_out)
-        out = out.to(torch.float32)
         
         return out, cache
-
 
     @staticmethod
     def backward(dout, cache):
         x, w, conv_param = cache
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        # Convert to bfloat16 and move to device
-        dout = dout.to(device).to(torch.bfloat16)
-        x = x.to(device).to(torch.bfloat16)
-        w = w.to(device).to(torch.bfloat16)
+        # Move to device without converting to bfloat16
+        dout = dout.to(device)
+        x = x.to(device)
+        w = w.to(device)
 
         pad = 1
         stride = conv_param['stride']
@@ -1826,9 +1828,9 @@ class Python_Conv(object):
         x_gpu = x.contiguous()
         w_gpu = w.contiguous()
 
-        # Initialize dx and dw with bfloat16 type
-        dx = torch.zeros_like(x_gpu, dtype=torch.bfloat16)
-        dw = torch.zeros_like(w_gpu, dtype=torch.bfloat16)
+        # Initialize dx and dw with float32 type
+        dx = torch.zeros_like(x_gpu, dtype=torch.float32)
+        dw = torch.zeros_like(w_gpu, dtype=torch.float32)
 
         # Get data pointers
         x_ptr = x_gpu.flatten().data_ptr()
@@ -1838,8 +1840,8 @@ class Python_Conv(object):
 
         # Call C library function for backward weights
         libconv.conv2d_backward_dw(
-            N, C, H, W, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_ushort)), 
-            F, HH, WW, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_ushort)), ctypes.cast(dw_ptr, ctypes.POINTER(ctypes.c_ushort)),
+            N, C, H, W, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), 
+            F, HH, WW, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), ctypes.cast(dw_ptr, ctypes.POINTER(ctypes.c_float)),
             H, W, stride, pad)
 
         # Prepare for convolution with flipped weights
@@ -1851,18 +1853,16 @@ class Python_Conv(object):
 
         # Call C library function for convolution
         libconv.conv2d(
-            N, F, H, W, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_ushort)),
-            FF, HH, WW, ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_ushort)),
-            ctypes.cast(dx_ptr, ctypes.POINTER(ctypes.c_ushort)), stride, pad)
+            N, F, H, W, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),
+            FF, HH, WW, ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_float)),
+            ctypes.cast(dx_ptr, ctypes.POINTER(ctypes.c_float)), stride, pad)
 
         dx = dx.reshape(N, C, H, W)
-        dx = dx.to(torch.float32)
-        dw = dw.to(torch.float32)
         return dx, dw
+
 
 # Python_Convolution with Bias
 class Python_ConvB(object):
-
     @staticmethod
     def forward(x, w, b, conv_param):
         cache = (x, w, b, conv_param)
@@ -1870,58 +1870,58 @@ class Python_ConvB(object):
         stride = conv_param['stride']
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Convert to bfloat16 and move to device
-        x = x.to(device).to(torch.bfloat16)
-        w = w.to(device).to(torch.bfloat16)
-        b = b.to(device).to(torch.bfloat16)
+        # Move to device without converting to bfloat16
+        x = x.to(device)
+        w = w.to(device)
+        b = b.to(device)
 
         N, C, H, W = x.shape
         F, _, HH, WW = w.shape
         H_out = int(1 + (H + 2 * pad - HH) / stride)
         W_out = int(1 + (W + 2 * pad - WW) / stride)
 
-        # Initialize out with bfloat16 type
-        out = torch.zeros((N, F, H_out, W_out), dtype=torch.bfloat16, device=device)
+        # Initialize out with float32 type
+        out = torch.zeros((N, F, H_out, W_out), dtype=torch.float32, device=device)
 
         # Get data pointers
         input_ptr  = x.flatten().contiguous().data_ptr()
         kernel_ptr = w.flatten().contiguous().data_ptr()
-        output_ptr = out.flatten().contiguous().data_ptr()
         bias_ptr   = b.flatten().contiguous().data_ptr()
+        output_ptr = out.flatten().contiguous().data_ptr()
 
         # Call C library function for convolution with bias
         libconv.conv2d_WB(
-            N, C, H, W, ctypes.cast(input_ptr, ctypes.POINTER(ctypes.c_ushort)),
-            F, HH, WW, ctypes.cast(kernel_ptr, ctypes.POINTER(ctypes.c_ushort)),
-            ctypes.cast(bias_ptr, ctypes.POINTER(ctypes.c_ushort)),
-            ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_ushort)),
+            N, C, H, W, ctypes.cast(input_ptr, ctypes.POINTER(ctypes.c_float)),
+            F, HH, WW, ctypes.cast(kernel_ptr, ctypes.POINTER(ctypes.c_float)),
+            ctypes.cast(bias_ptr, ctypes.POINTER(ctypes.c_float)),
+            ctypes.cast(output_ptr, ctypes.POINTER(ctypes.c_float)),
             pad, stride)
 
         out = out.reshape(N, F, H_out, W_out)
-        out = out.to(torch.float32)
         return out, cache
+
 
     @staticmethod
     def backward(dout, cache):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         x, w, b, conv_param = cache
 
-        # Convert to bfloat16 and move to device
-        dout = dout.to(device).to(torch.bfloat16)
-        x = x.to(device).to(torch.bfloat16)
-        w = w.to(device).to(torch.bfloat16)
-        b = b.to(device).to(torch.bfloat16)
+        # Move to device without converting to bfloat16
+        dout = dout.to(device)
+        x = x.to(device)
+        w = w.to(device)
+        b = b.to(device)
 
         pad = conv_param['pad']
         stride = conv_param['stride']
         N, F, H_dout, W_dout = dout.shape
         F, C, HH, WW = w.shape
 
-        # Initialize db, dw_bias, and dx_bias with bfloat16 type
-        db = torch.zeros_like(b, dtype=torch.bfloat16, device=device)
-        dw_bias = torch.zeros_like(w, dtype=torch.bfloat16, device=device)
+        # Initialize db, dw_bias, and dx_bias with float32 type
+        db = torch.zeros_like(b, dtype=torch.float32, device=device)
+        dw_bias = torch.zeros_like(w, dtype=torch.float32, device=device)
         A, B, X, Y = x.shape
-        dx_bias = torch.zeros((A, B, X, Y), dtype=torch.bfloat16, device=device)
+        dx_bias = torch.zeros((A, B, X, Y), dtype=torch.float32, device=device)
 
         # Get data pointers
         dout_ptr = dout.flatten().contiguous().data_ptr()
@@ -1932,13 +1932,13 @@ class Python_ConvB(object):
 
         # Call C library function for backward bias
         libconv.conv2d_backward_db(
-            N, F, H_dout, W_dout, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_ushort)), ctypes.cast(db_ptr, ctypes.POINTER(ctypes.c_ushort)),
+            N, F, H_dout, W_dout, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), ctypes.cast(db_ptr, ctypes.POINTER(ctypes.c_float)),
         )
         
         # Call C library function for backward weights
         libconv.conv2d_backward_dw(
-            N, C, H_dout, W_dout, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_ushort)), F, HH, WW,
-            ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_ushort)), ctypes.cast(dw_ptr_bias, ctypes.POINTER(ctypes.c_ushort)), H_dout, W_dout, stride, pad)
+            N, C, H_dout, W_dout, ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), F, HH, WW,
+            ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)), ctypes.cast(dw_ptr_bias, ctypes.POINTER(ctypes.c_float)), H_dout, W_dout, stride, pad)
         
         # Prepare for convolution with flipped weights
         reshaped_w = w.permute(1, 0, 2, 3)
@@ -1950,18 +1950,13 @@ class Python_ConvB(object):
 
         # Call C library function for convolution
         libconv.conv2d(
-            N, F, H, W, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_ushort)),
-            FF, HH, WW, ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_ushort)),
-            ctypes.cast(dx_ptr_bias, ctypes.POINTER(ctypes.c_ushort)), pad, stride)
+            N, F, H, W, ctypes.cast(dout_ptr, ctypes.POINTER(ctypes.c_float)),
+            FF, HH, WW, ctypes.cast(w_ptr_transpose, ctypes.POINTER(ctypes.c_float)),
+            ctypes.cast(dx_ptr_bias, ctypes.POINTER(ctypes.c_float)), pad, stride)
 
         dx_bias = dx_bias.reshape(A, B, X, Y)
-        dx_bias = dx_bias.to(torch.float32)
-        dw_bias = dw_bias.to(torch.float32)
-        db      = db.to(torch.float32)
         
         return dx_bias, dw_bias, db
-
-
 
 class Python_MaxPool(object):
 
