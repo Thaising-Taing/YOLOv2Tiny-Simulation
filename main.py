@@ -1168,33 +1168,6 @@ class App(customtkinter.CTk):
         self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
         
-        
-        # Remove previous cache
-        if os.path.isdir(''): shutil.rmtree("data/cache")
-        # -------------------------------------- Train - 80 - Dataset -----------------------------------------------------
-        self.imdb_train_name = 'voc_2007_train80'
-        self.train_dataset_custom = self.get_dataset(self.imdb_train_name)
-        self.train_dataloader_custom = DataLoader(self.train_dataset_custom, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_train_custom = int(len(self.train_dataset_custom) / self.args.batch_size)
-        # -------------------------------------- Train Dataset -----------------------------------------------------
-        self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
-        self.train_dataset = self.get_dataset(self.imdb_train_name)
-        self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
-        # -------------------------------------- Test Dataset -----------------------------------------------------
-        self.imdb_test_name = 'voc_2007_test-car'
-        self.test_dataset = self.get_dataset(self.imdb_test_name)
-        # Whole Training Dataset 
-        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        # Small Training Dataset
-        self.small_test_dataset = torch.utils.data.Subset(self.test_dataloader, range(0, self.args.total_inference_set))
-        # print("Sub Training Dataset: " + str(len(small_dataset)))
-        self.s = time.time()
-        self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.e = time.time()
-        print("Data Loader : ",self.e-self.s)
-        self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
-        
     def Adjust_Learning_Rate(self):
         # learning_rate = 0.001
         self.learning_rate = 0.001
