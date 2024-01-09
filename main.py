@@ -1182,7 +1182,7 @@ class App(customtkinter.CTk):
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
         # -------------------------------------- Test Dataset -----------------------------------------------------
-        self.imdb_test_name = 'voc_2007_test'
+        self.imdb_test_name = 'voc_2007_test-car'
         self.test_dataset = self.get_dataset(self.imdb_test_name)
         # Whole Training Dataset 
         self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
