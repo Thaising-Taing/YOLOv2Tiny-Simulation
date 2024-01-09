@@ -703,7 +703,6 @@ class Cal_mean_var(object):
         scale = 1 / ((avg_max - avg_min) * scale_fix + eps) 
         avg = avg.view(1, -1, 1, 1)
         scale = scale.view(1, -1, 1, 1)
-        
         cache = x
         return avg, scale
     

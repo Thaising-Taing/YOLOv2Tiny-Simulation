@@ -38,6 +38,15 @@
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			// "sudo": true,
+		},
+		{
+			"name": "Combine",
+			"type": "python",
+			"request": "launch",
+			"program": "make_combined_fig.py",
+			"console": "integratedTerminal",
+			"justMyCode": false,
+			// "sudo": true,
 		}
 
 		,

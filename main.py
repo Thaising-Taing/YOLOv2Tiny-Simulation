@@ -8,6 +8,7 @@ import customtkinter
 from PIL import Image, ImageTk
 from pypcie import Device
 from ast import literal_eval
+import shutil
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use("TkAgg")
@@ -759,6 +760,8 @@ class App(customtkinter.CTk):
         self.Clear_Text()
         self.Show_Text(f"Reset.")
         self.update()
+          
+          
             
     # Select Operations        
     def Load_PCIe_click(self):
@@ -956,17 +959,22 @@ class App(customtkinter.CTk):
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.data_iter = iter(self.train_dataloader)
-            # self.data_iter = iter(self.small_train_dataloader)
             self.Adjust_Learning_Rate()
             
+            ########## To use full dataset
+            # self.data_iter = iter(self.train_dataloader)            
             # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
-            for step in tqdm(range(self.iters_per_epoch_train_subset), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_subset):
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-                # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data0.pickle")
-                # self.show_image(self.im_data[0])
+            
+            ########## To use all car images (4950) for training
+            # self.data_iter = iter(self.train_dataloader_car)
+            # for step in tqdm(range(self.iters_per_epoch_train_car), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_car):
+            
+            ########## To use 80 car images for training
+            self.data_iter = iter(self.train_dataloader_car_80)
+            for step in tqdm(range(self.iters_per_epoch_train_car_80), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_car_80):
+                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+                # self.Save_File("Dataset/Dataset/default_data2.pickle", next(self.data_iter))
+                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data2.pickle")
                 
                 self.Before_Forward() ######################### - Individual Functions
                 self.Forward() ################################ - Individual Functions
@@ -999,9 +1007,9 @@ class App(customtkinter.CTk):
         self.data_iter = iter(self.test_dataloader)
         
         for step in tqdm(range(self.iters_per_epoch_test), desc=f"Inference", total=self.iters_per_epoch_test):
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
             # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
             self.batch = step
             self.Before_Forward() ######################### - Individual Functions
@@ -1103,11 +1111,11 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=1, type=int)
+                            default=100, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=8, type=int)
+                            default=80, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=10, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -1121,7 +1129,7 @@ class App(customtkinter.CTk):
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
-                            default="Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth", type=str)
+                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
@@ -1216,27 +1224,34 @@ class App(customtkinter.CTk):
         [ self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec ] = data
 
     def Load_Dataset(self):
+        # Remove previous cache
+        if os.path.isdir('data/cache'): shutil.rmtree("data/cache")
+        # -------------------------------------- Car - Dataset -----------------------------------------------------
+        ##### Train Images
+        self.imdb_train_name = 'voc_2007_trainval-car'
+        self.train_dataset_car = self.get_dataset(self.imdb_train_name)
+        self.train_dataloader_car = DataLoader(self.train_dataset_car, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_train_car = int(len(self.train_dataset_car) / self.args.batch_size)
+        ##### Train Images - 80
+        self.imdb_train_name = 'voc_2007_trainval-car-80'
+        self.train_dataset_car_80 = self.get_dataset(self.imdb_train_name)
+        self.train_dataloader_car_80 = DataLoader(self.train_dataset_car_80, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_train_car_80 = int(len(self.train_dataset_car_80) / self.args.batch_size)
+        ##### Test Images
+        self.imdb_test_name = 'voc_2007_test-car'
+        self.test_dataset = self.get_dataset(self.imdb_test_name)
+        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
+        # -------------------------------------- Full - Dataset -----------------------------------------------------
+        ##### Train Images
         self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
         self.train_dataset = self.get_dataset(self.imdb_train_name)
-        # Whole Training Dataset 
         self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
-        # Small Training Dataset
-        self.small_train_dataset = torch.utils.data.Subset(self.train_dataset, range(0, self.args.total_training_set))
-        self.small_train_dataloader = DataLoader(self.small_train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_train_subset = int(len(self.small_train_dataset) / self.args.batch_size)
-        # -------------------------------------- Test Dataset -----------------------------------------------------
+        ##### Test Images
         self.imdb_test_name = 'voc_2007_test'
         self.test_dataset = self.get_dataset(self.imdb_test_name)
-        # Whole Training Dataset 
         self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        # Small Training Dataset
-        self.small_test_dataset = torch.utils.data.Subset(self.test_dataloader, range(0, self.args.total_inference_set))
-        # print("Sub Training Dataset: " + str(len(small_dataset)))
-        self.s = time.time()
-        self.small_test_dataloader = DataLoader(self.small_test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.e = time.time()
-        print("Data Loader : ",self.e-self.s)
         self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
