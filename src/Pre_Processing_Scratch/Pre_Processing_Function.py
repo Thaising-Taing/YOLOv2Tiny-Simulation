@@ -2828,7 +2828,7 @@ def Weight_Gradient_Hardware_ReOrdering_whole_image_layer8(Out_CH, In_CH, DataCH
 
 # Soft2Harward ReOrdering: Backward
 # Weight Layer0 ReOrdering: Backward
-def Weight_Hardware_Backward_ReOrdering_Layer0(Filter_Num, In_Channel_Num, Weight_List, Backward_List, Average_List, Active_List):
+def Weight_Hardware_Backward_ReOrdering_Layer0(Filter_Num, In_Channel_Num, Weight_List, Backward_List, Average_List):
     # Filter_Num_T = 128
     # In_Channel_Num_T = 1024
     Filter_Num_T = Filter_Num
@@ -2852,11 +2852,11 @@ def Weight_Hardware_Backward_ReOrdering_Layer0(Filter_Num, In_Channel_Num, Weigh
     origin    =    pd.DataFrame(Weight_List)
     batch_add =    pd.DataFrame(Average_List)
     batch_mul =    pd.DataFrame(Backward_List)
-    bias_active =    pd.DataFrame(Active_List)
+    # bias_active =    pd.DataFrame(Active_List)
 
-    # bias_active_ar = np.repeat('3DCD',In_Channel_Num).reshape(In_Channel_Num,1)  # outchannel num == filter num
+    bias_active_ar = np.repeat('3DCD',In_Channel_Num).reshape(In_Channel_Num,1)  # outchannel num == filter num
 
-    bias_active_ar = np.array(bias_active)
+    # bias_active_ar = np.array(bias_active)
     batch_add_ar = np.array(batch_add)
     batch_mul_ar = np.array(batch_mul)
     origin_ar = np.array(origin)
@@ -3007,6 +3007,7 @@ def Weight_Hardware_Backward_ReOrdering_Layer0(Filter_Num, In_Channel_Num, Weigh
 
 # Soft2Hardware ReOrdering: Backward
 # Weight_OtherLayer ReOrdering: Backward
+'''
 def Weight_Hardware_Backward_ReOrdering_Layer8(Filter_Num, In_Channel_Num, Weight_List, Backward_List, Average_List):
     # Filter_Num_T = 128
     # In_Channel_Num_T = 1024
@@ -3445,6 +3446,448 @@ def Weight_Hardware_Backward_ReOrdering_OtherLayer(Filter_Num, In_Channel_Num, W
     Image_OtherLayer_Channel1 = df2.values.tolist()
     Image_OtherLayer = [Image_OtherLayer_Channel0, Image_OtherLayer_Channel1]
     return Image_OtherLayer
+'''
+
+
+def Weight_Hardware_Backward_ReOrdering_Layer8(Filter_Num, In_Channel_Num, Weight_List, Backward_List, Average_List):
+    # Filter_Num_T = 128
+    # In_Channel_Num_T = 1024
+    Filter_Num_T = Filter_Num
+    In_Channel_Num_T = In_Channel_Num
+
+    Filter_Num = In_Channel_Num_T
+    In_Channel_Num = Filter_Num_T
+
+    A = int(Filter_Num/8)
+    B = int(In_Channel_Num/4)
+    C = int((Filter_Num*In_Channel_Num*9)/16)
+    D = int(Filter_Num*In_Channel_Num*9)
+
+    E = int(Filter_Num*4)
+    F = int(Filter_Num/4)
+    G = int(A*B*20*16)
+    H = int(A*B*20)
+    zero = '0000'
+
+    origin = pd.DataFrame(Weight_List)
+    #--------------------------------Activation and BatchNorm-----------------------
+    batch_add =    pd.DataFrame(Average_List)
+    batch_mul =    pd.DataFrame(Backward_List)
+
+    bias_active_ar = np.repeat('0000',In_Channel_Num).reshape(In_Channel_Num,1)  # outchannel num == filter num
+
+    batch_add_ar = np.array(batch_add)
+    batch_mul_ar = np.array(batch_mul)
+
+    origin_ar = np.array(origin)
+
+    zero = '0000'
+    origin_size = np.size(origin_ar)
+    kenel_size = int(origin_size / (Filter_Num * In_Channel_Num))
+
+    #   origin_ar_T = np.repeat(zero,Filter_Num_T*In_Channel_Num_T*kenel_size).reshape(Filter_Num,In_Channel_Num,int(kenel_size**(1/2)),int(kenel_size**(1/2)))
+    #   origin_ar_TT = np.repeat(zero,Filter_Num_T*In_Channel_Num_T*kenel_size).reshape(Filter_Num,In_Channel_Num,int(kenel_size**(1/2)),int(kenel_size**(1/2)))
+    #   origin_ar = origin_ar.reshape(Filter_Num_T,In_Channel_Num_T,int(kenel_size**(1/2)),int(kenel_size**(1/2)))
+    #   origin_ar_T = origin_ar.transpose(1,0,2,3)
+    #   for i in range (0,Filter_Num):
+    #     for j in range (0,In_Channel_Num):
+    #       for k in range (0,int(kenel_size**(1/2))):
+    #         for kk in range (0,int(kenel_size**(1/2))):
+    #           origin_ar_TT[i][j][int(kenel_size**(1/2))-1-k][int(kenel_size**(1/2))-1-kk] = origin_ar_T[i][j][k][kk]
+
+    origin_ar_T = np.repeat(zero,Filter_Num_T*In_Channel_Num_T*kenel_size).reshape(Filter_Num,In_Channel_Num,kenel_size)
+    origin_ar = origin_ar.reshape(Filter_Num_T,In_Channel_Num_T,kenel_size)
+    origin_ar_T = origin_ar.transpose(1,0,2)
+    origin_ar_TT = origin_ar_T[:,:,::-1]
+    # origin_ar_TT = origin_ar_T
+
+    # if (kenel_size==1) :
+    #     origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,1) 
+    #     zero = '0000'
+    #     zero_ar = np.repeat(zero,6)
+    #     zero_ar = zero_ar.reshape(6)
+    #     temp_ar = np.repeat(zero, D).reshape(A,2,4,B,4,9)
+    #     for i in range (0,A):
+    #         for j in range (0,2):
+    #             for k in range (0,4):
+    #                 for l in range (0,B):
+    #                     for m in range (0,4):
+    #                         temp_ar[i][j][k][l][m] = np.concatenate( (zero_ar,origin_ar_TT[i][j][k][l][m],origin_ar_TT[i][j][k][l][m],origin_ar_TT[i][j][k][l][m]), axis = 0)
+    #     # concat 4 in_channel
+    #     filter_ar = np.repeat(zero, D).reshape(A,2,4,B,9,4)
+    #     for i in range (0,A):
+    #         for j in range (0,2):
+    #             for k in range (0,4):
+    #                 for l in range (0,B):
+    #                     filter_ar[i][j][k][l] = temp_ar[i][j][k][l].T
+    #     # print('aaaa')
+    # elif (kenel_size==9) :
+    #     origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,9) # Using "2" make 8 outch
+    #     zero = '0000'
+    #     #concat 4 in channel
+    #     filter_ar = np.repeat(zero, origin_size).reshape(A,2,4,B,9,4)
+    #     for fn in range (0,A):
+    #         for fc2 in range (0,2):
+    #             for fc1 in range (0,4):
+    #                 for incn in range (0,B):
+    #                     filter_ar[fn][fc2][fc1][incn] = origin_ar_TT[fn][fc2][fc1][incn].T
+    # print('ssss')
+    if (kenel_size==1) :
+        origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,1) #(filter/8 ,2(아래로 반복), 4(4개있음), input channel/4, 4(4개를 가져감), kernel)
+        zero_ar = np.repeat(zero,A*2*4*B*4*6).reshape(A,2,4,B,4,6)
+        temp_ar = np.repeat(zero, D).reshape(A,2,4,B,4,9)
+        temp_ar = np.concatenate( (zero_ar,origin_ar_TT,origin_ar_TT,origin_ar_TT) , axis = 5)
+        # concat 4 in_channel
+        filter_ar = np.repeat(zero, D).reshape(A,2,4,B,9,4)
+        filter_ar = temp_ar.transpose(0,1,2,3,5,4)
+    elif (kenel_size==9) :
+        origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,9) # Using "2" make 8 outch
+        #concat 4 in channel
+        filter_ar = np.repeat(zero, origin_size).reshape(A,2,4,B,9,4)
+        filter_ar = origin_ar_TT.transpose(0,1,2,3,5,4)
+
+
+    # to concat 4 filter
+    # filter_ar2 = np.repeat(zero, D).reshape(A,2,B,9,16)
+    # for fn in range(0,A):
+    #     for fin in range (0,2):
+    #         for cn in range (0,B):
+    #             for d in range (0,9):
+    #                 filter_ar2[fn][fin][cn][d] = np.concatenate( (filter_ar[fn][fin][0][cn][d],filter_ar[fn][fin][1][cn][d],filter_ar[fn][fin][2][cn][d],filter_ar[fn][fin][3][cn][d]), axis= 0)
+
+    filter_ar2 = np.repeat(zero, D).reshape(A,2,B,9,16)
+
+    filter_ar_0 = filter_ar[:,:,0,:,:,:]
+    filter_ar_1 = filter_ar[:,:,1,:,:,:]
+    filter_ar_2 = filter_ar[:,:,2,:,:,:]
+    filter_ar_3 = filter_ar[:,:,3,:,:,:]
+
+    filter_ar2 = np.concatenate((filter_ar_0, filter_ar_1, filter_ar_2, filter_ar_3), axis= 4)
+
+    filter_ar3 = np.repeat(zero, D).reshape(A,B,2,9,16)  # to concat filter twice
+    filter_ar3 = filter_ar2.transpose(0,2,1,3,4)
+
+    # Wconvert_ar = filter_ar3.reshape(C,16)
+
+    space = np.repeat(zero,1).reshape(1,1)
+    vector_array = np.repeat(zero,B*16).reshape(int(B/2),2,16) #inchannel/8,2,16
+
+
+    for i in range(0,int(B/2)): # filter_num / 8
+        vector_array[i][0] = np.concatenate( (bias_active_ar[i*8],bias_active_ar[i*8+1],bias_active_ar[i*8+2],bias_active_ar[i*8+3],   batch_add_ar[i*8],batch_add_ar[i*8+1],batch_add_ar[i*8+2],batch_add_ar[i*8+3],
+                                                bias_active_ar[i*8+4],bias_active_ar[i*8+5],bias_active_ar[i*8+6],bias_active_ar[i*8+7], batch_add_ar[i*8+4],batch_add_ar[i*8+5],batch_add_ar[i*8+6],batch_add_ar[i*8+7] ),axis=0)
+        vector_array[i][1] = np.concatenate( (batch_mul_ar[i*8],batch_mul_ar[i*8+1],batch_mul_ar[i*8+2],batch_mul_ar[i*8+3],   space[0],space[0],space[0],space[0],
+                                            batch_mul_ar[i*8+4],batch_mul_ar[i*8+5],batch_mul_ar[i*8+6],batch_mul_ar[i*8+7], space[0],space[0],space[0],space[0] ),axis=0)
+
+
+    # vector_array = vector_array.reshape(B,16)
+    # zero = '0000'
+
+    Wconvert_array = filter_ar3.reshape(A,B,18,16) #fil/8, in/4
+    # biacsc_ar = np.repeat(zero,B*16).reshape(int(B/2),1,2,16)
+    biacsc_ar = vector_array.reshape(int(B/2),1,2,16)
+    concat_ar = np.repeat(zero,G).reshape(int(A/2),B*2,20,16)
+
+    for k in range (0,int(A/2)):
+        for i in range (0,B):
+            concat_ar[k][2*i]   = np.concatenate((Wconvert_array[2*k][i],biacsc_ar[int(i/4)*2][0]), axis=0)
+            concat_ar[k][2*i+1] = np.concatenate((Wconvert_array[2*k+1][i],biacsc_ar[int(i/4)*2+1][0]), axis=0)
+
+    convert_ar = np.repeat(zero,G).reshape(H,16)
+    convert_ar = concat_ar.reshape(H,16)
+
+
+    Weight_List = []
+    Weight_List.clear()
+    for value in convert_ar:
+        Result = ''.join(value)
+        Weight_List.append(Result)
+
+    df = pd.DataFrame(Weight_List)
+    df1, df2 = Separated_Weight_DDR_Channel(df)
+    #   df1.to_csv(Write_Path_Ch0, index=False, header=False, sep='\t')
+    #   df2.to_csv(Write_Path_Ch1, index=False, header=False, sep='\t')
+    Weight_OtherLayer_Channel0 = df1.values.tolist()
+    Weight_OtherLayer_Channel1 = df2.values.tolist()
+    Weight_OtherLayer = [Weight_OtherLayer_Channel0, Weight_OtherLayer_Channel1]
+    return Weight_OtherLayer
+
+
+def Weight_Hardware_Backward_ReOrdering_OtherLayer(Filter_Num, In_Channel_Num, Weight_List, Backward_List, Average_List):
+    # Filter_Num_T = 128
+    # In_Channel_Num_T = 1024
+    Filter_Num_T = Filter_Num
+    In_Channel_Num_T = In_Channel_Num
+
+    Filter_Num = In_Channel_Num_T
+    In_Channel_Num = Filter_Num_T
+
+    A = int(Filter_Num/8)
+    B = int(In_Channel_Num/4)
+    C = int((Filter_Num*In_Channel_Num*9)/16)
+    D = int(Filter_Num*In_Channel_Num*9)
+
+    E = int(Filter_Num*4)
+    F = int(Filter_Num/4)
+    G = int(A*B*20*16)
+    H = int(A*B*20)
+    zero = '0000'
+
+    origin = pd.DataFrame(Weight_List)
+    #--------------------------------Activation and BatchNorm-----------------------
+    batch_add =    pd.DataFrame(Average_List)
+    batch_mul =    pd.DataFrame(Backward_List)
+
+    bias_active_ar = np.repeat('3DCD',In_Channel_Num).reshape(In_Channel_Num,1)  # outchannel num == filter num
+
+    batch_add_ar = np.array(batch_add)
+    batch_mul_ar = np.array(batch_mul)
+
+    origin_ar = np.array(origin)
+
+    zero = '0000'
+    origin_size = np.size(origin_ar)
+    kenel_size = int(origin_size / (Filter_Num * In_Channel_Num))
+
+    #   origin_ar_T = np.repeat(zero,Filter_Num_T*In_Channel_Num_T*kenel_size).reshape(Filter_Num,In_Channel_Num,int(kenel_size**(1/2)),int(kenel_size**(1/2)))
+    #   origin_ar_TT = np.repeat(zero,Filter_Num_T*In_Channel_Num_T*kenel_size).reshape(Filter_Num,In_Channel_Num,int(kenel_size**(1/2)),int(kenel_size**(1/2)))
+    #   origin_ar = origin_ar.reshape(Filter_Num_T,In_Channel_Num_T,int(kenel_size**(1/2)),int(kenel_size**(1/2)))
+    #   origin_ar_T = origin_ar.transpose(1,0,2,3)
+    #   for i in range (0,Filter_Num):
+    #     for j in range (0,In_Channel_Num):
+    #       for k in range (0,int(kenel_size**(1/2))):
+    #         for kk in range (0,int(kenel_size**(1/2))):
+    #           origin_ar_TT[i][j][int(kenel_size**(1/2))-1-k][int(kenel_size**(1/2))-1-kk] = origin_ar_T[i][j][k][kk]
+
+    origin_ar_T = np.repeat(zero,Filter_Num_T*In_Channel_Num_T*kenel_size).reshape(Filter_Num,In_Channel_Num,kenel_size)
+    origin_ar = origin_ar.reshape(Filter_Num_T,In_Channel_Num_T,kenel_size)
+    origin_ar_T = origin_ar.transpose(1,0,2)
+    origin_ar_TT = origin_ar_T[:,:,::-1]
+    # origin_ar_TT = origin_ar_T
+
+    # if (kenel_size==1) :
+    #     origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,1) 
+    #     zero = '0000'
+    #     zero_ar = np.repeat(zero,6)
+    #     zero_ar = zero_ar.reshape(6)
+    #     temp_ar = np.repeat(zero, D).reshape(A,2,4,B,4,9)
+    #     for i in range (0,A):
+    #         for j in range (0,2):
+    #             for k in range (0,4):
+    #                 for l in range (0,B):
+    #                     for m in range (0,4):
+    #                         temp_ar[i][j][k][l][m] = np.concatenate( (zero_ar,origin_ar_TT[i][j][k][l][m],origin_ar_TT[i][j][k][l][m],origin_ar_TT[i][j][k][l][m]), axis = 0)
+    #     # concat 4 in_channel
+    #     filter_ar = np.repeat(zero, D).reshape(A,2,4,B,9,4)
+    #     for i in range (0,A):
+    #         for j in range (0,2):
+    #             for k in range (0,4):
+    #                 for l in range (0,B):
+    #                     filter_ar[i][j][k][l] = temp_ar[i][j][k][l].T
+    #     # print('aaaa')
+    # elif (kenel_size==9) :
+    #     origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,9) # Using "2" make 8 outch
+    #     zero = '0000'
+    #     #concat 4 in channel
+    #     filter_ar = np.repeat(zero, origin_size).reshape(A,2,4,B,9,4)
+    #     for fn in range (0,A):
+    #         for fc2 in range (0,2):
+    #             for fc1 in range (0,4):
+    #                 for incn in range (0,B):
+    #                     filter_ar[fn][fc2][fc1][incn] = origin_ar_TT[fn][fc2][fc1][incn].T
+    # print('ssss')
+    if (kenel_size==1) :
+        origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,1) #(filter/8 ,2(아래로 반복), 4(4개있음), input channel/4, 4(4개를 가져감), kernel)
+        zero_ar = np.repeat(zero,A*2*4*B*4*6).reshape(A,2,4,B,4,6)
+        temp_ar = np.repeat(zero, D).reshape(A,2,4,B,4,9)
+        temp_ar = np.concatenate( (zero_ar,origin_ar_TT,origin_ar_TT,origin_ar_TT) , axis = 5)
+        # concat 4 in_channel
+        filter_ar = np.repeat(zero, D).reshape(A,2,4,B,9,4)
+        filter_ar = temp_ar.transpose(0,1,2,3,5,4)
+    elif (kenel_size==9) :
+        origin_ar_TT = origin_ar_TT.reshape(A,2,4,B,4,9) # Using "2" make 8 outch
+        #concat 4 in channel
+        filter_ar = np.repeat(zero, origin_size).reshape(A,2,4,B,9,4)
+        filter_ar = origin_ar_TT.transpose(0,1,2,3,5,4)
+
+
+    # to concat 4 filter
+    # filter_ar2 = np.repeat(zero, D).reshape(A,2,B,9,16)
+    # for fn in range(0,A):
+    #     for fin in range (0,2):
+    #         for cn in range (0,B):
+    #             for d in range (0,9):
+    #                 filter_ar2[fn][fin][cn][d] = np.concatenate( (filter_ar[fn][fin][0][cn][d],filter_ar[fn][fin][1][cn][d],filter_ar[fn][fin][2][cn][d],filter_ar[fn][fin][3][cn][d]), axis= 0)
+
+    filter_ar2 = np.repeat(zero, D).reshape(A,2,B,9,16)
+
+    filter_ar_0 = filter_ar[:,:,0,:,:,:]
+    filter_ar_1 = filter_ar[:,:,1,:,:,:]
+    filter_ar_2 = filter_ar[:,:,2,:,:,:]
+    filter_ar_3 = filter_ar[:,:,3,:,:,:]
+
+    filter_ar2 = np.concatenate((filter_ar_0, filter_ar_1, filter_ar_2, filter_ar_3), axis= 4)
+
+    filter_ar3 = np.repeat(zero, D).reshape(A,B,2,9,16)  # to concat filter twice
+    filter_ar3 = filter_ar2.transpose(0,2,1,3,4)
+
+    # Wconvert_ar = filter_ar3.reshape(C,16)
+
+    space = np.repeat(zero,1).reshape(1,1)
+    vector_array = np.repeat(zero,B*16).reshape(int(B/2),2,16) #inchannel/8,2,16
+
+
+    for i in range(0,int(B/2)): # filter_num / 8
+        vector_array[i][0] = np.concatenate( (bias_active_ar[i*8],bias_active_ar[i*8+1],bias_active_ar[i*8+2],bias_active_ar[i*8+3],   batch_add_ar[i*8],batch_add_ar[i*8+1],batch_add_ar[i*8+2],batch_add_ar[i*8+3],
+                                                bias_active_ar[i*8+4],bias_active_ar[i*8+5],bias_active_ar[i*8+6],bias_active_ar[i*8+7], batch_add_ar[i*8+4],batch_add_ar[i*8+5],batch_add_ar[i*8+6],batch_add_ar[i*8+7] ),axis=0)
+        vector_array[i][1] = np.concatenate( (batch_mul_ar[i*8],batch_mul_ar[i*8+1],batch_mul_ar[i*8+2],batch_mul_ar[i*8+3],   space[0],space[0],space[0],space[0],
+                                            batch_mul_ar[i*8+4],batch_mul_ar[i*8+5],batch_mul_ar[i*8+6],batch_mul_ar[i*8+7], space[0],space[0],space[0],space[0] ),axis=0)
+
+
+    # vector_array = vector_array.reshape(B,16)
+    # zero = '0000'
+
+    Wconvert_array = filter_ar3.reshape(A,B,18,16) #fil/8, in/4
+    # biacsc_ar = np.repeat(zero,B*16).reshape(int(B/2),1,2,16)
+    biacsc_ar = vector_array.reshape(int(B/2),1,2,16)
+    concat_ar = np.repeat(zero,G).reshape(int(A/2),B*2,20,16)
+
+    for k in range (0,int(A/2)):
+        for i in range (0,B):
+            concat_ar[k][2*i]   = np.concatenate((Wconvert_array[2*k][i],biacsc_ar[int(i/4)*2][0]), axis=0)
+            concat_ar[k][2*i+1] = np.concatenate((Wconvert_array[2*k+1][i],biacsc_ar[int(i/4)*2+1][0]), axis=0)
+
+    convert_ar = np.repeat(zero,G).reshape(H,16)
+    convert_ar = concat_ar.reshape(H,16)
+
+
+    Weight_List = []
+    Weight_List.clear()
+    for value in convert_ar:
+        Result = ''.join(value)
+        Weight_List.append(Result)
+
+    df = pd.DataFrame(Weight_List)
+    df1, df2 = Separated_Weight_DDR_Channel(df)
+    #   df1.to_csv(Write_Path_Ch0, index=False, header=False, sep='\t')
+    #   df2.to_csv(Write_Path_Ch1, index=False, header=False, sep='\t')
+    Weight_OtherLayer_Channel0 = df1.values.tolist()
+    Weight_OtherLayer_Channel1 = df2.values.tolist()
+    Weight_OtherLayer = [Weight_OtherLayer_Channel0, Weight_OtherLayer_Channel1]
+    return Weight_OtherLayer
+
+
+# def Fmap_Ordering(Channel, Data_List):
+    origin = pd.DataFrame(Data_List)
+    Output_Channel = Channel
+    origin_ar = np.array(origin)
+    origin_size = np.size(origin_ar)
+    Fmap_size = int((origin_size/Output_Channel)**(1/2))
+
+    zero = "0000"
+
+    # original fmap shape
+    origin_ar = origin_ar.reshape(Output_Channel,Fmap_size,Fmap_size)
+
+    # change row and col each other(전치)
+    for i in range (0,Output_Channel):
+        origin_ar[i] = origin_ar[i].T
+
+    origin_ar = origin_ar.reshape(Output_Channel,Fmap_size,Fmap_size)
+    iter_13 = int(Fmap_size/13)
+
+    concat_ar = np.repeat(zero, Output_Channel*Fmap_size*(Fmap_size+iter_13*3)).reshape(Output_Channel,(Fmap_size+iter_13*3),Fmap_size)
+
+    for i in range (0,Output_Channel):
+        for j in range (0,iter_13):
+            for k in range (0,Fmap_size):
+                concat_ar[i][j*16+0][k]  = origin_ar[i][j*13+0][k]
+                concat_ar[i][j*16+1][k]  = origin_ar[i][j*13+1][k]
+                concat_ar[i][j*16+2][k]  = origin_ar[i][j*13+2][k]
+                concat_ar[i][j*16+3][k]  = origin_ar[i][j*13+3][k]
+                concat_ar[i][j*16+4][k]  = origin_ar[i][j*13+4][k]
+                concat_ar[i][j*16+5][k]  = origin_ar[i][j*13+5][k]
+                concat_ar[i][j*16+6][k]  = origin_ar[i][j*13+6][k]
+                concat_ar[i][j*16+7][k]  = origin_ar[i][j*13+7][k]
+                concat_ar[i][j*16+8][k]  = origin_ar[i][j*13+8][k]
+                concat_ar[i][j*16+9][k]  = origin_ar[i][j*13+9][k]
+                concat_ar[i][j*16+10][k] = origin_ar[i][j*13+10][k]
+                concat_ar[i][j*16+11][k] = origin_ar[i][j*13+11][k]
+                concat_ar[i][j*16+12][k] = origin_ar[i][j*13+12][k]
+                concat_ar[i][j*16+13][k] = origin_ar[i][j*13+12][k]
+                concat_ar[i][j*16+14][k] = origin_ar[i][j*13+12][k]
+                concat_ar[i][j*16+15][k] = origin_ar[i][j*13+12][k]
+    concat_ar = concat_ar.reshape(Output_Channel*(Fmap_size+iter_13*3),Fmap_size,1)
+
+
+    four_ar1 = np.repeat(zero,int(Output_Channel*Fmap_size*(Fmap_size+iter_13*3)/4)).reshape(int(Output_Channel*(Fmap_size+iter_13*3)/4),Fmap_size,1)
+    four_ar2 = np.repeat(zero,int(Output_Channel*Fmap_size*(Fmap_size+iter_13*3)/4)).reshape(int(Output_Channel*(Fmap_size+iter_13*3)/4),Fmap_size,1)
+    four_ar3 = np.repeat(zero,int(Output_Channel*Fmap_size*(Fmap_size+iter_13*3)/4)).reshape(int(Output_Channel*(Fmap_size+iter_13*3)/4),Fmap_size,1)
+    four_ar4 = np.repeat(zero,int(Output_Channel*Fmap_size*(Fmap_size+iter_13*3)/4)).reshape(int(Output_Channel*(Fmap_size+iter_13*3)/4),Fmap_size,1)
+
+    for i in range (0,int(Output_Channel*(Fmap_size+iter_13*3)/4)):
+        for j in range (0,Fmap_size):
+            four_ar1[i][j][0] = concat_ar[4*i][j][0]
+            four_ar2[i][j][0] = concat_ar[4*i+1][j][0]
+            four_ar3[i][j][0] = concat_ar[4*i+2][j][0]
+            four_ar4[i][j][0] = concat_ar[4*i+3][j][0]
+
+    four_ar1 = four_ar1.reshape(Output_Channel,int(Fmap_size*(Fmap_size+iter_13*3)/4),1)
+    four_ar2 = four_ar2.reshape(Output_Channel,int(Fmap_size*(Fmap_size+iter_13*3)/4),1)
+    four_ar3 = four_ar3.reshape(Output_Channel,int(Fmap_size*(Fmap_size+iter_13*3)/4),1)
+    four_ar4 = four_ar4.reshape(Output_Channel,int(Fmap_size*(Fmap_size+iter_13*3)/4),1)
+
+    fmap1 = np.repeat(zero,int(Output_Channel*Fmap_size*(Fmap_size+iter_13*3)/4)).reshape(int(Output_Channel/16),int(Fmap_size*(Fmap_size+iter_13*3)/4),16)
+    fmap2 = np.repeat(zero,int(Output_Channel*Fmap_size*(Fmap_size+iter_13*3)/4)).reshape(int(Output_Channel/16),int(Fmap_size*(Fmap_size+iter_13*3)/4),16)
+    fmap3 = np.repeat(zero,int(Output_Channel*Fmap_size*(Fmap_size+iter_13*3)/4)).reshape(int(Output_Channel/16),int(Fmap_size*(Fmap_size+iter_13*3)/4),16)
+    fmap4 = np.repeat(zero,int(Output_Channel*Fmap_size*(Fmap_size+iter_13*3)/4)).reshape(int(Output_Channel/16),int(Fmap_size*(Fmap_size+iter_13*3)/4),16)
+
+    # concat 4 input channel
+    for i in range (0, int(Output_Channel/16)):
+        fmap1[i] = np.concatenate( ( four_ar1[16*i+0], four_ar1[16*i+1], four_ar1[16*i+2], four_ar1[16*i+3], four_ar2[16*i+0], four_ar2[16*i+1], four_ar2[16*i+2], four_ar2[16*i+3], four_ar3[16*i+0], four_ar3[16*i+1], four_ar3[16*i+2], four_ar3[16*i+3], four_ar4[16*i+0], four_ar4[16*i+1], four_ar4[16*i+2], four_ar4[16*i+3]), axis=1)
+        fmap2[i] = np.concatenate( ( four_ar1[16*i+4], four_ar1[16*i+5], four_ar1[16*i+6], four_ar1[16*i+7], four_ar2[16*i+4], four_ar2[16*i+5], four_ar2[16*i+6], four_ar2[16*i+7], four_ar3[16*i+4], four_ar3[16*i+5], four_ar3[16*i+6], four_ar3[16*i+7], four_ar4[16*i+4], four_ar4[16*i+5], four_ar4[16*i+6], four_ar4[16*i+7]), axis=1)
+        fmap3[i] = np.concatenate( ( four_ar1[16*i+8], four_ar1[16*i+9], four_ar1[16*i+10], four_ar1[16*i+11], four_ar2[16*i+8], four_ar2[16*i+9], four_ar2[16*i+10], four_ar2[16*i+11], four_ar3[16*i+8], four_ar3[16*i+9], four_ar3[16*i+10], four_ar3[16*i+11], four_ar4[16*i+8], four_ar4[16*i+9], four_ar4[16*i+10], four_ar4[16*i+11]), axis=1)
+        fmap4[i] = np.concatenate( ( four_ar1[16*i+12], four_ar1[16*i+13], four_ar1[16*i+14], four_ar1[16*i+15], four_ar2[16*i+12], four_ar2[16*i+13], four_ar2[16*i+14], four_ar2[16*i+15], four_ar3[16*i+12], four_ar3[16*i+13], four_ar3[16*i+14], four_ar3[16*i+15], four_ar4[16*i+12], four_ar4[16*i+13], four_ar4[16*i+14], four_ar4[16*i+15]), axis=1)
+
+    # print(origin_size)
+    # print(fmap1.shape)
+
+    # # concat 4 pixel
+    # convert_ar = np.repeat(zero,origin_size).reshape(int(origin_size/16),16)
+    # for i in range (0,int(Output_Channel/16)) :
+    #   for ch in range (0,16): # 16 고정
+    #     for pix in range (0,int(Fmap_size*Fmap_size/4)):
+    #       convert_ar [i*Fmap_size*Fmap_size+pix*4][ch]= fmap1.reshape(int(Output_Channel/4),int(Fmap_size*Fmap_size/4),16)[i*4+0][pix][ch]
+    #       convert_ar [i*Fmap_size*Fmap_size+pix*4+1][ch]= fmap2.reshape(int(Output_Channel/4),int(Fmap_size*Fmap_size/4),16)[i*4+1][pix][ch]
+    #       convert_ar [i*Fmap_size*Fmap_size+pix*4+2][ch]= fmap3.reshape(int(Output_Channel/4),int(Fmap_size*Fmap_size/4),16)[i*4+2][pix][ch]
+    #       convert_ar [i*Fmap_size*Fmap_size+pix*4+3][ch]= fmap4.reshape(int(Output_Channel/4),int(Fmap_size*Fmap_size/4),16)[i*4+3][pix][ch]
+
+    trans_ar = np.repeat(zero,Output_Channel*Fmap_size*(Fmap_size+iter_13*3)).reshape(int(Output_Channel*Fmap_size*(Fmap_size+iter_13*3)/16),16)
+    for i in range (0,int(Output_Channel/16)):
+        for ch in range (0,16):
+            for pix in range (0,int(Fmap_size*(Fmap_size+iter_13*3)/4)):
+                trans_ar [i*Fmap_size*(Fmap_size+iter_13*3)+pix*4][ch]= fmap1[i][pix][ch]
+                trans_ar [i*Fmap_size*(Fmap_size+iter_13*3)+pix*4+1][ch]= fmap2[i][pix][ch]
+                trans_ar [i*Fmap_size*(Fmap_size+iter_13*3)+pix*4+2][ch]= fmap3[i][pix][ch]
+                trans_ar [i*Fmap_size*(Fmap_size+iter_13*3)+pix*4+3][ch]= fmap4[i][pix][ch]
+
+    Fmap_List = []
+    Fmap_List.clear()
+    for value in trans_ar:
+        Result = ''.join(value)
+        Fmap_List.append(Result)
+
+    df = pd.DataFrame(Fmap_List)
+    df1, df2 = Separated_Fmap_DDR_Channel(df)
+#   df1.to_csv(Write_Path_Ch0, index=False, header=False, sep='\t')
+#   df2.to_csv(Write_Path_Ch1, index=False, header=False, sep='\t')
+    Image_OtherLayer_Channel0 = df1.values.tolist()
+    Image_OtherLayer_Channel1 = df2.values.tolist()
+    Image_OtherLayer = [Image_OtherLayer_Channel0, Image_OtherLayer_Channel1]
+    return Image_OtherLayer
+
+
+
 
 def Fmap_Ordering(Channel, Data_List):
     Output_Channel = Channel

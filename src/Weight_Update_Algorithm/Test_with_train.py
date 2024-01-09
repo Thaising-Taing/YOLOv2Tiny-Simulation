@@ -49,7 +49,7 @@ def prepare_im_data(img):
 
 
 def test_for_train(temp_path, model, args):
-    args.dataset = "voc07test"
+    # args.dataset = "voc07test"
     args.conf_thresh = 0.001
     if args.vis:
         args.conf_thresh = 0.5
@@ -59,7 +59,8 @@ def test_for_train(temp_path, model, args):
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     
     # prepare dataset
-    args.imdbval_name = 'voc_2007_test'
+    # args.imdbval_name = 'voc_2007_test'
+    args.imdbval_name = 'voc_2007_test-car'
     val_imdb = get_imdb(args.imdbval_name)
 
     val_dataset = RoiDataset(val_imdb, train=False)
@@ -97,7 +98,7 @@ def test_for_train(temp_path, model, args):
 
     img_id = -1
     with torch.no_grad():
-        for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), total=len(val_dataloader), desc="Performing validation."):
+        for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), total=len(val_dataloader), desc="Performing validation with only car test images."):
         # for batch, (im_data, im_infos) in enumerate(val_dataloader):
         # for batch, (im_data, im_infos) in enumerate(small_val_dataloader):
             if args.use_cuda:
