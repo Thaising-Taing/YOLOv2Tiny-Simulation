@@ -21,8 +21,14 @@ import bz2file as bz2
 libconv = ctypes.CDLL('/data/Circuit_Team/Junaid/yolov2/convolution_cuda.so')
 warnings.simplefilter("ignore", UserWarning)
 
-def Save_File(path, data):
-    with open(path, 'wb') as handle:
+
+def Save_File(_path, data):
+    _dir = _path.split('/')[1:-1]
+    if len(_dir)>1: _dir = os.path.join(_dir)
+    else: _dir = _dir[0]
+    if not os.path.isdir(_dir): os.mkdir(_dir)
+    
+    with open(_path, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
 def convert_to_hex(value):

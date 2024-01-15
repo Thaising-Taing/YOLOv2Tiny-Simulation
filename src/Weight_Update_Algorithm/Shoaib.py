@@ -19,6 +19,7 @@ class Shoaib_Code(object):
         weight_decay    = 0.0005  ,
         model           = []     ,
         optim           = []     ,
+        parent          = []
         ):
         
         self.Weight_Dec         = Weight_Dec      
@@ -47,6 +48,7 @@ class Shoaib_Code(object):
             Running_Var_Dec
             ]
         if pth_weights_path:
+            parent.Show_Text(f'Loading weights from: {pth_weights_path}')
             self.init_model.load_state_dict(torch.load(pth_weights_path,map_location='cpu')['model'])
         
     def get_weights(self, model):

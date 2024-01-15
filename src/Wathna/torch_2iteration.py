@@ -17,12 +17,20 @@ import math
 # Zip the pickle file
 import bz2file as bz2
 
+SAVE_RESULTS=False
+
 torch.manual_seed(3407)
 
 warnings.simplefilter("ignore", UserWarning)
 
-def Save_File(path, data):
-    with open(path, 'wb') as handle:
+
+def Save_File(_path, data):
+    _dir = _path.split('/')[1:-1]
+    if len(_dir)>1: _dir = os.path.join(_dir)
+    else: _dir = _dir[0]
+    if not os.path.isdir(_dir): os.mkdir(_dir)
+    
+    with open(_path, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
