@@ -109,6 +109,8 @@ class TorchSimulation(object):
                                                                 mean, var, self.Mode, pool_param_stride2)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Forward_Output_1st_Iter_Layer1", Out1)
         if self.save_bfloat16: Save_File("./Output_Sim_PyTorch_Bfloat16/Forward_Output_1st_Iter_Layer1", Out1.to(torch.bfloat16))
+
+        if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Weight_Conv_1", Weight_Tensor[1])
         
         # Layer2: Conv-BN-ReLU-Pool
         temp_Out[2], temp_cache['2'] = Torch_FastConv.forward(Out1, Weight_Tensor[2], conv_param)
@@ -118,6 +120,9 @@ class TorchSimulation(object):
         Out2, cache['2'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out1, Weight_Tensor[2], Gamma_Tensor[2], Beta_Tensor[2],
                                                                 conv_param, running_mean[2], running_var[2],
                                                                 mean, var, self.Mode, pool_param_stride2)
+        
+        if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Weight_Conv_2", Weight_Tensor[2])
+
         # Layer3: Conv-BN-ReLU-Pool
         temp_Out[3], temp_cache['3'] = Torch_FastConv.forward(Out2, Weight_Tensor[3], conv_param)
         
@@ -126,6 +131,9 @@ class TorchSimulation(object):
         Out3, cache['3'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out2, Weight_Tensor[3], Gamma_Tensor[3], Beta_Tensor[3],
                                                                 conv_param, running_mean[3], running_var[3],
                                                                 mean, var, self.Mode, pool_param_stride2)
+        
+        if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Weight_Conv_3", Weight_Tensor[3])
+
         # Layer4: Conv-BN-ReLU-Pool
         temp_Out[4], temp_cache['4'] = Torch_FastConv.forward(Out3, Weight_Tensor[4], conv_param)
         
@@ -134,6 +142,9 @@ class TorchSimulation(object):
         Out4, cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], Beta_Tensor[4],
                                                                 conv_param, running_mean[4], running_var[4],
                                                                 mean, var, self.Mode, pool_param_stride2)
+        
+        if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Weight_Conv_4", Weight_Tensor[4])
+
         # Layer5: Conv-BN-ReLU
         temp_Out[5], temp_cache['5'] = Torch_FastConv.forward(Out4, Weight_Tensor[5], conv_param)
         
@@ -142,6 +153,8 @@ class TorchSimulation(object):
         Out5, cache['5'] = Torch_Conv_BatchNorm_ReLU.forward(Out4, Weight_Tensor[5], Gamma_Tensor[5], Beta_Tensor[5],
                                                             conv_param, running_mean[5], running_var[5],
                                                             mean, var, self.Mode)
+        
+        if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Weight_Conv_5", Weight_Tensor[5])
 
         # Layer6: Conv-BN-ReLU
         temp_Out[6], temp_cache['6'] = Torch_FastConv.forward(Out5, Weight_Tensor[6], conv_param)
@@ -151,6 +164,9 @@ class TorchSimulation(object):
         Out6, cache['6'] = Torch_Conv_BatchNorm_ReLU.forward(Out5, Weight_Tensor[6], Gamma_Tensor[6],
                                                             Beta_Tensor[6], conv_param, running_mean[6], running_var[6],
                                                             mean, var, self.Mode)
+        
+        if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Weight_Conv_6", Weight_Tensor[6])
+
         # Layer7: Conv-BN-ReLU
         temp_Out[7], temp_cache['7'] = Torch_FastConv.forward(Out6, Weight_Tensor[7], conv_param)
         
@@ -167,6 +183,8 @@ class TorchSimulation(object):
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Forward_running_var_Layer7", running_var[7])
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Forward_Output_Layer7", Out7)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Forward_Cache_Layer7", cache['7'])
+
+        if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Weight_Conv_7", Weight_Tensor[7])
 
         if self.save_bfloat16: Save_File("./Output_Sim_PyTorch_Bfloat16/Forward_Input_Layer7", Out6.to(torch.bfloat16))
         if self.save_bfloat16: Save_File("./Output_Sim_PyTorch_Bfloat16/Forward_Weight_Layer7", Weight_Tensor[7].to(torch.bfloat16))
@@ -185,6 +203,8 @@ class TorchSimulation(object):
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Forward_Bias", bias)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Forward_Output_Layer8", Out8)
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Forward_Cache_Layer8", cache['8'])
+
+        if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Weight_Conv_8", Weight_Tensor[8])
 
         if self.save_bfloat16: Save_File("./Output_Sim_PyTorch_Bfloat16/Forward_Input_Layer8", Out7.to(torch.bfloat16))
         if self.save_bfloat16: Save_File("./Output_Sim_PyTorch_Bfloat16/Forward_Weight_Layer8", Weight_Tensor[8].to(torch.bfloat16))
@@ -340,6 +360,7 @@ class TorchSimulation(object):
         if self.save_debug_data: Save_File("./Output_Sim_PyTorch/Backward_Beta_Gradient_Layer0", Beta_Gradient_Layer0)
 
         if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Layer_0_Backward_Input_Gradient", Input_Grad_Layer0)
+        if self.save_debug_data1: Save_File("./Output_Sim_PyTorch/Layer_0_Backward_Weight_Gradient", Weight_Gradient_Layer0)
         
         if self.save_bfloat16: Save_File("./Output_Sim_PyTorch_Bfloat16/Backward_Input_Grad_Layer0", Input_Grad_Layer0.to(torch.bfloat16))
         if self.save_bfloat16: Save_File("./Output_Sim_PyTorch_Bfloat16/Backward_Weight_Gradient_Layer0", Weight_Gradient_Layer0.to(torch.bfloat16))

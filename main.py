@@ -53,9 +53,9 @@ from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
 from Thaising_Python import PythonSimulation
-from Python_CUDA32 import CUDA32
-from Python_CUDA16 import CUDA16
-from RFFP_CUDA import RFFP_CUDA
+# from Python_CUDA32 import CUDA32
+# from Python_CUDA16 import CUDA16
+# from RFFP_CUDA import RFFP_CUDA
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -1111,7 +1111,7 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=100, type=int)
+                            default=1, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
@@ -1339,10 +1339,6 @@ class App(customtkinter.CTk):
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
-
-        if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
-        if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
-        if save_debug_data: self.Save_File("./Output_Sim_Python/Gamma_Layer0_After",_data.Gamma[0])
         
         if self.mode == "Pytorch"      :  self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"       :  self.Python.load_weights(new_weights)
