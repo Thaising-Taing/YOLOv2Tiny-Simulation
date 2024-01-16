@@ -960,6 +960,8 @@ class App(customtkinter.CTk):
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
             self.Adjust_Learning_Rate()
+            print(f"Validation weights before start of training.")
+            self.Check_mAP()
             
             ########## To use full dataset
             # self.data_iter = iter(self.train_dataloader)            
@@ -1033,35 +1035,56 @@ class App(customtkinter.CTk):
         self.Create_Output_Dir()
         self.Load_Weights()
         self.Load_Dataset()
-        
-        # For validation
-        self.img_id = -1
-        self.val_imdb = get_imdb("voc_2007_test")
-        self.all_boxes = [[[] for _ in range(len(self.val_imdb.image_index))] for _ in range(self.val_imdb.num_classes)]
 
-        self.whole_process_start = time.time()
-        self.data_iter = iter(self.small_test_dataloader)
-        for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
-            # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-            # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-            self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+        for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
+            self.whole_process_start = time.time()
+            self.Adjust_Learning_Rate()
+            print(f"Validation weights.")
+            self.Check_mAP()
+        self.Show_Text(f"Validation is finished")
+        
+        
+    # def Run_Validation(self):
+    #     self.Train.configure(state="disabled")
+    #     self.Infer.configure(state="disabled")
+    #     self.Infer.configure(fg_color='green')
+    #     self.Stop.configure(state="normal")
+    #     self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+    #     self.Show_Text(f"Start validation")
+    #     self.parse_args()
+    #     self.Pre_Process()
+    #     self.Create_Output_Dir()
+    #     self.Load_Weights()
+    #     self.Load_Dataset()
+        
+    #     # For validation
+    #     self.img_id = -1
+    #     self.val_imdb = get_imdb("voc_2007_test")
+    #     self.all_boxes = [[[] for _ in range(len(self.val_imdb.image_index))] for _ in range(self.val_imdb.num_classes)]
+
+    #     self.whole_process_start = time.time()
+    #     self.data_iter = iter(self.small_test_dataloader)
+    #     for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
+    #         # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+    #         # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+    #         self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
             
-            self.batch = step
-            self.Before_Forward() ######################### - Individual Functions
-            self.Forward() ################################ - Individual Functions
-            self.Validate()
+    #         self.batch = step
+    #         self.Before_Forward() ######################### - Individual Functions
+    #         self.Forward() ################################ - Individual Functions
+    #         self.Validate()
         
         
-        with open(os.path.join(self.args.output_dir, 'detections.pkl'), 'wb') as f:
-            pickle.dump(self.all_boxes, f, pickle.HIGHEST_PROTOCOL)
+    #     with open(os.path.join(self.args.output_dir, 'detections.pkl'), 'wb') as f:
+    #         pickle.dump(self.all_boxes, f, pickle.HIGHEST_PROTOCOL)
 
-        # map = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
-        map = self.val_imdb.evaluate_detections_with_train(self.all_boxes, output_dir=self.args.output_dir)
-        # return map   
+    #     # map = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
+    #     map = self.val_imdb.evaluate_detections_with_train(self.all_boxes, output_dir=self.args.output_dir)
+    #     # return map   
         
-        # self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
-        # self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
-        # self.Show_Text(f"Inference is finished.")
+    #     # self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
+    #     # self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
+    #     # self.Show_Text(f"Inference is finished.")
         
     def Stop_Process(self):
         self.Train.configure(state="normal")
@@ -1095,12 +1118,20 @@ class App(customtkinter.CTk):
         
         
     # Training Helper Functions
-    def Save_File(self, path, data):
-        with open(path, 'wb') as handle:
+    def Save_File(self, _path, data):
+        _dir = _path.split('/')[1:-1]
+        if len(_dir)>1: _dir = os.path.join(_dir)
+        else: _dir = _dir[0]
+        if not os.path.isdir(_dir): os.mkdir(_dir)
+        with open(_path, 'wb') as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
-    def Load_File(self, path):
-        with open(path, 'rb') as handle:
+    def Load_File(self, _path):
+        _dir = _path.split('/')[1:-1]
+        if len(_dir)>1: _dir = os.path.join(_dir)
+        else: _dir = _dir[0]
+        if not os.path.isdir(_dir): os.mkdir(_dir)
+        with open(_path, 'rb') as handle:
             b = pickle.load(handle)
         return b
     
@@ -1115,7 +1146,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=80, type=int)
+                            default=8, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=10, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -1130,6 +1161,8 @@ class App(customtkinter.CTk):
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
                             default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
+                            # default="Dataset/Dataset/pretrained/Gitae--2024-01-10-10_42_29.387218-Epoch_47.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
@@ -1202,7 +1235,8 @@ class App(customtkinter.CTk):
                                     args=self.args,
                                     pth_weights_path=self.args.pretrained,
                                     model=Yolov2,
-                                    optim=optim)
+                                    optim=optim,
+                                    parent=self)
         
         # Loading Weight From pth File
         self.loaded_weights = self.Shoaib.load_weights()
@@ -1610,7 +1644,7 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data = self.FPGA
         
-        out_batch = _data.out
+        out_batch = _data.out # Out of Forward
         
         self.Show_Text(f"Validate - {self.mode} - {self.batch} - {out_batch.shape}")
         

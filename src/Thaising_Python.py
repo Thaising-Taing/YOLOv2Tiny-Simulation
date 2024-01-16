@@ -7,8 +7,14 @@ from Pre_Processing_Scratch.Pre_Processing import *
     
 from Post_Processing_Scratch.Calculate_Loss_2Iterations import *
 
-def Save_File(path, data):
-    with open(path, 'wb') as handle:
+
+def Save_File(_path, data):
+    _dir = _path.split('/')[1:-1]
+    if len(_dir)>1: _dir = os.path.join(_dir)
+    else: _dir = _dir[0]
+    if not os.path.isdir(_dir): os.mkdir(_dir)
+    
+    with open(_path, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def save_file(fname, data, module=[], layer_no=[], save_txt=False, save_hex=False, phase=[]):
