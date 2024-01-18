@@ -16,7 +16,7 @@ __sets = {}
 
 # Set up voc_<year>_<split>
 for year in ['2007', '2012']:
-    for split in ['train', 'val', 'trainval', 'test', 'trainval-car', 'trainval-car-80', 'test-car']:
+    for split in ['train', 'val', 'trainval', 'test', 'trainval-car', 'trainval-car-80', 'trainval-random-80', 'test-car']:
       name = 'voc_{}_{}'.format(year, split)
       __sets[name] = (lambda split=split, year=year: pascal_voc(split, year))
 
