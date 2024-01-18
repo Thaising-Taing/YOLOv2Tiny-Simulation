@@ -960,6 +960,9 @@ class App(customtkinter.CTk):
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
             self.Adjust_Learning_Rate()
+            
+            self.save_weights()
+            
             print(f"Validation weights before start of training.")
             self.Check_mAP()
             
@@ -1163,7 +1166,8 @@ class App(customtkinter.CTk):
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
-                            default="", type=str)
+                            # default="", type=str)
+                            default="Dataset/Dataset/pretrained/scratch.pth", type=str)
                             # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
                             # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
                             # default="Dataset/Dataset/pretrained/Gitae--2024-01-10-10_42_29.387218-Epoch_47.pth", type=str)
@@ -1434,6 +1438,7 @@ class App(customtkinter.CTk):
         Path(save_dir).mkdir(parents=True, exist_ok=True)
         _now = str(datetime.now()).split()
         save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
+        self.Show_Text(f"Saving weights at {save_name}")
         torch.save({
             'model': self.Shoaib.custom_model.state_dict(),
             'epoch': self.epoch,
