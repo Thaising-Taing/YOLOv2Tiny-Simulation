@@ -47,9 +47,7 @@ class Shoaib_Code(object):
             Running_Mean_Dec, 
             Running_Var_Dec
             ]
-        if pth_weights_path:
-            parent.Show_Text(f'Loading weights from: {pth_weights_path}')
-            self.init_model.load_state_dict(torch.load(pth_weights_path,map_location='cpu')['model'])
+        self.parent = parent
         
     def get_weights(self, model):
         """
@@ -605,179 +603,193 @@ class Shoaib_Code(object):
             Dict[str, Tensor]: The updated state dictionary of the custom model.
         """
 
-        self.pretrained_checkpoint = torch.load(self.weight_path,map_location='cpu')
-        loaded_model = torch.load(self.weight_path,map_location='cpu')['model']
-        self.custom_model.load_state_dict(loaded_model)
+        if self.weight_path:
+            if self.parent==[]: print(f'--> Loading weights from:\n\t\t\t{self.weight_path}')
+            else: self.parent.Show_Text(f'--> Loading weights from:\n\t\t\t{self.weight_path}')
+            
+            self.pretrained_checkpoint = torch.load(self.weight_path,map_location='cpu')
+            loaded_model = torch.load(self.weight_path,map_location='cpu')['model']
+            self.custom_model.load_state_dict(loaded_model)
+            
+        else:
+            if self.parent==[]: print(f'--> Starting training from scratch.')
+            else: self.parent.Show_Text(f'--> Starting training from scratch.')
+            
+        # self.pretrained_checkpoint = torch.load(self.weight_path,map_location='cpu')
+        # loaded_model = torch.load(self.weight_path,map_location='cpu')['model']
+        # self.custom_model.load_state_dict(loaded_model)
         Weight,   Bias,  Gamma_WeightBN,  BetaBN, Running_Mean_Dec, Running_Var_Dec = self.Inputs    # Gamma is weight for BN, Beta is Bias for BN
+        _model_state_dict = self.custom_model.state_dict()        
         
-        for name in self.pretrained_checkpoint['model']:
+        _delete_after_copy=False
+        for name in _model_state_dict:
             if name == "conv1.weight": 
-                Weight[0] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Weight[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "conv2.weight": 
-                Weight[1] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Weight[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "conv3.weight": 
-                Weight[2] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Weight[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "conv4.weight": 
-                Weight[3] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Weight[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "conv5.weight": 
-                Weight[4] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Weight[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "conv6.weight": 
-                Weight[5] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Weight[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "conv7.weight": 
-                Weight[6] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Weight[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "conv8.weight": 
-                Weight[7] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Weight[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "conv9.0.weight": 
-                Weight[8] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Weight[8] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn1.weight": 
-                Gamma_WeightBN[0] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Gamma_WeightBN[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn2.weight": 
-                Gamma_WeightBN[1] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Gamma_WeightBN[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn3.weight": 
-                Gamma_WeightBN[2] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Gamma_WeightBN[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn4.weight": 
-                Gamma_WeightBN[3] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Gamma_WeightBN[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn5.weight": 
-                Gamma_WeightBN[4] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Gamma_WeightBN[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn6.weight": 
-                Gamma_WeightBN[5] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Gamma_WeightBN[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn7.weight": 
-                Gamma_WeightBN[6] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Gamma_WeightBN[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn8.weight": 
-                Gamma_WeightBN[7] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Gamma_WeightBN[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn1.bias": 
-                BetaBN[0] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                BetaBN[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn2.bias": 
-                BetaBN[1] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                BetaBN[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn3.bias": 
-                BetaBN[2] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                BetaBN[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn4.bias": 
-                BetaBN[3] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                BetaBN[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn5.bias": 
-                BetaBN[4] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                BetaBN[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn6.bias": 
-                BetaBN[5] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                BetaBN[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn7.bias": 
-                BetaBN[6] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                BetaBN[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn8.bias": 
-                BetaBN[7] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                BetaBN[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "conv9.0.bias": 
-                Bias = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Bias = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn1.running_mean": 
-                Running_Mean_Dec[0] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Mean_Dec[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn1.running_var": 
-                Running_Var_Dec[0] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Var_Dec[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn2.running_mean": 
-                Running_Mean_Dec[1] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Mean_Dec[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn2.running_var": 
-                Running_Var_Dec[1] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Var_Dec[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn3.running_mean": 
-                Running_Mean_Dec[2] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Mean_Dec[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn3.running_var": 
-                Running_Var_Dec[2] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Var_Dec[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn4.running_mean": 
-                Running_Mean_Dec[3] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Mean_Dec[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn4.running_var": 
-                Running_Var_Dec[3] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Var_Dec[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn5.running_mean": 
-                Running_Mean_Dec[4] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Mean_Dec[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn5.running_var": 
-                Running_Var_Dec[4] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Var_Dec[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn6.running_mean": 
-                Running_Mean_Dec[5] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Mean_Dec[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn6.running_var": 
-                Running_Var_Dec[5] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Var_Dec[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn7.running_mean": 
-                Running_Mean_Dec[6] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Mean_Dec[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn7.running_var": 
-                Running_Var_Dec[6] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Var_Dec[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
             if name == "bn8.running_mean": 
-                Running_Mean_Dec[7] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Mean_Dec[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
         
             if name == "bn8.running_var": 
-                Running_Var_Dec[7] = self.pretrained_checkpoint['model'][name]
-                del loaded_model[name]
+                Running_Var_Dec[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
 
         
         Outputs = Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec

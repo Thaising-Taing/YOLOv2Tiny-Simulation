@@ -48,7 +48,7 @@ from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 
 import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
+os.environ['CUDA_LAUNCH_BLOCKING'] = "7"
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
@@ -971,9 +971,13 @@ class App(customtkinter.CTk):
             # self.data_iter = iter(self.train_dataloader_car)
             # for step in tqdm(range(self.iters_per_epoch_train_car), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_car):
             
+            # ########## To use 80 car images for training
+            # self.data_iter = iter(self.train_dataloader_car_80)
+            # for step in tqdm(range(self.iters_per_epoch_train_car_80), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_car_80):
+            
             ########## To use 80 car images for training
-            self.data_iter = iter(self.train_dataloader_car_80)
-            for step in tqdm(range(self.iters_per_epoch_train_car_80), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_car_80):
+            self.data_iter = iter(self.train_dataloader_random_80)
+            for step in tqdm(range(self.iters_per_epoch_train_random_80), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_random_80):
                 self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                 # self.Save_File("Dataset/Dataset/default_data2.pickle", next(self.data_iter))
                 # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data2.pickle")
@@ -1142,7 +1146,7 @@ class App(customtkinter.CTk):
         parser = argparse.ArgumentParser(description='Yolo v2')
         parser.add_argument('--max_epochs', dest='max_epochs',
                             help='number of epochs to train',
-                            default=100, type=int)
+                            default=300, type=int)
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
@@ -1159,8 +1163,8 @@ class App(customtkinter.CTk):
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
         parser.add_argument('--pretrained', dest='pretrained',
+                            default="", type=str)
                             # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
-                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
                             # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
                             # default="Dataset/Dataset/pretrained/Gitae--2024-01-10-10_42_29.387218-Epoch_47.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
@@ -1266,11 +1270,16 @@ class App(customtkinter.CTk):
         self.train_dataset_car = self.get_dataset(self.imdb_train_name)
         self.train_dataloader_car = DataLoader(self.train_dataset_car, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_train_car = int(len(self.train_dataset_car) / self.args.batch_size)
-        ##### Train Images - 80
+        ##### Train Images - Car - 80
         self.imdb_train_name = 'voc_2007_trainval-car-80'
         self.train_dataset_car_80 = self.get_dataset(self.imdb_train_name)
         self.train_dataloader_car_80 = DataLoader(self.train_dataset_car_80, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_train_car_80 = int(len(self.train_dataset_car_80) / self.args.batch_size)
+        ##### Train Images - Random - 80
+        self.imdb_train_name = 'voc_2007_trainval-random-80'
+        self.train_dataset_random_80 = self.get_dataset(self.imdb_train_name)
+        self.train_dataloader_random_80 = DataLoader(self.train_dataset_random_80, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        self.iters_per_epoch_train_random_80 = int(len(self.train_dataset_random_80) / self.args.batch_size)
         ##### Test Images
         self.imdb_test_name = 'voc_2007_test-car'
         self.test_dataset = self.get_dataset(self.imdb_test_name)
