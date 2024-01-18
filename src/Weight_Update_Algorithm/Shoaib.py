@@ -604,8 +604,8 @@ class Shoaib_Code(object):
         """
 
         if self.weight_path:
-            if self.parent==[]: print(f'--> Loading weights from:\n\t\t\t{self.weight_path}')
-            else: self.parent.Show_Text(f'--> Loading weights from:\n\t\t\t{self.weight_path}')
+            if self.parent==[]: print(f'--> Loading weights from:\n{self.weight_path}\n')
+            else: self.parent.Show_Text(f'--> Loading weights from:\n{self.weight_path}\n')
             
             self.pretrained_checkpoint = torch.load(self.weight_path,map_location='cpu')
             loaded_model = torch.load(self.weight_path,map_location='cpu')['model']

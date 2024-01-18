@@ -960,11 +960,9 @@ class App(customtkinter.CTk):
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
             self.Adjust_Learning_Rate()
-            
-            self.save_weights()
-            
-            print(f"Validation weights before start of training.")
-            self.Check_mAP()
+                       
+            # print(f"Validation weights before start of training.")
+            # self.Check_mAP()
             
             ########## To use full dataset
             # self.data_iter = iter(self.train_dataloader)            
@@ -993,7 +991,7 @@ class App(customtkinter.CTk):
                 self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
                 
-            if self.epoch%4 == 0: self.Check_mAP()
+            # if self.epoch%4 == 0: self.Check_mAP()
             self.save_weights()
         #     self.Save_Pickle()
         self.Post_Epoch()
@@ -1438,7 +1436,7 @@ class App(customtkinter.CTk):
         Path(save_dir).mkdir(parents=True, exist_ok=True)
         _now = str(datetime.now()).split()
         save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
-        self.Show_Text(f"Saving weights at {save_name}")
+        self.Show_Text(f"Saving weights at\n{save_name}\n")
         torch.save({
             'model': self.Shoaib.custom_model.state_dict(),
             'epoch': self.epoch,
