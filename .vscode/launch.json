@@ -20,6 +20,9 @@
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			// "sudo": true,
+			"args": [
+				// "--pretrained" 	,	"Dataset/Dataset/pretrained/yolov2_best_map.pth",
+			]
 		},
 		{
 			"name": "Histogram",
