@@ -991,8 +991,8 @@ class App(customtkinter.CTk):
                 self.Backward() ############################### - Individual Functions
                 self.Weight_Update() 
                 
-            # if self.epoch%4 == 0: self.Check_mAP()
-            self.save_weights()
+            if self.epoch % 50 == 0: self.Check_mAP()
+            if self.epoch % 10 == 0: self.save_weights()
         #     self.Save_Pickle()
         self.Post_Epoch()
         self.Show_Text(f"Training is finished")
@@ -1453,7 +1453,7 @@ class App(customtkinter.CTk):
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
 
         date_time = str(datetime.now()).replace(" ","---").split(".")[0].replace(":","-")
-        with open("mAP.txt", mode="a+") as output_file_1:
+        with open("mAP_LightNorm.txt", mode="a+") as output_file_1:
             output_file_1.write(f"{date_time}: {self.map} \n")
                 
     def Post_Epoch(self): 

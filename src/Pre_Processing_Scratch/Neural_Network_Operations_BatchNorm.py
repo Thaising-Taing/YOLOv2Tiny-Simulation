@@ -217,8 +217,7 @@ class Cal_mean_var(object):
 class Torch_BatchNorm(object):
 
   @staticmethod
-  def forward(x, gamma, beta, running_mean, running_var):
-    mode = 'train'
+  def forward(x, gamma, beta, running_mean, running_var, mode):
     eps = 1e-5
     momentum = 0.9
     
@@ -227,7 +226,7 @@ class Torch_BatchNorm(object):
     running_var = running_var
 
     out, cache = None, None
-    if mode == 'train':
+    if mode == "Training":
       mu = 1./N * torch.sum(x, axis = 0)
       running_mean = momentum * running_mean + (1 - momentum) * mu
       xmu = x - mu
@@ -241,7 +240,7 @@ class Torch_BatchNorm(object):
       out = gammax + beta
       cache = (xhat,gamma,xmu,ivar,sqrtvar,var,eps)
       
-    elif mode == 'test':
+    elif mode == "Test":
       normolized = ((x - running_mean)/(running_var+ eps)**(1/2))
       out = normolized * gamma + beta
     else:
@@ -274,11 +273,11 @@ class Torch_BatchNorm(object):
 class Torch_SpatialBatchNorm(object):
 
   @staticmethod
-  def forward(x, gamma, beta, bn_param):
+  def forward(x, gamma, beta, running_mean, running_var, mode):
     out, cache = None, None
     N,C,H,W = x.shape
     pre_m = x.permute(1,0,2,3).reshape(C,-1).T
-    pre_m_normolized, cache= Torch_BatchNorm.forward(pre_m, gamma, beta, bn_param)
+    pre_m_normolized, cache= Torch_BatchNorm.forward(pre_m, gamma, beta, running_mean, running_var, mode)
     out = pre_m_normolized.T.reshape(C, N, H, W).permute(1,0,2,3)
     return out, cache
 
@@ -437,9 +436,9 @@ class Torch_Conv_ReLU_Pool(object):
 class Torch_Conv_BatchNorm_ReLU(object):
 
     @staticmethod
-    def forward(x, w, gamma, beta, conv_param, running_mean, running_var, mean, var, Mode):
+    def forward(x, w, gamma, beta, conv_param, running_mean, running_var, Mode):
         a, conv_cache = Torch_FastConv.forward(x, w, conv_param)
-        an, bn_cache = Torch_SpatialBatchNorm.forward(a, gamma, beta, running_mean, running_var, mean, var, Mode)
+        an, bn_cache = Torch_SpatialBatchNorm.forward(a, gamma, beta, running_mean, running_var, Mode)
         out, relu_cache = Torch_ReLU.forward(an)
         cache = (conv_cache, bn_cache, relu_cache)
         return out, cache
@@ -456,9 +455,9 @@ class Torch_Conv_BatchNorm_ReLU(object):
 class Torch_Conv_BatchNorm_ReLU_Pool(object):
 
     @staticmethod
-    def forward(x, w, gamma, beta, conv_param, running_mean, running_var, mean, var, Mode, pool_param):
+    def forward(x, w, gamma, beta, conv_param, running_mean, running_var, Mode, pool_param):
         a, conv_cache = Torch_FastConv.forward(x, w, conv_param)
-        an, bn_cache = Torch_SpatialBatchNorm.forward(a, gamma, beta, running_mean, running_var, mean, var, Mode)
+        an, bn_cache = Torch_SpatialBatchNorm.forward(a, gamma, beta, running_mean, running_var, Mode)
         s, relu_cache = Torch_ReLU.forward(an)
         out, pool_cache = Torch_FastMaxPool.forward(s, pool_param)
         cache = (conv_cache, bn_cache, relu_cache, pool_cache)
