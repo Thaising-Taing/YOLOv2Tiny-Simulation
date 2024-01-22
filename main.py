@@ -55,6 +55,7 @@ from Thaising_PyTorch import TorchSimulation
 from Thaising_Python import PythonSimulation
 from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
+
 # from Python_CUDA32 import CUDA32
 # from Python_CUDA16 import CUDA16
 # from RFFP_CUDA import RFFP_CUDA
@@ -532,7 +533,7 @@ class App(customtkinter.CTk):
         self.update()
 
     def Pytorch_bn_click(self):
-        self.mode =  'Pytorch BN'
+        self.mode =  'Pytorch_BN'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
         self.Pytorch_bn.configure(fg_color='green')
@@ -560,7 +561,7 @@ class App(customtkinter.CTk):
         self.update()
 
     def Python_bn_click(self):
-        self.mode =  'Python BN'
+        self.mode =  'Python_BN'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
         self.Python_bn.configure(fg_color='green')
@@ -1301,7 +1302,7 @@ class App(customtkinter.CTk):
 
     def Create_Output_Dir(self):
         if self.mode == "Pytorch_BN"   :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "Python_BN"      :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if self.mode == "Python_BN"    :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "Pytorch"      :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "Python"       :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "PythonSim"    :  self.args.output_dir = self.args.output_dir + '/' + self.mode
@@ -1338,7 +1339,7 @@ class App(customtkinter.CTk):
         self.loaded_weights = self.Shoaib.load_weights()
         Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec = self.loaded_weights
 
-        if self.mode == "Pytorch_BN"  :  self.Pytorch_bn.load_weights(self.laoded_weights)
+        if self.mode == "Pytorch_BN"  :  self.Pytorch_bn.load_weights(self.loaded_weights)
         if self.mode == "Python_BN"   :  self.Python_bn.load_weights(self.loaded_weights)
         if self.mode == "Pytorch"     :  self.Pytorch.load_weights(self.loaded_weights)
         if self.mode == "Python"      :  self.Python.load_weights(self.loaded_weights)
@@ -1413,8 +1414,8 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  self.FPGA.Before_Forward(self)
 
     def Forward(self):
-        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.forward(self)
-        if self.mode == "Python_BN"    :  self.Python_bn.forward(self)
+        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Forward(self)
+        if self.mode == "Python_BN"    :  self.Python_bn.Forward(self)
         if self.mode == "Pytorch"      :  self.Pytorch.Forward(self)
         if self.mode == "Python"       :  self.Python.Forward(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Forward(self)
@@ -1461,8 +1462,8 @@ class App(customtkinter.CTk):
     def Backward(self):
         if self.mode == "Pytorch"      :  self.Pytorch.Backward(self)
         if self.mode == "Python"       :  self.Python.Backward(self)
-        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.backward(self)
-        if self.mode == "Python_BN"    :  self.Python_bn.backward(self)
+        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Backward(self)
+        if self.mode == "Python_BN"    :  self.Python_bn.Backward(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Backward(self)
         if self.mode == "PytorchSim"   :  self.TorchSimulation.Backward(self)
         if self.mode == "PythonCUDA"   :  self.CUDA32.Backward(self)
@@ -1473,8 +1474,8 @@ class App(customtkinter.CTk):
     def Weight_Update(self):
         if self.mode == "Pytorch"      :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
-        # if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
-        # if self.mode == "Python_BN"    :  _data =  self.Python_bn
+        if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data =  self.Python_bn
         if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
         if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
         if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
@@ -1486,7 +1487,6 @@ class App(customtkinter.CTk):
                                                                 Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
-
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Gamma_Layer0_After",_data.Gamma[0])

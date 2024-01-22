@@ -184,7 +184,7 @@ class Pytorch_bn(object):
         
         X = data.im_data
         self.out, self.cache, self.Out_all_layers = self.modtorch_model.forward(X)
-        Save_File("./Wathna_PyTorch/Output", self.out)
+        # Save_File("./Wathna_PyTorch/Output", self.out)
         
     def Calculate_Loss(self,data):
         out = self.out
