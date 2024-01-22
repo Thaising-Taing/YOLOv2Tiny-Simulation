@@ -1,0 +1,197 @@
+import os
+import torch
+
+from copy import deepcopy as dc
+
+from Weight_Update_Algorithm.Test_with_train import *
+from Pre_Processing_Scratch.Pre_Processing import *
+
+from src.Wathna.torch_original import *
+
+
+def Save_File(_path, data):
+    _dir = _path.split('/')[1:-1]
+    if len(_dir)>1: _dir = os.path.join(_dir)
+    else: _dir = _dir[0]
+    if not os.path.isdir(_dir): os.mkdir(_dir)
+    
+    with open(_path, 'wb') as handle:
+        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+class Pytorch_bn(object):
+    
+    def __init__(self, parent):
+        self.self           = parent
+        self.model          = None
+        self.loss           = None
+        self.optimizer      = None
+        self.scheduler      = None
+        self.device         = None
+        self.train_loader   = None
+        
+        self.Mode                 = self.self.Mode     
+        self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
+        self.Exponent_Bits        = self.self.Exponent_Bits             
+        self.Mantissa_Bits        = self.self.Mantissa_Bits   
+        
+        
+        self.PreProcessing = Pre_Processing(Mode =   self.self.Mode,
+                            Brain_Floating_Point =   self.self.Brain_Floating_Point,
+                            Exponent_Bits        =   self.self.Exponent_Bits,
+                            Mantissa_Bits        =   self.self.Mantissa_Bits)
+        
+
+        self.modtorch_model = DeepConvNetTorch(input_dims=(3, 416, 416),
+                                        num_filters=[16, 32, 64, 128, 256, 512, 1024, 1024],
+                                        max_pools=[0, 1, 2, 3, 4],
+                                        weight_scale='kaiming',
+                                        batchnorm=True,
+                                        dtype=torch.float32, device='cpu')
+
+    def get_grads(self):
+        self.gWeight, self.gBias, self.gGamma, self.gBeta, self.gRunning_Mean_Dec, self.gRunning_Var_Dec = \
+            dc(self.Weight), dc(self.Bias), dc(self.Gamma), dc(self.Beta), dc(self.Running_Mean_Dec), dc(self.Running_Var_Dec)
+            
+        self.gWeight[0]  = self.grads['W0']              
+        self.gWeight[1]  = self.grads['W1']              
+        self.gWeight[2]  = self.grads['W2']              
+        self.gWeight[3]  = self.grads['W3']              
+        self.gWeight[4]  = self.grads['W4']              
+        self.gWeight[5]  = self.grads['W5']              
+        self.gWeight[6]  = self.grads['W6']              
+        self.gWeight[7]  = self.grads['W7']              
+        self.gWeight[8]  = self.grads['W8']              
+        self.gBias       = self.grads['b8']         
+        self.gGamma[0]   = self.grads['gamma0']                      
+        self.gGamma[1]   = self.grads['gamma1']                      
+        self.gGamma[2]   = self.grads['gamma2']                      
+        self.gGamma[3]   = self.grads['gamma3']                      
+        self.gGamma[4]   = self.grads['gamma4']                      
+        self.gGamma[5]   = self.grads['gamma5']                      
+        self.gGamma[6]   = self.grads['gamma6']                      
+        self.gGamma[7]   = self.grads['gamma7']                      
+        self.gBeta[0]    = self.grads['beta0']              
+        self.gBeta[1]    = self.grads['beta1']              
+        self.gBeta[2]    = self.grads['beta2']              
+        self.gBeta[3]    = self.grads['beta3']              
+        self.gBeta[4]    = self.grads['beta4']              
+        self.gBeta[5]    = self.grads['beta5']              
+        self.gBeta[6]    = self.grads['beta6']              
+        self.gBeta[7]    = self.grads['beta7']     
+        
+    def get_weights(self):
+        self.Weight[0]              = self.modtorch_model.params['W0']              
+        self.Weight[1]              = self.modtorch_model.params['W1']              
+        self.Weight[2]              = self.modtorch_model.params['W2']              
+        self.Weight[3]              = self.modtorch_model.params['W3']              
+        self.Weight[4]              = self.modtorch_model.params['W4']              
+        self.Weight[5]              = self.modtorch_model.params['W5']              
+        self.Weight[6]              = self.modtorch_model.params['W6']              
+        self.Weight[7]              = self.modtorch_model.params['W7']              
+        self.Weight[8]              = self.modtorch_model.params['W8']              
+        self.Bias                   = self.modtorch_model.params['b8']         
+        self.Gamma[0]               = self.modtorch_model.params['gamma0']                      
+        self.Gamma[1]               = self.modtorch_model.params['gamma1']                      
+        self.Gamma[2]               = self.modtorch_model.params['gamma2']                      
+        self.Gamma[3]               = self.modtorch_model.params['gamma3']                      
+        self.Gamma[4]               = self.modtorch_model.params['gamma4']                      
+        self.Gamma[5]               = self.modtorch_model.params['gamma5']                      
+        self.Gamma[6]               = self.modtorch_model.params['gamma6']                      
+        self.Gamma[7]               = self.modtorch_model.params['gamma7']                      
+        self.Beta[0]                = self.modtorch_model.params['beta0']              
+        self.Beta[1]                = self.modtorch_model.params['beta1']              
+        self.Beta[2]                = self.modtorch_model.params['beta2']              
+        self.Beta[3]                = self.modtorch_model.params['beta3']              
+        self.Beta[4]                = self.modtorch_model.params['beta4']              
+        self.Beta[5]                = self.modtorch_model.params['beta5']              
+        self.Beta[6]                = self.modtorch_model.params['beta6']              
+        self.Beta[7]                = self.modtorch_model.params['beta7']              
+        self.Running_Mean_Dec[0]    = self.modtorch_model.params['running_mean0']                        
+        self.Running_Mean_Dec[1]    = self.modtorch_model.params['running_mean1']                        
+        self.Running_Mean_Dec[2]    = self.modtorch_model.params['running_mean2']                        
+        self.Running_Mean_Dec[3]    = self.modtorch_model.params['running_mean3']                        
+        self.Running_Mean_Dec[4]    = self.modtorch_model.params['running_mean4']                        
+        self.Running_Mean_Dec[5]    = self.modtorch_model.params['running_mean5']                        
+        self.Running_Mean_Dec[6]    = self.modtorch_model.params['running_mean6']                        
+        self.Running_Mean_Dec[7]    = self.modtorch_model.params['running_mean7']                        
+        self.Running_Var_Dec[0]     = self.modtorch_model.params['running_var0']                       
+        self.Running_Var_Dec[1]     = self.modtorch_model.params['running_var1']                       
+        self.Running_Var_Dec[2]     = self.modtorch_model.params['running_var2']                       
+        self.Running_Var_Dec[3]     = self.modtorch_model.params['running_var3']                       
+        self.Running_Var_Dec[4]     = self.modtorch_model.params['running_var4']                       
+        self.Running_Var_Dec[5]     = self.modtorch_model.params['running_var5']                       
+        self.Running_Var_Dec[6]     = self.modtorch_model.params['running_var6']                       
+        self.Running_Var_Dec[7]     = self.modtorch_model.params['running_var7']                       
+        
+        
+    def load_weights(self, data):
+        try: self.Weight, self.Bias, self.Gamma, self.Beta, self.Running_Mean_Dec, self.Running_Var_Dec = data
+        except: self.Weight, self.Bias, self.Gamma, self.Beta = data
+        self.modtorch_model.params['W0']            = self.Weight[0]
+        self.modtorch_model.params['W1']            = self.Weight[1]
+        self.modtorch_model.params['W2']            = self.Weight[2]
+        self.modtorch_model.params['W3']            = self.Weight[3]
+        self.modtorch_model.params['W4']            = self.Weight[4]
+        self.modtorch_model.params['W5']            = self.Weight[5]
+        self.modtorch_model.params['W6']            = self.Weight[6]
+        self.modtorch_model.params['W7']            = self.Weight[7]
+        self.modtorch_model.params['W8']            = self.Weight[8]
+        self.modtorch_model.params['b8']            = self.Bias
+        self.modtorch_model.params['gamma0']        = self.Gamma[0]
+        self.modtorch_model.params['gamma1']        = self.Gamma[1]
+        self.modtorch_model.params['gamma2']        = self.Gamma[2]
+        self.modtorch_model.params['gamma3']        = self.Gamma[3]
+        self.modtorch_model.params['gamma4']        = self.Gamma[4]
+        self.modtorch_model.params['gamma5']        = self.Gamma[5]
+        self.modtorch_model.params['gamma6']        = self.Gamma[6]
+        self.modtorch_model.params['gamma7']        = self.Gamma[7]
+        self.modtorch_model.params['beta0']         = self.Beta[0]
+        self.modtorch_model.params['beta1']         = self.Beta[1]
+        self.modtorch_model.params['beta2']         = self.Beta[2]
+        self.modtorch_model.params['beta3']         = self.Beta[3]
+        self.modtorch_model.params['beta4']         = self.Beta[4]
+        self.modtorch_model.params['beta5']         = self.Beta[5]
+        self.modtorch_model.params['beta6']         = self.Beta[6]
+        self.modtorch_model.params['beta7']         = self.Beta[7]
+        self.modtorch_model.params['running_mean0'] = self.Running_Mean_Dec[0]
+        self.modtorch_model.params['running_mean1'] = self.Running_Mean_Dec[1]
+        self.modtorch_model.params['running_mean2'] = self.Running_Mean_Dec[2]
+        self.modtorch_model.params['running_mean3'] = self.Running_Mean_Dec[3]
+        self.modtorch_model.params['running_mean4'] = self.Running_Mean_Dec[4]
+        self.modtorch_model.params['running_mean5'] = self.Running_Mean_Dec[5]
+        self.modtorch_model.params['running_mean6'] = self.Running_Mean_Dec[6]
+        self.modtorch_model.params['running_mean7'] = self.Running_Mean_Dec[7]
+        self.modtorch_model.params['running_var0']  = self.Running_Var_Dec[0]
+        self.modtorch_model.params['running_var1']  = self.Running_Var_Dec[1]
+        self.modtorch_model.params['running_var2']  = self.Running_Var_Dec[2]
+        self.modtorch_model.params['running_var3']  = self.Running_Var_Dec[3]
+        self.modtorch_model.params['running_var4']  = self.Running_Var_Dec[4]
+        self.modtorch_model.params['running_var5']  = self.Running_Var_Dec[5]
+        self.modtorch_model.params['running_var6']  = self.Running_Var_Dec[6]
+        self.modtorch_model.params['running_var7']  = self.Running_Var_Dec[7]
+
+    def Before_Forward(self,Input):
+            pass
+        
+        
+         
+    def Forward(self, data):
+        self.gt_boxes       = data.gt_boxes  
+        self.gt_classes     = data.gt_classes
+        self.num_boxes      = data.num_obj 
+        self.num_obj        = data.num_obj 
+        self.image          = data.im_data
+        
+        X = data.im_data
+        self.out, self.cache, self.Out_all_layers = self.modtorch_model.forward(X)
+        Save_File("./Wathna_PyTorch/Output", self.out)
+        
+    def Calculate_Loss(self,data):
+        out = self.out
+        self.loss, self.dout = self.modtorch_model.loss(out, self.gt_boxes, self.gt_classes, self.num_boxes)
+        # Save_File("./Wathna_PyTorch/Loss_Grad", self.dout)
+        
+    def Backward(self,data):
+        self.dout, self.grads = self.modtorch_model.backward(self.dout, self.cache)
+        self.get_weights()
+        self.get_grads()

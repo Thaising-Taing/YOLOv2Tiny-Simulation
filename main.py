@@ -53,9 +53,11 @@ from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
 from Thaising_Python import PythonSimulation
-from Python_CUDA32 import CUDA32
-from Python_CUDA16 import CUDA16
-from RFFP_CUDA import RFFP_CUDA
+from batchnorm_python import Python_bn
+from batchnorm_pytorch import Pytorch_bn
+# from Python_CUDA32 import CUDA32
+# from Python_CUDA16 import CUDA16
+# from RFFP_CUDA import RFFP_CUDA
 from GiTae import FPGA
 
 DDR_SIZE = 0x10000
@@ -185,8 +187,14 @@ class App(customtkinter.CTk):
         self.FPGA_Python = customtkinter.CTkButton(self.mode_frame, text="FPGA"       , command=self.FPGA_Python_click , width=button_width, height=button_height)
         self.FPGA_Python.place(x=10, y=400)
 
+        self.Python_bn = customtkinter.CTkButton(self.mode_frame, text="Python BN"       , command=self.Python_bn_click , width=button_width, height=button_height)
+        self.Python_bn.place(x=10, y=450)
+
+        self.Pytorch_bn = customtkinter.CTkButton(self.mode_frame, text="Pytorch BN"       , command=self.Pytorch_bn_click , width=button_width, height=button_height)
+        self.Pytorch_bn.place(x=10, y=500)
+
         self.ResetMode = customtkinter.CTkButton(self.mode_frame, text="Reset Mode"   , command=self.Reset_Mode_click , width=button_width, height=button_height)
-        self.ResetMode.place(x=10, y=450)
+        self.ResetMode.place(x=10, y=550)
 
 
        
@@ -522,6 +530,63 @@ class App(customtkinter.CTk):
         self.update()
         self.Show_Text(f"Pytorch mode selected.")
         self.update()
+
+    def Pytorch_bn_click(self):
+        self.mode =  'Pytorch BN'
+        self.PyTorchMode.configure(state="disabled")
+        self.PythonMode.configure(state="disabled")
+        self.Pytorch_bn.configure(fg_color='green')
+        self.PytorchSim.configure(state="disabled")
+        self.PythonSim.configure(state="disabled")
+        self.PythonCUDA.configure(state="disabled")
+        self.PythonCUDA16.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
+        self.RFFP_CUDA.configure(state="disabled")
+        self.FPGA_Python.configure(state="disabled")
+        self.ResetMode.configure(state="normal")
+        
+        self.Train.configure(state="normal")
+        self.Infer.configure(state="normal")
+        self.Stop.configure(state="normal")
+        
+        self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        
+        self.cover.lower()
+        self.right_frame_1.lower(self.cover)
+        self.right_frame_2.lower(self.cover)
+        self.Show_Text(f"Pytorch BN mode selected.")
+        self.update()
+
+    def Python_bn_click(self):
+        self.mode =  'Python BN'
+        self.PyTorchMode.configure(state="disabled")
+        self.PythonMode.configure(state="disabled")
+        self.Python_bn.configure(fg_color='green')
+        self.Pytorch_bn.configure(state="disabled")
+        self.PytorchSim.configure(state="disabled")
+        self.PythonSim.configure(state="disabled")
+        self.PythonCUDA.configure(state="disabled")
+        self.PythonCUDA16.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
+        self.RFFP_CUDA.configure(state="disabled")
+        self.FPGA_Python.configure(state="disabled")
+        self.ResetMode.configure(state="normal")
+        
+        self.Train.configure(state="normal")
+        self.Infer.configure(state="normal")
+        self.Stop.configure(state="normal")
+        
+        self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        
+        self.cover.lower()
+        self.right_frame_1.lower(self.cover)
+        self.right_frame_2.lower(self.cover)
+        self.Show_Text(f"Python BN mode selected.")
+        self.update()
         
     def PythonMode_click(self):
         self.mode =  'Python'
@@ -533,6 +598,8 @@ class App(customtkinter.CTk):
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA16.configure(state="disabled")
         self.RFFP_CUDA.configure(state="disabled")
+        self.Pytorch_bn.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
         self.FPGA_Python.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
@@ -560,6 +627,8 @@ class App(customtkinter.CTk):
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA16.configure(state="disabled")
         self.RFFP_CUDA.configure(state="disabled")
+        self.Pytorch_bn.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
         self.FPGA_Python.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
@@ -585,6 +654,8 @@ class App(customtkinter.CTk):
         self.PythonSim.configure(state="disabled")
         self.PythonSim.configure(fg_color='green')
         self.PythonCUDA.configure(state="disabled")
+        self.Pytorch_bn.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
         self.PythonCUDA16.configure(state="disabled")
         self.RFFP_CUDA.configure(state="disabled")
         self.FPGA_Python.configure(state="disabled")
@@ -615,6 +686,8 @@ class App(customtkinter.CTk):
         self.PythonCUDA16.configure(state="disabled")
         self.RFFP_CUDA.configure(state="disabled")
         self.FPGA_Python.configure(state="disabled")
+        self.Pytorch_bn.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
         self.Train.configure(state="normal")
@@ -642,6 +715,8 @@ class App(customtkinter.CTk):
         self.PythonCUDA16.configure(fg_color='green')
         self.RFFP_CUDA.configure(state="disabled")
         self.FPGA_Python.configure(state="disabled")
+        self.Pytorch_bn.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
         self.Train.configure(state="normal")
@@ -669,6 +744,8 @@ class App(customtkinter.CTk):
         self.PythonCUDA16.configure(state="disabled")
         self.RFFP_CUDA.configure(fg_color='green')
         self.FPGA_Python.configure(state="disabled")
+        self.Pytorch_bn.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
         self.Train.configure(state="normal")
@@ -696,6 +773,8 @@ class App(customtkinter.CTk):
         self.RFFP_CUDA.configure(state="disabled")
         self.FPGA_Python.configure(state="disabled")
         self.FPGA_Python.configure(fg_color='green')
+        self.Pytorch_bn.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
         self.Load_PCIe.configure(state="normal")
@@ -724,8 +803,12 @@ class App(customtkinter.CTk):
         self.PythonSim.configure(state="enabled")
         self.PythonCUDA.configure(state="enabled")
         self.PythonCUDA16.configure(state="enabled")
+        self.Pytorch_bn.configure(state="enabled")
+        self.Python_bn.configure(state="enabled")
         self.RFFP_CUDA.configure(state="enabled")
         self.FPGA_Python.configure(state="enabled")
+        self.Pytorch_bn.configure(state="enabled")
+        self.Python_bn.configure(state="enabled")
         self.ResetMode.configure(state="normal")
         
         self.PyTorchMode.configure(fg_color=['#3B8ED0', '#1F6AA5'])
@@ -734,6 +817,8 @@ class App(customtkinter.CTk):
         self.PythonSim.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.PythonCUDA.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.PythonCUDA16.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Pytorch_bn.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Python_bn.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.RFFP_CUDA.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.FPGA_Python.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
@@ -1200,7 +1285,10 @@ class App(customtkinter.CTk):
         
         self.count = dict()
         self.count['detections'], self.count['no_detections'] = 0, 0
-                
+
+
+        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn       = Pytorch_bn(self)
+        if self.mode == "Python_BN"    :  self.Python_bn        = Python_bn(self)
         if self.mode == "Pytorch"      :  self.Pytorch          = Pytorch(self)
         if self.mode == "Python"       :  self.Python           = Python(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation = PythonSimulation(self)
@@ -1212,6 +1300,8 @@ class App(customtkinter.CTk):
 
 
     def Create_Output_Dir(self):
+        if self.mode == "Pytorch_BN"   :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if self.mode == "Python_BN"      :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "Pytorch"      :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "Python"       :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "PythonSim"    :  self.args.output_dir = self.args.output_dir + '/' + self.mode
@@ -1247,7 +1337,9 @@ class App(customtkinter.CTk):
         # Loading Weight From pth File
         self.loaded_weights = self.Shoaib.load_weights()
         Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec = self.loaded_weights
-                
+
+        if self.mode == "Pytorch_BN"  :  self.Pytorch_bn.load_weights(self.laoded_weights)
+        if self.mode == "Python_BN"   :  self.Python_bn.load_weights(self.loaded_weights)
         if self.mode == "Pytorch"     :  self.Pytorch.load_weights(self.loaded_weights)
         if self.mode == "Python"      :  self.Python.load_weights(self.loaded_weights)
         if self.mode == "PythonSim"   :  self.PythonSimulation.load_weights(self.loaded_weights)
@@ -1278,7 +1370,7 @@ class App(customtkinter.CTk):
         self.train_dataloader_car_80 = DataLoader(self.train_dataset_car_80, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_train_car_80 = int(len(self.train_dataset_car_80) / self.args.batch_size)
         ##### Train Images - Random - 80
-        self.imdb_train_name = 'voc_2007_trainval-random-80'
+        self.imdb_train_name = 'voc_2007_trainval-car-80'
         self.train_dataset_random_80 = self.get_dataset(self.imdb_train_name)
         self.train_dataloader_random_80 = DataLoader(self.train_dataset_random_80, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
         self.iters_per_epoch_train_random_80 = int(len(self.train_dataset_random_80) / self.args.batch_size)
@@ -1289,15 +1381,15 @@ class App(customtkinter.CTk):
         self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
         # -------------------------------------- Full - Dataset -----------------------------------------------------
         ##### Train Images
-        self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
-        self.train_dataset = self.get_dataset(self.imdb_train_name)
-        self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
-        ##### Test Images
-        self.imdb_test_name = 'voc_2007_test'
-        self.test_dataset = self.get_dataset(self.imdb_test_name)
-        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
+        # self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
+        # self.train_dataset = self.get_dataset(self.imdb_train_name)
+        # self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        # self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
+        # ##### Test Images
+        # self.imdb_test_name = 'voc_2007_test'
+        # self.test_dataset = self.get_dataset(self.imdb_test_name)
+        # self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
+        # self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # learning_rate = 0.001
@@ -1321,6 +1413,8 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  self.FPGA.Before_Forward(self)
 
     def Forward(self):
+        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.forward(self)
+        if self.mode == "Python_BN"    :  self.Python_bn.forward(self)
         if self.mode == "Pytorch"      :  self.Pytorch.Forward(self)
         if self.mode == "Python"       :  self.Python.Forward(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Forward(self)
@@ -1333,6 +1427,8 @@ class App(customtkinter.CTk):
     def Forward_Infer(self):
         if self.mode == "Pytorch"      :  self.Pytorch.Forward(self)
         if self.mode == "Python"       :  self.Python.Forward(self)
+        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Forward(self)
+        if self.mode == "Python_BN"    :  self.Python_bn.Forward(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Forward(self)
         if self.mode == "PytorchSim"   :  self.TorchSimulation.Forward(self)
         if self.mode == "PythonCUDA"   :  self.CUDA32.Forward(self)
@@ -1341,6 +1437,8 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  self.FPGA.Forward_Inference(self)
     
     def Calculate_Loss(self):
+        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Calculate_Loss(self)
+        if self.mode == "Python_BN"    :  self.Python_bn.Calcualte_Loss(self)
         if self.mode == "Pytorch"      :  self.Pytorch.Calculate_Loss(self)
         if self.mode == "Python"       :  self.Python.Calculate_Loss(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Calculate_Loss(self)
@@ -1363,6 +1461,8 @@ class App(customtkinter.CTk):
     def Backward(self):
         if self.mode == "Pytorch"      :  self.Pytorch.Backward(self)
         if self.mode == "Python"       :  self.Python.Backward(self)
+        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.backward(self)
+        if self.mode == "Python_BN"    :  self.Python_bn.backward(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Backward(self)
         if self.mode == "PytorchSim"   :  self.TorchSimulation.Backward(self)
         if self.mode == "PythonCUDA"   :  self.CUDA32.Backward(self)
@@ -1373,6 +1473,8 @@ class App(customtkinter.CTk):
     def Weight_Update(self):
         if self.mode == "Pytorch"      :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
+        # if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
+        # if self.mode == "Python_BN"    :  _data =  self.Python_bn
         if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
         if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
         if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
@@ -1385,12 +1487,14 @@ class App(customtkinter.CTk):
                                                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
         _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
 
-        if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
-        if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
-        if save_debug_data: self.Save_File("./Output_Sim_Python/Gamma_Layer0_After",_data.Gamma[0])
+        # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
+        # if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
+        # if save_debug_data: self.Save_File("./Output_Sim_Python/Gamma_Layer0_After",_data.Gamma[0])
         
         if self.mode == "Pytorch"      :  self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"       :  self.Python.load_weights(new_weights)
+        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.load_weights(new_weights)
+        if self.mode == "Python_BN"    :  self.Python_bn.load_weights(new_weights)
         if self.mode == "PythonSim"    :  self.PythonSimulation.load_weights(new_weights)
         if self.mode == "PytorchSim"   :  self.TorchSimulation.load_weights(new_weights)
         if self.mode == "PythonCUDA"   :  self.CUDA32.load_weights(new_weights)
@@ -1446,6 +1550,8 @@ class App(customtkinter.CTk):
     def Check_mAP(self):
         if self.mode == "Pytorch"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
+        if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
         if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
@@ -1463,6 +1569,8 @@ class App(customtkinter.CTk):
     def Post_Epoch(self): 
         if self.mode == "Pytorch"      :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
+        if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data =  self.Python_bn
         if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
         if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
         if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
@@ -1478,6 +1586,8 @@ class App(customtkinter.CTk):
     def Visualize(self):
         if self.mode == "Pytorch"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
+        if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
         if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
@@ -1534,6 +1644,8 @@ class App(customtkinter.CTk):
     def Visualize_All(self):
         if self.mode == "Pytorch"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
+        if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
         if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
@@ -1653,6 +1765,8 @@ class App(customtkinter.CTk):
     def Validate(self):
         if self.mode == "Pytorch"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
+        if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
         if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
