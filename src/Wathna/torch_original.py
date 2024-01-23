@@ -283,7 +283,7 @@ class DeepConvNetTorch(object):
     conv_param['pad'] = 0
     out,cache['8'] = Torch_FastConvWB.forward              (out, self.params['W8'], self.params['b8'], conv_param)
     
-    return out, cache
+    return out, cache, out
 
   def loss(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
     """
