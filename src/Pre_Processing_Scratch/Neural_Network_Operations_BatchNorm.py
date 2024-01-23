@@ -270,6 +270,18 @@ class Torch_BatchNorm(object):
     
     return dx, dgamma, dbeta
 
+  @staticmethod
+  def backward_alt(dout, cache):
+    dx, dgamma, dbeta = None, None, None
+    xhat,gamma,xmu,ivar,sqrtvar,var,eps = cache
+    N,D = dout.shape
+    # get the dimensions of the input/output
+    dbeta = torch.sum(dout, dim=0)
+    dgamma = torch.sum(xhat * dout, dim=0)
+    dx = (gamma*ivar/N) * (N*dout - xhat*dgamma - dbeta)
+
+    return dx, dgamma, dbeta
+
 class Torch_SpatialBatchNorm(object):
 
   @staticmethod
