@@ -2459,6 +2459,9 @@ class Torch_SpatialBatchNorm(object):
         momentum = 0.1
         output = (x - mean) * var
 
+        avg = avg.to(running_mean.device)
+        scale = scale.to(running_mean.device)
+        
         output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
         
         running_mean = running_mean * momentum + (1 - momentum) * avg
@@ -2474,20 +2477,20 @@ class Torch_SpatialBatchNorm(object):
         dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
         
         # Compute dL_dvar
-        dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True)
+        dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
         
         # Compute dL_dxmax_mean and dL_dxmin_mean
-        dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True)
+        dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
+        dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
         
         # Compute dL_dxmax and dL_dxmin
-        dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
-        dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True)
+        dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
+        dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
         
         # Compute dL_dgamma and dL_dbeta
-        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True) # TO DO - Is it really required to keep dim
-        dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True)
-        dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True)
+        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device) # TO DO - Is it really required to keep dim
+        dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
+        dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
 
         # Average per channel
         avg_pc = (dL_dxi_hat * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B * H * W)
@@ -2497,9 +2500,9 @@ class Torch_SpatialBatchNorm(object):
         backward_const = scale
         
         # Final output calculation
-        dL_dxi = dL_dxi_ * backward_const
+        dL_dxi = dL_dxi_.to(scale_fix.device) * backward_const.to(scale_fix.device)
 
-        return dL_dxi, dL_dgamma, dL_dbeta
+        return dL_dxi.to(scale_fix.device), dL_dgamma.to(scale_fix.device), dL_dbeta.to(scale_fix.device)
             
 # class Torch_SpatialBatchNorm(object):
 

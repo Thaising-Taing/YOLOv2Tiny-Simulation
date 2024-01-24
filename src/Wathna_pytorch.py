@@ -8,6 +8,7 @@ from Pre_Processing_Scratch.Pre_Processing import *
 
 from src.Wathna.torch_2iteration import *
 
+save_debug = False
 
 def Save_File(_path, data):
     _dir = _path.split('/')[1:-1]
@@ -46,7 +47,7 @@ class Pytorch(object):
                                         max_pools=[0, 1, 2, 3, 4],
                                         weight_scale='kaiming',
                                         batchnorm=True,
-                                        dtype=torch.float32, device='cpu')
+                                        dtype=torch.float32, device='cuda')
 
     def get_grads(self):
         self.gWeight, self.gBias, self.gGamma, self.gBeta, self.gRunning_Mean_Dec, self.gRunning_Var_Dec = \
@@ -184,12 +185,12 @@ class Pytorch(object):
         
         X = data.im_data
         self.out, self.cache, self.Out_all_layers = self.modtorch_model.forward(X)
-        Save_File("./Wathna_PyTorch/Output", self.out)
+        if save_debug: Save_File("./Wathna_PyTorch/Output", self.out)
         
     def Calculate_Loss(self,data):
         out = self.out
         self.loss, self.dout = self.modtorch_model.loss(out, self.gt_boxes, self.gt_classes, self.num_boxes)
-        Save_File("./Wathna_PyTorch/Loss_Grad", self.dout)
+        if save_debug: Save_File("./Wathna_PyTorch/Loss_Grad", self.dout)
         
     def Backward(self,data):
         self.dout, self.grads = self.modtorch_model.backward(self.dout, self.cache)

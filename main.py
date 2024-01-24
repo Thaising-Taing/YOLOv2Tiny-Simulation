@@ -1,3 +1,5 @@
+import os
+import sys
 import torch
 from torch import optim
 import pdb
@@ -11,14 +13,10 @@ from ast import literal_eval
 import shutil
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use("TkAgg")
 import subprocess
 import tqdm
 import warnings
-warnings.filterwarnings("ignore")
 from datetime import datetime
-import os
-import sys
 sys.path.append("../")
 sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(),"Dataset"))
@@ -31,7 +29,6 @@ sys.path.append(os.path.join(os.getcwd(),"src/Post_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
 sys.path.append(os.path.join(os.getcwd(),"src/Wathna"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
-# from  XdmaAccess import XdmaAccess
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
 import time
@@ -46,9 +43,6 @@ from Weight_Update_Algorithm.weight_update import *
 from Weight_Update_Algorithm.yolov2_tiny import *
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
-
-import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = "7"
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
@@ -57,6 +51,17 @@ from Python_CUDA32 import CUDA32
 from Python_CUDA16 import CUDA16
 from RFFP_CUDA import RFFP_CUDA
 from GiTae import FPGA
+try: from colorama import Fore, Back, Style
+except:
+    import subprocess
+    import sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", 'colorama'])    
+    from colorama import Fore, Back, Style
+
+matplotlib.use("TkAgg")
+warnings.filterwarnings("ignore")
+os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
+# os.system('clear')
 
 DDR_SIZE = 0x10000
 MAX_LINE_LENGTH = 1000
@@ -64,7 +69,7 @@ MAX_LINE_LENGTH = 1000
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
-save_debug_data = True
+save_debug_data = False
 
 
 class App(customtkinter.CTk):
@@ -109,6 +114,9 @@ class App(customtkinter.CTk):
 
         self.phase_forward = 'Forward'
         self.phase_backward = 'Backward'
+        
+        self.bestmAP=0
+        self.bestmAPepoch=0
 
         # configure window
         self.title("Yolov2 Accelerator.py")
@@ -257,14 +265,24 @@ class App(customtkinter.CTk):
                                                     )
         self.Infer.place(x=10, y=300)
 
-        self.Stop = customtkinter.CTkButton(        self.left_frame, 
-                                                    text="Stop",
-                                                    command=self.Stop_Process, 
+        
+        self._Val = customtkinter.CTkButton(        self.left_frame, 
+                                                    text="Validate",
+                                                    command=self.Run_Validation, 
                                                     width=button_width, 
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Stop.place(x=10, y=350)
+        self._Val.place(x=10, y=350)
+
+        # self.Stop = customtkinter.CTkButton(        self.left_frame, 
+        #                                             text="Stop",
+        #                                             command=self.Stop_Process, 
+        #                                             width=button_width, 
+        #                                             height=button_height,
+        #                                             state='disabled'
+        #                                             )
+        # self.Stop.place(x=10, y=400)
         
         # self.Reset = customtkinter.CTkButton(        self.left_frame, 
         #                                             text="Reset",
@@ -480,13 +498,12 @@ class App(customtkinter.CTk):
         self.change_color(self.L9_IRQ_canvas, self.L9_IRQ, "red")    
         self.update()  
 
-    def Show_Text(self, text, end=[]):
-        if not end==[]:
-            self.textbox.insert("0.0", text + "\n")
-        else:
-            self.textbox.insert("0.0", text + "\n\n")
+    def Show_Text(self, text, end=[], clr=[]):
+        if not end==[]: self.textbox.insert("0.0", text.strip('\t') + "\n")
+        else: self.textbox.insert("0.0", text.strip('\t') + "\n\n")
         self.textbox.update_idletasks()
         self.textbox.see("end")
+        if not clr==[]: text = clr + text + Style.RESET_ALL
         print(text)
 
     def Clear_Text(self):
@@ -510,11 +527,11 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self.Stop.configure(state="normal")
+        self._Val.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -538,11 +555,11 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self.Stop.configure(state="normal")
+        self._Val.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -565,11 +582,11 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self.Stop.configure(state="normal")
+        self._Val.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
        
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -592,11 +609,11 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self.Stop.configure(state="normal")
+        self._Val.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -619,11 +636,11 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self.Stop.configure(state="normal")
+        self._Val.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
@@ -646,11 +663,11 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self.Stop.configure(state="normal")
+        self._Val.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
@@ -673,11 +690,11 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self.Stop.configure(state="normal")
+        self._Val.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
@@ -704,11 +721,11 @@ class App(customtkinter.CTk):
         self.Load_Microcode_Infer.configure(state="normal")
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self.Stop.configure(state="normal")
+        self._Val.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
@@ -744,7 +761,7 @@ class App(customtkinter.CTk):
         self.Load_Microcode_Infer.configure(state="disabled")
         self.Train.configure(state="disabled")
         self.Infer.configure(state="disabled")
-        self.Stop.configure(state="disabled")
+        self._Val.configure(state="disabled")
         
         self.Load_PCIe.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Load_Data.configure(fg_color=['#3B8ED0', '#1F6AA5'])
@@ -752,7 +769,7 @@ class App(customtkinter.CTk):
         self.Load_Microcode_Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -945,11 +962,11 @@ class App(customtkinter.CTk):
         self.Train.configure(state="disabled")
         self.Train.configure(fg_color='green')
         self.Infer.configure(state="disabled")
-        self.Stop.configure(state="normal")
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(state="normal")
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
-        self.Show_Text(f"Start Training")
-        self.Show_Text(f"Mode : {self.mode}")
+        self.Show_Text(f"\nStart Training", clr=Fore.MAGENTA)
+        self.Show_Text(f"\nMode : {self.mode}", clr=Fore.MAGENTA)
         
         self.parse_args()
         self.Pre_Process()
@@ -957,41 +974,45 @@ class App(customtkinter.CTk):
         self.Load_Weights()
         self.Load_Dataset()
 
-        for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
-            self.whole_process_start = time.time()
+        if 'voc' in self.imdb_train_name[18:]:  self.args.output_dir = os.path.join( self.args.output_dir , 'FullData' )
+        else:                                   self.args.output_dir = os.path.join( self.args.output_dir , self.imdb_train_name[18:] )
+        self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
+        
+        # print(f"Validation weights before start of training.")
+        # self.Check_mAP()
+        
+        repetition = int(self.iters_per_epoch_train/self.iters_per_epoch_train)
+        
+        self.Show_Text(f'Start Training with {self.iters_per_epoch_train*self.args.batch_size} images from {self.imdb_train_name}. \nBatch size of {self.args.batch_size}.', clr=Fore.MAGENTA)
+        self.Show_Text(f'mAP will be calculated after {repetition} epochs of current dataset - equal to 1 epoch of full dataset', clr=Fore.MAGENTA) 
+        print()
+        self.Show_Text(f'Number of training images: {len(self.train_dataloader.dataset)}', clr=Fore.BLUE)
+        self.Show_Text(f'Number of original images: {len(self.train_dataloader_full.dataset)} {Fore.RED}({repetition} times the current training images)', clr=Fore.BLUE)
+        self.Show_Text(f'{repetition} epochs of current dataset will equal weight updates as 1 Epoch of Full Dataset', clr=Fore.BLUE) 
+        print()
+        
+        for self.epoch in tqdm(range(self.args.start_epoch, self.args.max_epochs), desc=f"{Fore.GREEN+Style.BRIGHT}Epoch equal to full dataset", total=self.args.max_epochs, leave=False):
             self.Adjust_Learning_Rate()
-                       
-            # print(f"Validation weights before start of training.")
-            # self.Check_mAP()
-            
-            ########## To use full dataset
-            # self.data_iter = iter(self.train_dataloader)            
-            # for step in tqdm(range(self.iters_per_epoch_train), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train):
-            
-            ########## To use all car images (4950) for training
-            # self.data_iter = iter(self.train_dataloader_car)
-            # for step in tqdm(range(self.iters_per_epoch_train_car), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_car):
-            
-            # ########## To use 80 car images for training
-            # self.data_iter = iter(self.train_dataloader_car_80)
-            # for step in tqdm(range(self.iters_per_epoch_train_car_80), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_car_80):
-            
-            ########## To use 80 car images for training
-            self.data_iter = iter(self.train_dataloader_random_80)
-            for step in tqdm(range(self.iters_per_epoch_train_random_80), desc=f"Training for Epoch {self.epoch}", total=self.iters_per_epoch_train_random_80):
-                self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-                # self.Save_File("Dataset/Dataset/default_data2.pickle", next(self.data_iter))
-                # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data2.pickle")
-                
-                self.Before_Forward() ######################### - Individual Functions
-                self.Forward() ################################ - Individual Functions
-                # self.Visualize()
-                self.Calculate_Loss()
-                self.Before_Backward() ######################## - Individual Functions
-                self.Backward() ############################### - Individual Functions
-                self.Weight_Update() 
-                
-            # if self.epoch%4 == 0: self.Check_mAP()
+            for _e in tqdm(range(repetition), desc=f"  {Style.RESET_ALL+Fore.LIGHTGREEN_EX}Epochs for current dataset", total=repetition, leave=False):
+                self.data_iter = iter(self.train_dataloader)
+                _lr_txt = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
+                _map_txt = f"Best mAP {round(self.bestmAP, 2)} (E-{self.bestmAPepoch})"
+                pbar = tqdm(range(self.iters_per_epoch_train), leave=False)
+                for _batch,step in enumerate(pbar):
+                    pbar.set_description(f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - {_lr_txt} - {Fore.YELLOW+_map_txt+Style.RESET_ALL} - Batch {_batch}")
+                    self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+                    # self.Save_File("Dataset/Dataset/default_data2.pickle", next(self.data_iter))
+                    # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data2.pickle")
+                    
+                    self.Before_Forward() ######################### - Individual Functions
+                    self.Forward() ################################ - Individual Functions
+                    # self.Visualize()
+                    self.Calculate_Loss()
+                    self.Before_Backward() ######################## - Individual Functions
+                    self.Backward() ############################### - Individual Functions
+                    self.Weight_Update() 
+                    
+            self.Check_mAP()
             self.save_weights()
         #     self.Save_Pickle()
         self.Post_Epoch()
@@ -1001,8 +1022,8 @@ class App(customtkinter.CTk):
         self.Train.configure(state="disabled")
         self.Infer.configure(state="disabled")
         self.Infer.configure(fg_color='green')
-        self.Stop.configure(state="normal")
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(state="normal")
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Show_Text(f"Start Inference")
         self.parse_args()
         self.Pre_Process()
@@ -1031,9 +1052,9 @@ class App(customtkinter.CTk):
     def Run_Validation(self):
         self.Train.configure(state="disabled")
         self.Infer.configure(state="disabled")
-        self.Infer.configure(fg_color='green')
-        self.Stop.configure(state="normal")
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(state="disabled")
+        self._Val.configure(fg_color='green')
+        # self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Show_Text(f"Start validation")
         self.parse_args()
         self.Pre_Process()
@@ -1048,56 +1069,57 @@ class App(customtkinter.CTk):
             self.Check_mAP()
         self.Show_Text(f"Validation is finished")
         
-        
-    # def Run_Validation(self):
-    #     self.Train.configure(state="disabled")
-    #     self.Infer.configure(state="disabled")
-    #     self.Infer.configure(fg_color='green')
-    #     self.Stop.configure(state="normal")
-    #     self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-    #     self.Show_Text(f"Start validation")
-    #     self.parse_args()
-    #     self.Pre_Process()
-    #     self.Create_Output_Dir()
-    #     self.Load_Weights()
-    #     self.Load_Dataset()
-        
-    #     # For validation
-    #     self.img_id = -1
-    #     self.val_imdb = get_imdb("voc_2007_test")
-    #     self.all_boxes = [[[] for _ in range(len(self.val_imdb.image_index))] for _ in range(self.val_imdb.num_classes)]
+        if False:
+            # def Run_Validation(self):
+            #     self.Train.configure(state="disabled")
+            #     self.Infer.configure(state="disabled")
+            #     self.Infer.configure(fg_color='green')
+            #     self._Val.configure(state="normal")
+            #     self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+            #     self.Show_Text(f"Start validation")
+            #     self.parse_args()
+            #     self.Pre_Process()
+            #     self.Create_Output_Dir()
+            #     self.Load_Weights()
+            #     self.Load_Dataset()
+                
+            #     # For validation
+            #     self.img_id = -1
+            #     self.val_imdb = get_imdb("voc_2007_test")
+            #     self.all_boxes = [[[] for _ in range(len(self.val_imdb.image_index))] for _ in range(self.val_imdb.num_classes)]
 
-    #     self.whole_process_start = time.time()
-    #     self.data_iter = iter(self.small_test_dataloader)
-    #     for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
-    #         # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
-    #         # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
-    #         self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
-            
-    #         self.batch = step
-    #         self.Before_Forward() ######################### - Individual Functions
-    #         self.Forward() ################################ - Individual Functions
-    #         self.Validate()
-        
-        
-    #     with open(os.path.join(self.args.output_dir, 'detections.pkl'), 'wb') as f:
-    #         pickle.dump(self.all_boxes, f, pickle.HIGHEST_PROTOCOL)
+            #     self.whole_process_start = time.time()
+            #     self.data_iter = iter(self.small_test_dataloader)
+            #     for step in tqdm(range(self.iters_per_epoch_test), desc=f"Validation", total=self.iters_per_epoch_test):
+            #         # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
+            #         # if save_debug_data: self.Save_File(next(self.data_iter), "Dataset/Dataset/default_data.pickle")
+            #         self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data.pickle")
+                    
+            #         self.batch = step
+            #         self.Before_Forward() ######################### - Individual Functions
+            #         self.Forward() ################################ - Individual Functions
+            #         self.Validate()
+                
+                
+            #     with open(os.path.join(self.args.output_dir, 'detections.pkl'), 'wb') as f:
+            #         pickle.dump(self.all_boxes, f, pickle.HIGHEST_PROTOCOL)
 
-    #     # map = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
-    #     map = self.val_imdb.evaluate_detections_with_train(self.all_boxes, output_dir=self.args.output_dir)
-    #     # return map   
-        
-    #     # self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
-    #     # self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
-    #     # self.Show_Text(f"Inference is finished.")
+            #     # map = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
+            #     map = self.val_imdb.evaluate_detections_with_train(self.all_boxes, output_dir=self.args.output_dir)
+            #     # return map   
+                
+            #     # self.Show_Text(f"Total Images with detections   : {self.count['detections']}")
+            #     # self.Show_Text(f"Total Images without detections: {self.count['no_detections']}")
+            #     # self.Show_Text(f"Inference is finished.")
+            pass
         
     def Stop_Process(self):
         self.Train.configure(state="normal")
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(state="normal")
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(state="disabled")
-        self.Stop.configure(fg_color='green')
+        self._Val.configure(state="disabled")
+        self._Val.configure(fg_color='green')
         self.Show_Text(f"Stop the process")
         
         
@@ -1151,32 +1173,42 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=80, type=int)
+                            default=64, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
-                            default=10, type=int)
+                            default=64, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
                             default=8, type=int)
         parser.add_argument('--nw', dest='num_workers',
                             help='number of workers to load training data',
-                            default=2, type=int)
+                            default=16, type=int)
         parser.add_argument('--use_small_dataset', dest='use_small_dataset',
                             default=True, type=bool)
         parser.add_argument('--save_interval', dest='save_interval',
                             default=10, type=int)
+        parser.add_argument('--dataset', dest='dataset',
+                            default="full", 
+                            const='all',
+                            type=str,
+                            nargs='?',
+                            choices=['full', 'car', 'car-64', 'random-64', 'random-128', 'random-256', 'random-512'],
+                            help='list servers, storage, or both (default: %(default)s)')
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="", type=str)
-                            default="Dataset/Dataset/pretrained/scratch.pth", type=str)
-                            # default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            # default="Dataset/Dataset/pretrained/scratch.pth", type=str)
+                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
                             # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
                             # default="Dataset/Dataset/pretrained/Gitae--2024-01-10-10_42_29.387218-Epoch_47.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
                             default="Output", type=str)
+                            # default="Output-All-Pretrained", type=str)
         parser.add_argument('--cuda', dest='use_cuda',
                             default=True, type=bool)
         parser.add_argument('--vis', dest='vis',
                             default=False, type=bool)
 
         self.args = parser.parse_args()
+        # print(f"Passed args are {self.args}")
+        # print()
          
     def get_dataset(self,datasetnames):
         names = datasetnames.split('+')
@@ -1209,7 +1241,6 @@ class App(customtkinter.CTk):
         if self.mode == "PythonCUDA16" :  self.CUDA16           = CUDA16(self)
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA        = RFFP_CUDA(self)
         if self.mode == "FPGA"         :  self.FPGA             = FPGA(self)
-
 
     def Create_Output_Dir(self):
         if self.mode == "Pytorch"      :  self.args.output_dir = self.args.output_dir + '/' + self.mode
@@ -1258,7 +1289,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"        :  self.FPGA.load_weights(self.loaded_weights)
         
         e = time.time()
-        print("WeightLoader : ",e-s)
+        # print("WeightLoader : ",e-s)
 
     def update_weights(self, data):
         [ self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec, self.Running_Mean_Dec, self.Running_Var_Dec ] = data
@@ -1267,48 +1298,75 @@ class App(customtkinter.CTk):
         # Remove previous cache
         if os.path.isdir('data/cache'): shutil.rmtree("data/cache")
         # -------------------------------------- Car - Dataset -----------------------------------------------------
-        ##### Train Images
-        self.imdb_train_name = 'voc_2007_trainval-car'
-        self.train_dataset_car = self.get_dataset(self.imdb_train_name)
-        self.train_dataloader_car = DataLoader(self.train_dataset_car, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_train_car = int(len(self.train_dataset_car) / self.args.batch_size)
-        ##### Train Images - Car - 80
-        self.imdb_train_name = 'voc_2007_trainval-car-80'
-        self.train_dataset_car_80 = self.get_dataset(self.imdb_train_name)
-        self.train_dataloader_car_80 = DataLoader(self.train_dataset_car_80, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_train_car_80 = int(len(self.train_dataset_car_80) / self.args.batch_size)
-        ##### Train Images - Random - 80
-        self.imdb_train_name = 'voc_2007_trainval-random-80'
-        self.train_dataset_random_80 = self.get_dataset(self.imdb_train_name)
-        self.train_dataloader_random_80 = DataLoader(self.train_dataset_random_80, batch_size=self.args.batch_size, shuffle=False, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_train_random_80 = int(len(self.train_dataset_random_80) / self.args.batch_size)
-        ##### Test Images
-        self.imdb_test_name = 'voc_2007_test-car'
-        self.test_dataset = self.get_dataset(self.imdb_test_name)
-        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
+        # ------------ Train Images
+        if self.args.dataset=='full'       : self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
+        if self.args.dataset=='car'        : self.imdb_train_name = 'voc_2007_trainval-car'
+        if self.args.dataset=='car-64'     : self.imdb_train_name = 'voc_2007_trainval-car-64'
+        if self.args.dataset=='random-64'  : self.imdb_train_name = 'voc_2007_trainval-random-64'
+        if self.args.dataset=='random-128' : self.imdb_train_name = 'voc_2007_trainval-random-128'
+        if self.args.dataset=='random-256' : self.imdb_train_name = 'voc_2007_trainval-random-256'
+        if self.args.dataset=='random-512' : self.imdb_train_name = 'voc_2007_trainval-random-512'
+        
+        self.train_dataset              = self.get_dataset(self.imdb_train_name)
+        self.train_dataloader           = DataLoader(   self.train_dataset, 
+                                                            batch_size=self.args.batch_size, 
+                                                            shuffle=True, 
+                                                            num_workers=self.args.num_workers, 
+                                                            collate_fn=detection_collate, 
+                                                            drop_last=True,
+                                                            persistent_workers=True,                                                            
+                                                        )
+        self.iters_per_epoch_train      = int(len(self.train_dataset) / self.args.batch_size)
+        
+        
+        # ------------ Test Images
+        # self.imdb_test_name                 = 'voc_2007_test-car'
+        # self.test_dataset                   = self.get_dataset(self.imdb_test_name)
+        # self.test_dataloader                = DataLoader(  self.test_dataset, 
+        #                                                     batch_size=self.args.batch_size, 
+        #                                                     shuffle=True, 
+        #                                                     num_workers=self.args.num_workers, 
+        #                                                     collate_fn=detection_collate, 
+        #                                                     drop_last=True,
+        #                                                     persistent_workers=True,                                                            
+        #                                                 )
+        # self.iters_per_epoch_test           = int(len(self.test_dataset) / self.args.batch_size)
+        
         # -------------------------------------- Full - Dataset -----------------------------------------------------
-        ##### Train Images
-        self.imdb_train_name = 'voc_2007_trainval+voc_2012_trainval'
-        self.train_dataset = self.get_dataset(self.imdb_train_name)
-        self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_train = int(len(self.train_dataset) / self.args.batch_size)
-        ##### Test Images
-        self.imdb_test_name = 'voc_2007_test'
-        self.test_dataset = self.get_dataset(self.imdb_test_name)
-        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers, collate_fn=detection_collate, drop_last=True)
-        self.iters_per_epoch_test  = int(len(self.test_dataset) / self.args.batch_size)
+        # ------------ Train Images
+        self.imdb_train_name_full           = 'voc_2007_trainval+voc_2012_trainval'
+        self.train_dataset_full             = self.get_dataset(self.imdb_train_name_full)
+        self.train_dataloader_full          = DataLoader(   self.train_dataset_full, 
+                                                            batch_size=self.args.batch_size, 
+                                                            shuffle=True, 
+                                                            num_workers=self.args.num_workers, 
+                                                            collate_fn=detection_collate, 
+                                                            drop_last=True,
+                                                            persistent_workers=True,                                                            
+                                                        )
+        self.iters_per_epoch_train_full     = int(len(self.train_dataset_full) / self.args.batch_size)
+        
+        # ------------ Full Test Images
+        self.imdb_test_name                 = 'voc_2007_test'
+        self.test_dataset                   = self.get_dataset(self.imdb_test_name)
+        self.test_dataloader                = DataLoader(   self.test_dataset, 
+                                                            batch_size=self.args.batch_size, 
+                                                            shuffle=True, 
+                                                            num_workers=self.args.num_workers, 
+                                                            collate_fn=detection_collate, 
+                                                            drop_last=True,
+                                                            persistent_workers=True,                                                            
+                                                        )
+        self.iters_per_epoch_test           = int(len(self.test_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
-        # learning_rate = 0.001
-        self.learning_rate = 0.001
-        # Various of Learning will Change with the Epochs    
-        if self.epoch >= 10 and self.epoch < 20:
-            self.learning_rate = 0.0001
-        elif self.epoch >= 20 and self.epoch < 30:
-            self.learning_rate = 0.000001
-        elif self.epoch >= 30:
-            self.learning_rate = 0.0000001
+        # Various of Learning will Change with the Epochs
+        # combined_epoch = epoch_num +  ( self.epoch* self.iters_per_epoch_train )
+        global_epoh = self.epoch
+        # local_epoch = epoch_num
+        if global_epoh in cfg.decay_lrs:
+            self.Shoaib.custom_optimizer.param_groups[0]['lr'] =  cfg.decay_lrs[global_epoh]
+            self.Show_Text('Learning Rate is adjusted to: ' + str(self.Shoaib.custom_optimizer.param_groups[0]['lr']), clr=Fore.MAGENTA, end='\r')
             
     def Before_Forward(self):
         if self.mode == "Pytorch"      :  pass
@@ -1430,13 +1488,14 @@ class App(customtkinter.CTk):
                 with open(self.output_file, 'wb') as handle:
                     pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
     
-    def save_weights(self):
+    def save_weights(self, name=''):
         model = self.Shoaib.custom_model
         save_dir = os.path.join(self.args.output_dir, "trained_weights")
         Path(save_dir).mkdir(parents=True, exist_ok=True)
         _now = str(datetime.now()).split()
-        save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
-        self.Show_Text(f"Saving weights at\n{save_name}\n")
+        if name=='': save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
+        else:        save_name = os.path.join(save_dir, f'{name}.pth') 
+        # self.Show_Text(f"\nSaving weights at\n{save_name}\n")
         torch.save({
             'model': self.Shoaib.custom_model.state_dict(),
             'epoch': self.epoch,
@@ -1456,8 +1515,21 @@ class App(customtkinter.CTk):
         self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
             [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
 
+        if self.map > self.bestmAP:
+            self.bestmAP = self.map
+            self.bestmAPepoch = self.epoch
+            self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+            print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}%\n')
+            torch.save({
+                'model': self.Shoaib.custom_model.state_dict(),
+                'epoch': self.epoch,
+                'map': self.map,
+                'lr': self.Shoaib.custom_optimizer.param_groups[0]['lr'],
+                }, self.save_name)
+
         date_time = str(datetime.now()).replace(" ","---").split(".")[0].replace(":","-")
-        with open("mAP.txt", mode="a+") as output_file_1:
+        mAP_file = self.args.output_dir + '/mAP.txt'
+        with open(mAP_file, mode="a+") as output_file_1:
             output_file_1.write(f"{date_time}: {self.map} \n")
                 
     def Post_Epoch(self): 
