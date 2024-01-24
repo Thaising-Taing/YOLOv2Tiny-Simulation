@@ -18,7 +18,7 @@ import time
 
 # Zip the pickle file
 import bz2file as bz2
-libconv = ctypes.CDLL('convolution_cuda.so')
+libconv = ctypes.CDLL('src/Junaid/convolution_cuda.so')
 warnings.simplefilter("ignore", UserWarning)
 
 def Save_File(path, data):
