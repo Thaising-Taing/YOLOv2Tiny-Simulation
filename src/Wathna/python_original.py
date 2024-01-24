@@ -2278,9 +2278,7 @@ class Python_BatchNorm(object):
     # Store the updated running means back into bn_params
     bn_params['running_mean'] = running_mean.detach()
     bn_params['running_var'] = running_var.detach()
-    
-    
-      
+       
     return out, cache
 
   @staticmethod
