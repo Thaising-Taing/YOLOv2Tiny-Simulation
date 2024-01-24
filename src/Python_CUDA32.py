@@ -6,7 +6,7 @@ from copy import deepcopy as dc
 from Weight_Update_Algorithm.Test_with_train import *
 from Pre_Processing_Scratch.Pre_Processing import *
 
-from src.Python_CUDA32_LN import *
+# from src.Python_CUDA32_LN import *
 
 class CUDA32(object):
 

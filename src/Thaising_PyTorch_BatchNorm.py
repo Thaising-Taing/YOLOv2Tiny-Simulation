@@ -2,7 +2,7 @@ import os
 import torch
 
 from Weight_Update_Algorithm.Test_with_train import *
-from Pre_Processing_Scratch.Neural_Network_Operations_LightNorm import *
+from Pre_Processing_Scratch.Neural_Network_Operations_BatchNorm import *
 from Pre_Processing_Scratch.Pre_Processing import *
     
 from Post_Processing_Scratch.Calculate_Loss_2Iterations import *
@@ -43,9 +43,9 @@ class TorchSimulation(object):
         self.Mantissa_Bits        = self.self.Mantissa_Bits  
 
         if self.save_bfloat16: 
-            self.directory_path_bfloat = f"./Output_Sim_PyTorch_LightNorm_Bfloat16"
+            self.directory_path_bfloat = f"./Output_Sim_PyTorch_BatchNorm_Bfloat16"
         if self.save_debug_data or self.save_debug_data1: 
-            self.directory_path = f"./Output_Sim_PyTorch_LightNorm"           
+            self.directory_path = f"./Output_Sim_PyTorch_BatchNorm"           
 
         self.PreProcessing = Pre_Processing(Mode =   self.Mode,
                             Brain_Floating_Point =   self.Brain_Floating_Point,
@@ -90,31 +90,24 @@ class TorchSimulation(object):
             Create_Directory(self.directory_path)
         
         # Layer0: Conv-BN-ReLU-Pool
-        if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Input_Image", im_data)
-        if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Weight_Layer7", Weight_Tensor[7])
-
         if self.save_txt: save_file("Layer0_Input_Image", im_data, module="Conv", layer_no=0, save_txt=True, phase="Forward")
 
         if self.save_bfloat16: Save_File(f"{self.directory_path_bfloat}/Forward_Input_Image", im_data.to(torch.bfloat16))
 
         if self.save_debug_data1: Save_File(f"{self.directory_path}/Input_Image", im_data)
-
-        temp_Out[0], temp_cache['0'] = Torch_Conv_Pool.forward(im_data, Weight_Tensor[0], conv_param, pool_param_stride2)
-        if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Output_1st_Iter_Layer0", temp_Out[0])
-        mean, var = Cal_mean_var.forward(temp_Out[0])
         
         Out0, cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(im_data, Weight_Tensor[0], Gamma_Tensor[0],
                                                                 Beta_Tensor[0], conv_param, running_mean[0], 
-                                                                running_var[0], mean, var, self.Mode, pool_param_stride2)
+                                                                running_var[0], self.Mode, pool_param_stride2)
         
         if self.save_txt: save_file("Layer0_Output_Maxpooling", im_data, module="Conv", layer_no=0, save_txt=True, phase="Forward")
         
-        if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Output_2nd_Iter_Layer0", Out0)
+        if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Output_Layer0", Out0)
         if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Weight_Layer0_Before", Weight_Tensor[0])
         if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Beta_Layer0_Before", Beta_Tensor[0])
         if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Gamma_Layer0_Before", Gamma_Tensor[0])
 
-        if self.save_bfloat16: Save_File(f"{self.directory_path_bfloat}/Forward_Output_2nd_Iter_Layer0", Out0.to(torch.bfloat16))
+        if self.save_bfloat16: Save_File(f"{self.directory_path_bfloat}/Forward_Output_Layer0", Out0.to(torch.bfloat16))
         if self.save_bfloat16: Save_File(f"{self.directory_path_bfloat}/Forward_Weight_Layer0_Before", Weight_Tensor[0].to(torch.bfloat16))
         if self.save_bfloat16: Save_File(f"{self.directory_path_bfloat}/Forward_Beta_Layer0_Before", Beta_Tensor[0].to(torch.bfloat16))
         if self.save_bfloat16: Save_File(f"{self.directory_path_bfloat}/Forward_Gamma_Layer0_Before", Gamma_Tensor[0].to(torch.bfloat16))
@@ -122,86 +115,46 @@ class TorchSimulation(object):
         if self.save_debug_data1: Save_File(f"{self.directory_path}/Weight_Conv_0", Weight_Tensor[0])
 
         # Layer1: Conv-BN-ReLU-Pool
-        temp_Out[1], temp_cache['1'] = Torch_FastConv.forward(Out0, Weight_Tensor[1], conv_param)
-        
-        if self.save_txt: save_file("Layer1_Output_Conv", im_data, module="Conv", layer_no=0, save_txt=True, phase="Forward")
-        
-        if self.save_debug_data: Save_File(f"{self.directory_path}/Output_1st_Iter_Layer1", temp_Out[1])
-        if self.save_bfloat16: Save_File(f"{self.directory_path_bfloat}/Output_1st_Iter_Layer1", temp_Out[1].to(torch.bfloat16))
-        
-        mean, var = Cal_mean_var.forward(temp_Out[1])
-        
         Out1, cache['1'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out0, Weight_Tensor[1], Gamma_Tensor[1], Beta_Tensor[1],
-                                                                conv_param, running_mean[1], running_var[1],
-                                                                mean, var, self.Mode, pool_param_stride2)
+                                                                conv_param, running_mean[1], running_var[1], self.Mode, pool_param_stride2)
         if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Output_1st_Iter_Layer1", Out1)
         if self.save_bfloat16: Save_File(f"{self.directory_path_bfloat}/Forward_Output_1st_Iter_Layer1", Out1.to(torch.bfloat16))
 
         if self.save_debug_data1: Save_File(f"{self.directory_path}/Weight_Conv_1", Weight_Tensor[1])
         
         # Layer2: Conv-BN-ReLU-Pool
-        temp_Out[2], temp_cache['2'] = Torch_FastConv.forward(Out1, Weight_Tensor[2], conv_param)
-        
-        mean, var = Cal_mean_var.forward(temp_Out[2])
-        
         Out2, cache['2'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out1, Weight_Tensor[2], Gamma_Tensor[2], Beta_Tensor[2],
-                                                                conv_param, running_mean[2], running_var[2],
-                                                                mean, var, self.Mode, pool_param_stride2)
+                                                                conv_param, running_mean[2], running_var[2], self.Mode, pool_param_stride2)
         
         if self.save_debug_data1: Save_File(f"{self.directory_path}/Weight_Conv_2", Weight_Tensor[2])
 
         # Layer3: Conv-BN-ReLU-Pool
-        temp_Out[3], temp_cache['3'] = Torch_FastConv.forward(Out2, Weight_Tensor[3], conv_param)
-        
-        mean, var = Cal_mean_var.forward(temp_Out[3])
-        
         Out3, cache['3'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out2, Weight_Tensor[3], Gamma_Tensor[3], Beta_Tensor[3],
-                                                                conv_param, running_mean[3], running_var[3],
-                                                                mean, var, self.Mode, pool_param_stride2)
+                                                                conv_param, running_mean[3], running_var[3], self.Mode, pool_param_stride2)
         
         if self.save_debug_data1: Save_File(f"{self.directory_path}/Weight_Conv_3", Weight_Tensor[3])
 
         # Layer4: Conv-BN-ReLU-Pool
-        temp_Out[4], temp_cache['4'] = Torch_FastConv.forward(Out3, Weight_Tensor[4], conv_param)
-        
-        mean, var = Cal_mean_var.forward(temp_Out[4])
-        
         Out4, cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], Beta_Tensor[4],
-                                                                conv_param, running_mean[4], running_var[4],
-                                                                mean, var, self.Mode, pool_param_stride2)
+                                                                conv_param, running_mean[4], running_var[4], self.Mode, pool_param_stride2)
         
         if self.save_debug_data1: Save_File(f"{self.directory_path}/Weight_Conv_4", Weight_Tensor[4])
 
         # Layer5: Conv-BN-ReLU
-        temp_Out[5], temp_cache['5'] = Torch_FastConv.forward(Out4, Weight_Tensor[5], conv_param)
-        
-        mean, var = Cal_mean_var.forward(temp_Out[5])
-        
         Out5, cache['5'] = Torch_Conv_BatchNorm_ReLU.forward(Out4, Weight_Tensor[5], Gamma_Tensor[5], Beta_Tensor[5],
-                                                            conv_param, running_mean[5], running_var[5],
-                                                            mean, var, self.Mode)
+                                                            conv_param, running_mean[5], running_var[5], self.Mode)
         
         if self.save_debug_data1: Save_File(f"{self.directory_path}/Weight_Conv_5", Weight_Tensor[5])
 
-        # Layer6: Conv-BN-ReLU
-        temp_Out[6], temp_cache['6'] = Torch_FastConv.forward(Out5, Weight_Tensor[6], conv_param)
-        
-        mean, var = Cal_mean_var.forward(temp_Out[6])
-        
+        # Layer6: Conv-BN-ReLU  
         Out6, cache['6'] = Torch_Conv_BatchNorm_ReLU.forward(Out5, Weight_Tensor[6], Gamma_Tensor[6],
-                                                            Beta_Tensor[6], conv_param, running_mean[6], running_var[6],
-                                                            mean, var, self.Mode)
+                                                            Beta_Tensor[6], conv_param, running_mean[6], running_var[6], self.Mode)
         
         if self.save_debug_data1: Save_File(f"{self.directory_path}/Weight_Conv_6", Weight_Tensor[6])
 
         # Layer7: Conv-BN-ReLU
-        temp_Out[7], temp_cache['7'] = Torch_FastConv.forward(Out6, Weight_Tensor[7], conv_param)
-        
-        mean, var = Cal_mean_var.forward(temp_Out[7])
-        
         Out7, cache['7'] = Torch_Conv_BatchNorm_ReLU.forward(Out6, Weight_Tensor[7], Gamma_Tensor[7], Beta_Tensor[7],
-                                                            conv_param, running_mean[7], running_var[7],
-                                                            mean, var, self.Mode)
+                                                            conv_param, running_mean[7], running_var[7], self.Mode)
         if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Input_Layer7", Out6)
         if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Weight_Layer7", Weight_Tensor[7])
         if self.save_debug_data: Save_File(f"{self.directory_path}/Forward_Gamma_Layer7", Gamma_Tensor[7])
