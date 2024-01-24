@@ -99,7 +99,7 @@ def test_for_train(temp_path, model, args, val_dataloader=[], val_dataset=[], va
 
     img_id = -1
     with torch.no_grad():
-        for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), total=len(val_dataloader), desc="Performing validation with {} images".format(len(val_dataloader)*args.batch_size*8)):
+        for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), total=int(dataset_size/args.batch_size), desc="Performing validation with {} images".format(dataset_size), leave=False):
         # for batch, (im_data, im_infos) in enumerate(val_dataloader):
         # for batch, (im_data, im_infos) in enumerate(small_val_dataloader):
             if args.use_cuda:

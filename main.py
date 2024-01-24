@@ -981,13 +981,13 @@ class App(customtkinter.CTk):
         # print(f"Validation weights before start of training.")
         # self.Check_mAP()
         
-        repetition = int(self.iters_per_epoch_train/self.iters_per_epoch_train)
+        repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
         
         self.Show_Text(f'Start Training with {self.iters_per_epoch_train*self.args.batch_size} images from {self.imdb_train_name}. \nBatch size of {self.args.batch_size}.', clr=Fore.MAGENTA)
         self.Show_Text(f'mAP will be calculated after {repetition} epochs of current dataset - equal to 1 epoch of full dataset', clr=Fore.MAGENTA) 
         print()
-        self.Show_Text(f'Number of training images: {len(self.train_dataloader.dataset)}', clr=Fore.BLUE)
-        self.Show_Text(f'Number of original images: {len(self.train_dataloader_full.dataset)} {Fore.RED}({repetition} times the current training images)', clr=Fore.BLUE)
+        self.Show_Text(f'Number of training images: {len(self.train_dataset._image_paths)}', clr=Fore.BLUE)
+        self.Show_Text(f'Number of original images: {len(self.train_dataset_full._image_paths)} {Fore.RED}({repetition} times the current training images)', clr=Fore.BLUE)
         self.Show_Text(f'{repetition} epochs of current dataset will equal weight updates as 1 Epoch of Full Dataset', clr=Fore.BLUE) 
         print()
         
@@ -995,11 +995,13 @@ class App(customtkinter.CTk):
             self.Adjust_Learning_Rate()
             for _e in tqdm(range(repetition), desc=f"  {Style.RESET_ALL+Fore.LIGHTGREEN_EX}Epochs for current dataset", total=repetition, leave=False):
                 self.data_iter = iter(self.train_dataloader)
+                # self.data_iter_full = iter(self.train_dataloader_full)
                 _lr_txt = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
                 _map_txt = f"Best mAP {round(self.bestmAP, 2)} (E-{self.bestmAPepoch})"
                 pbar = tqdm(range(self.iters_per_epoch_train), leave=False)
                 for _batch,step in enumerate(pbar):
                     pbar.set_description(f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - {_lr_txt} - {Fore.YELLOW+_map_txt+Style.RESET_ALL} - Batch {_batch}")
+                    # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter_full)
                     self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                     # self.Save_File("Dataset/Dataset/default_data2.pickle", next(self.data_iter))
                     # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data2.pickle")
@@ -1308,17 +1310,47 @@ class App(customtkinter.CTk):
         if self.args.dataset=='random-512' : self.imdb_train_name = 'voc_2007_trainval-random-512'
         
         self.train_dataset              = self.get_dataset(self.imdb_train_name)
-        self.train_dataloader           = DataLoader(   self.train_dataset, 
-                                                            batch_size=self.args.batch_size, 
-                                                            shuffle=True, 
-                                                            num_workers=self.args.num_workers, 
-                                                            collate_fn=detection_collate, 
-                                                            drop_last=True,
-                                                            persistent_workers=True,                                                            
-                                                        )
+        
+        if self.args.num_workers==1:
+            import torchdata.datapipes.iter as pipes
+            pipe = pipes.InMemoryCacheHolder(self.train_dataset, size=32000).sharding_filter() # 8GB
+            self.train_dataloader = DataLoader(     pipe, 
+                                                    batch_size=self.args.batch_size, 
+                                                    shuffle=True, 
+                                                    num_workers=self.args.num_workers, 
+                                                    collate_fn=detection_collate, 
+                                                    drop_last=True,
+                                                    persistent_workers=True, 
+                                                    pin_memory=True,    
+                                                    # prefetch_factor=2                                                       
+                                                )
+        else:
+            self.train_dataloader = DataLoader(     self.train_dataset, 
+                                                    batch_size=self.args.batch_size, 
+                                                    shuffle=True, 
+                                                    num_workers=self.args.num_workers, 
+                                                    collate_fn=detection_collate, 
+                                                    drop_last=True,
+                                                    persistent_workers=True, 
+                                                    pin_memory=True,    
+                                                    # prefetch_factor=2                                                       
+                                                )
+            
         self.iters_per_epoch_train      = int(len(self.train_dataset) / self.args.batch_size)
         
+        # self.train_dataset              = self.get_dataset(self.imdb_train_name)
+        # self.train_dataloader           = DataLoader(   self.train_dataset, 
+        #                                                     batch_size=self.args.batch_size, 
+        #                                                     shuffle=True, 
+        #                                                     num_workers=self.args.num_workers, 
+        #                                                     collate_fn=detection_collate, 
+        #                                                     drop_last=True,
+        #                                                     persistent_workers=True, 
+        #                                                     pin_memory=True,                                                           
+        #                                                 )
+        # self.iters_per_epoch_train      = int(len(self.train_dataset) / self.args.batch_size)
         
+
         # ------------ Test Images
         # self.imdb_test_name                 = 'voc_2007_test-car'
         # self.test_dataset                   = self.get_dataset(self.imdb_test_name)

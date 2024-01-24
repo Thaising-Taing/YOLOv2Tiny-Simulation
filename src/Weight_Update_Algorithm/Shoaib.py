@@ -62,7 +62,39 @@ class Shoaib_Code(object):
         # if args.use_small_dataset: args.data_limit = 80
         # if not args.data_limit==0:
         # self.val_dataset = torch.utils.data.Subset(self.val_dataset, range(0, 128))
-        self.val_dataloader = DataLoader(self.val_dataset, batch_size=args.batch_size*8, shuffle=False, drop_last=True, num_workers=args.num_workers, persistent_workers=True)
+        if self.args.num_workers==1:
+            import torchdata.datapipes.iter as pipes
+            # pipe = pipes.Zipper(pipes.FileLister(self.val_dataset._image_paths),).map(lambda x: (read_image(x[0])))
+            pipe = pipes.InMemoryCacheHolder(self.val_dataset, size=32000).sharding_filter() # 8GB
+            self.val_dataloader = DataLoader(       pipe, 
+                                                    batch_size=self.args.batch_size, 
+                                                    shuffle=True, 
+                                                    num_workers=self.args.num_workers, 
+                                                    drop_last=True,
+                                                    persistent_workers=True, 
+                                                    pin_memory=True,    
+                                                    prefetch_factor=20                                                       
+                                                )
+        else:
+            self.val_dataloader = DataLoader(       self.val_dataset, 
+                                                    batch_size=self.args.batch_size, 
+                                                    shuffle=True, 
+                                                    num_workers=self.args.num_workers, 
+                                                    drop_last=True,
+                                                    persistent_workers=True, 
+                                                    pin_memory=True,    
+                                                    prefetch_factor=20                                                       
+                                                )
+            
+        # self.val_dataloader = DataLoader(
+        #                                     self.val_dataset, 
+        #                                     batch_size=args.batch_size, 
+        #                                     shuffle=False, 
+        #                                     drop_last=True, 
+        #                                     num_workers=args.num_workers, 
+        #                                     persistent_workers=True,
+        #                                     pin_memory=True,
+        #                                 )
         
     def get_weights(self, model):
         """
