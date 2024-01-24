@@ -1,6 +1,8 @@
 import os
 from Weight_Update_Algorithm.Test_with_train import *
 import torch
+from colorama import Fore, Back, Style
+from my_config import config as cfg
     
 class Shoaib_Code(object):
     
@@ -14,9 +16,9 @@ class Shoaib_Code(object):
         Running_Var_Dec = []     ,
         args            = []     ,
         pth_weights_path= ''     ,
-        lr              = 0.0001  ,
-        momentum        = 0.9  , 
-        weight_decay    = 0.0005  ,
+        lr              = cfg.lr ,
+        momentum        = cfg.momentum, 
+        weight_decay    = cfg.weight_decay,
         model           = []     ,
         optim           = []     ,
         parent          = []
@@ -48,6 +50,51 @@ class Shoaib_Code(object):
             Running_Var_Dec
             ]
         self.parent = parent
+        
+            
+        
+        # prepare dataset
+        args.imdbval_name = 'voc_2007_test'
+        # args.imdbval_name = 'voc_2007_test-car'
+        self.val_imdb = get_imdb(args.imdbval_name)
+
+        self.val_dataset = RoiDataset(self.val_imdb, train=False)
+        # if args.use_small_dataset: args.data_limit = 80
+        # if not args.data_limit==0:
+        # self.val_dataset = torch.utils.data.Subset(self.val_dataset, range(0, 128))
+        if self.args.num_workers==1:
+            import torchdata.datapipes.iter as pipes
+            # pipe = pipes.Zipper(pipes.FileLister(self.val_dataset._image_paths),).map(lambda x: (read_image(x[0])))
+            pipe = pipes.InMemoryCacheHolder(self.val_dataset, size=32000).sharding_filter() # 8GB
+            self.val_dataloader = DataLoader(       pipe, 
+                                                    batch_size=self.args.batch_size, 
+                                                    shuffle=True, 
+                                                    num_workers=self.args.num_workers, 
+                                                    drop_last=True,
+                                                    persistent_workers=True, 
+                                                    pin_memory=True,    
+                                                    prefetch_factor=20                                                       
+                                                )
+        else:
+            self.val_dataloader = DataLoader(       self.val_dataset, 
+                                                    batch_size=self.args.batch_size, 
+                                                    shuffle=True, 
+                                                    num_workers=self.args.num_workers, 
+                                                    drop_last=True,
+                                                    persistent_workers=True, 
+                                                    pin_memory=True,    
+                                                    prefetch_factor=20                                                       
+                                                )
+            
+        # self.val_dataloader = DataLoader(
+        #                                     self.val_dataset, 
+        #                                     batch_size=args.batch_size, 
+        #                                     shuffle=False, 
+        #                                     drop_last=True, 
+        #                                     num_workers=args.num_workers, 
+        #                                     persistent_workers=True,
+        #                                     pin_memory=True,
+        #                                 )
         
     def get_weights(self, model):
         """
@@ -604,22 +651,27 @@ class Shoaib_Code(object):
         """
 
         if self.weight_path:
-            if self.parent==[]: print(f'--> Loading weights from:\n{self.weight_path}\n')
-            else: self.parent.Show_Text(f'--> Loading weights from:\n{self.weight_path}\n')
+            if self.parent==[]: print(f'\n--> Loading weights from:\n{self.weight_path}\n', clr=Fore.MAGENTA)
+            else: self.parent.Show_Text(f'\n--> Loading weights from:\n{self.weight_path}\n', clr=Fore.MAGENTA)
             
             self.pretrained_checkpoint = torch.load(self.weight_path,map_location='cpu')
             loaded_model = torch.load(self.weight_path,map_location='cpu')['model']
-            self.custom_model.load_state_dict(loaded_model)
+            
+            try:
+                self.custom_model.load_state_dict(loaded_model)
+                _model_state_dict = self.custom_model.state_dict()        
+            except:
+                _model_state_dict = loaded_model       
             
         else:
             if self.parent==[]: print(f'--> Starting training from scratch.')
             else: self.parent.Show_Text(f'--> Starting training from scratch.')
+            _model_state_dict = self.custom_model.state_dict()        
             
         # self.pretrained_checkpoint = torch.load(self.weight_path,map_location='cpu')
         # loaded_model = torch.load(self.weight_path,map_location='cpu')['model']
         # self.custom_model.load_state_dict(loaded_model)
         Weight,   Bias,  Gamma_WeightBN,  BetaBN, Running_Mean_Dec, Running_Var_Dec = self.Inputs    # Gamma is weight for BN, Beta is Bias for BN
-        _model_state_dict = self.custom_model.state_dict()        
         
         _delete_after_copy=False
         for name in _model_state_dict:
@@ -849,7 +901,7 @@ class Shoaib_Code(object):
         self.set_weights(Inputs_with_running=Inputs_with_running)
         save_name_temp = self.args.output_dir
         # save_name_temp = os.path.join(self.args.output_dir, 'temp')
-        map = test_for_train(save_name_temp, self.custom_model, self.args)
+        map = test_for_train(save_name_temp, self.custom_model, self.args, val_dataloader=self.val_dataloader, val_dataset=self.val_dataset, val_imdb=self.val_imdb)
         return map
     
     def get_dataset_names(self, name):
