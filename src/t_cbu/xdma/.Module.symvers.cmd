@@ -1,1 +1,1 @@
-cmd_/home/msis/Desktop/pcie_python/t_cbu/xdma/Module.symvers := sed 's/\.ko$$/\.o/' /home/msis/Desktop/pcie_python/t_cbu/xdma/modules.order | scripts/mod/modpost -m -a  -o /home/msis/Desktop/pcie_python/t_cbu/xdma/Module.symvers -e -i Module.symvers   -T -
+cmd_/home/msis/training/yolov2/src/t_cbu/xdma/Module.symvers := sed 's/\.ko$$/\.o/' /home/msis/training/yolov2/src/t_cbu/xdma/modules.order | scripts/mod/modpost -m -a  -o /home/msis/training/yolov2/src/t_cbu/xdma/Module.symvers -e -i Module.symvers   -T -

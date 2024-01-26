@@ -123,6 +123,8 @@ def save_txt(fname, data, module=[], layer_no=[], save_txt=False, save_hex=False
             # if save_hex: if DEBUG: print(f'\t\t--> Saved {hexname}')
 
 def Save_File(data, path):
+    _dir = os.path.dirname(path)
+    Path(_dir).mkdir(parents=True, exist_ok=True)
     with open(path, 'wb') as handle:
         pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)   
 
