@@ -6,7 +6,7 @@ import shutil
 import os
 import warnings
 import torch
-from config import config as cfg
+from my_config import config as cfg
 # from util.bbox import generate_all_anchors, xywh2xxyy, box_transform_inv, box_ious, xxyy2xywh, box_transform
 
 import pickle
