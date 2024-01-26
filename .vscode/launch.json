@@ -30,6 +30,22 @@
 		},
 
 		{
+			"name": "mAP",
+			"type": "python",
+			"request": "launch",
+			"program": "utils/mAP.py",
+			"console": "integratedTerminal",
+			"justMyCode": true,
+			// "sudo": true,
+			// "args": [
+			// 	// "--pretrained" 	,	"Dataset/Dataset/pretrained/yolov2_best_map.pth",
+			// 	"--dataset" 	,	"random-64",
+			// 	"--batch_size" 	,	"32",
+			// 	"--nw"			,	"1"
+			// ]
+		},
+
+		{
 			"name": "Histogram",
 			"type": "python",
 			"request": "launch",

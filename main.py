@@ -60,7 +60,7 @@ except:
 
 matplotlib.use("TkAgg")
 warnings.filterwarnings("ignore")
-os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
+# os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.system('clear')
 
 DDR_SIZE = 0x10000
@@ -275,14 +275,14 @@ class App(customtkinter.CTk):
                                                     )
         self._Val.place(x=10, y=350)
 
-        # self.Stop = customtkinter.CTkButton(        self.left_frame, 
-        #                                             text="Stop",
-        #                                             command=self.Stop_Process, 
-        #                                             width=button_width, 
-        #                                             height=button_height,
-        #                                             state='disabled'
-        #                                             )
-        # self.Stop.place(x=10, y=400)
+        self.Stop = customtkinter.CTkButton(        self.left_frame, 
+                                                    text="Stop",
+                                                    command=self.Stop_Process, 
+                                                    width=button_width, 
+                                                    height=button_height,
+                                                    state='disabled'
+                                                    )
+        self.Stop.place(x=10, y=400)
         
         # self.Reset = customtkinter.CTkButton(        self.left_frame, 
         #                                             text="Reset",
@@ -962,11 +962,13 @@ class App(customtkinter.CTk):
         self.Train.configure(state="disabled")
         self.Train.configure(fg_color='green')
         self.Infer.configure(state="disabled")
-        self._Val.configure(state="normal")
-        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(state="disabled")
+        self.Stop.configure(state="normal")
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.Show_Text(f"\nStart Training", clr=Fore.MAGENTA)
         self.Show_Text(f"\nMode : {self.mode}", clr=Fore.MAGENTA)
+        self.stop_process = False
         
         self.parse_args()
         self.Pre_Process()
@@ -991,21 +993,40 @@ class App(customtkinter.CTk):
         self.Show_Text(f'{repetition} epochs of current dataset will equal weight updates as 1 Epoch of Full Dataset', clr=Fore.BLUE) 
         print()
         
-        for self.epoch in tqdm(range(self.args.start_epoch, self.args.max_epochs), desc=f"{Fore.GREEN+Style.BRIGHT}Epoch equal to full dataset", total=self.args.max_epochs, leave=False):
-            self.Adjust_Learning_Rate()
-            for _e in tqdm(range(repetition), desc=f"  {Style.RESET_ALL+Fore.LIGHTGREEN_EX}Epochs for current dataset", total=repetition, leave=False):
+        # Loop for total number of epochs
+        _full_dataset_loop = tqdm(range(self.args.start_epoch, self.args.max_epochs), total=self.args.max_epochs   ,   leave=True)
+        for self.epoch in _full_dataset_loop:
+            _full_dataset_loop.set_description(   f"{Fore.GREEN+Style.BRIGHT}Epoch equal to full dataset")
+            if self.stop_process: break
+            
+            # Loop to repeat current epoch until the weight updates are equal to full data weight updates
+            _current_dataset_loop = tqdm(range(repetition), total=repetition, leave=False)
+            for _e in _current_dataset_loop:
+                if self.stop_process: break
+                
+                # Update LR
+                self.Adjust_Learning_Rate()
+                
+                # Progress bar info
+                _lr_txt  = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
+                _map_txt = f"Best mAP {round((self.bestmAP*100),2)} (E-{self.bestmAPepoch})"
+                _current_dataset_loop.set_description(f"  {_lr_txt} - {Fore.YELLOW+_map_txt+Style.RESET_ALL} - {Style.RESET_ALL+Fore.LIGHTGREEN_EX}Epochs for current dataset")
+                
+                # Data iterator
                 self.data_iter = iter(self.train_dataloader)
-                # self.data_iter_full = iter(self.train_dataloader_full)
-                _lr_txt = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
-                _map_txt = f"Best mAP {round(self.bestmAP, 2)} (E-{self.bestmAPepoch})"
-                pbar = tqdm(range(self.iters_per_epoch_train), leave=False)
-                for _batch,step in enumerate(pbar):
-                    pbar.set_description(f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - {_lr_txt} - {Fore.YELLOW+_map_txt+Style.RESET_ALL} - Batch {_batch}")
-                    # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter_full)
+                
+                # Loop for current epoch - all batches
+                _current_epoch_loop = tqdm(range(self.iters_per_epoch_train),leave=False)
+                for _batch,step in enumerate(_current_epoch_loop):
+                    if self.stop_process: break
+                    _current_epoch_loop.set_description(  f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - Batch {_batch}")
+                    
+                    # Loading dataset
                     self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
                     # self.Save_File("Dataset/Dataset/default_data2.pickle", next(self.data_iter))
                     # self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = self.Load_File("Dataset/Dataset/default_data2.pickle")
                     
+                    # Perform Training
                     self.Before_Forward() ######################### - Individual Functions
                     self.Forward() ################################ - Individual Functions
                     # self.Visualize()
@@ -1026,6 +1047,10 @@ class App(customtkinter.CTk):
         self.Infer.configure(fg_color='green')
         self._Val.configure(state="normal")
         self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(state="normal")
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.stop_process = False
+        
         self.Show_Text(f"Start Inference")
         self.parse_args()
         self.Pre_Process()
@@ -1057,6 +1082,10 @@ class App(customtkinter.CTk):
         self._Val.configure(state="disabled")
         self._Val.configure(fg_color='green')
         # self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(state="normal")
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.stop_process = False
+        
         self.Show_Text(f"Start validation")
         self.parse_args()
         self.Pre_Process()
@@ -1120,28 +1149,13 @@ class App(customtkinter.CTk):
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(state="normal")
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self._Val.configure(state="disabled")
-        self._Val.configure(fg_color='green')
+        self._Val.configure(state="normal")
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(state="disabled")
+        self.Stop.configure(fg_color='green')
         self.Show_Text(f"Stop the process")
-        
-        
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
-        if self.mode == "Simulation": pass
-        if self.mode == "FPGA"      : 
-            self.d = Device("0000:08:00.0")
-            self.bar = self.d.bar[0]
-            self.bar.write(0x0, 0x00000011) # yolo start
-            self.bar.write(0x0, 0x00000010) # yolo start low
+        self.stop_process = True
 
-            self.bar.write(0x8, 0x00000011) # rd addr
-            self.bar.write(0x0, 0x00000014) # rd en
-            self.bar.write(0x0, 0x00000010) # rd en low
-
-            self.bar.write(0x18, 0x00008001) # axi addr
-            self.bar.write(0x14, 0x00000001) # axi rd en
-            self.bar.write(0x14, 0x00000000) # axi rd en low
-        
         
         
         
@@ -1398,7 +1412,7 @@ class App(customtkinter.CTk):
         # local_epoch = epoch_num
         if global_epoh in cfg.decay_lrs:
             self.Shoaib.custom_optimizer.param_groups[0]['lr'] =  cfg.decay_lrs[global_epoh]
-            self.Show_Text('Learning Rate is adjusted to: ' + str(self.Shoaib.custom_optimizer.param_groups[0]['lr']), clr=Fore.MAGENTA, end='\r')
+            # self.Show_Text('Learning Rate is adjusted to: ' + str(self.Shoaib.custom_optimizer.param_groups[0]['lr']), clr=Fore.MAGENTA, end='\r')
             
     def Before_Forward(self):
         if self.mode == "Pytorch"      :  pass
@@ -1501,7 +1515,7 @@ class App(customtkinter.CTk):
                 self.best_map_epoch = self.epoch
                 self.best_map_loss  = round(self.Loss.item(),2)
                 self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
-                print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
+                # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
                 torch.save({
                     'model': self.custom_model.state_dict(),
                     'epoch': self.epoch,
@@ -1551,7 +1565,8 @@ class App(customtkinter.CTk):
             self.bestmAP = self.map
             self.bestmAPepoch = self.epoch
             self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
-            print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}%\n')
+            # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}%')
+            # print(f'\t--------------------->>Saving best weights at Epoch {self.bestmAPepoch}, with mAP={round((self.bestmAP*100),2)}%\n')
             torch.save({
                 'model': self.Shoaib.custom_model.state_dict(),
                 'epoch': self.epoch,

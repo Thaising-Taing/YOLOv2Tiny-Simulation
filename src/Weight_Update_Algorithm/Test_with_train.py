@@ -60,6 +60,7 @@ def test_for_train(temp_path, model, args, val_dataloader=[], val_dataset=[], va
     
     if val_dataloader==[]:
         # prepare dataset
+        print('Loading data for validation.')
         args.imdbval_name = 'voc_2007_test'
         # args.imdbval_name = 'voc_2007_test-car'
         val_imdb = get_imdb(args.imdbval_name)
@@ -67,7 +68,7 @@ def test_for_train(temp_path, model, args, val_dataloader=[], val_dataset=[], va
         val_dataset = RoiDataset(val_imdb, train=False)
         # if args.use_small_dataset: args.data_limit = 80
         # if not args.data_limit==0:
-        #     val_dataset = torch.utils.data.Subset(val_dataset, range(0, args.data_limit))
+        val_dataset = torch.utils.data.Subset(val_dataset, range(0, args.data_limit))
         val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size*8, shuffle=False, drop_last=True, num_workers=args.num_workers, persistent_workers=True)
 
     # load model
@@ -93,7 +94,7 @@ def test_for_train(temp_path, model, args, val_dataloader=[], val_dataset=[], va
 
     all_boxes = [[[] for _ in range(dataset_size)] for _ in range(val_imdb.num_classes)]
 
-    args.output_dir = os.path.join(args.output_dir, "Outputs")
+    # args.output_dir = os.path.join(args.output_dir, "Outputs")
     os.makedirs( args.output_dir, exist_ok=True )
     det_file = os.path.join(args.output_dir, 'detections.pkl')
 
