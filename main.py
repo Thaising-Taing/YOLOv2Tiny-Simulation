@@ -1293,7 +1293,7 @@ class App(customtkinter.CTk):
                             const='all',
                             type=str,
                             nargs='?',
-                            choices=['full', 'car', 'car-64', 'random-64', 'random-128', 'random-256', 'random-512'],
+                            choices=['full', 'car', 'car-64', 'random-64', 'random-128', 'random-256', 'random-512', 'random-5517'],
                             help='list servers, storage, or both (default: %(default)s)')
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="", type=str)
@@ -1416,6 +1416,7 @@ class App(customtkinter.CTk):
         if self.args.dataset=='random-128' : self.imdb_train_name = 'voc_2007_trainval-random-128'
         if self.args.dataset=='random-256' : self.imdb_train_name = 'voc_2007_trainval-random-256'
         if self.args.dataset=='random-512' : self.imdb_train_name = 'voc_2007_trainval-random-512'
+        if self.args.dataset=='random-5517': self.imdb_train_name = 'voc_2012_train-5517'
         
         self.train_dataset              = self.get_dataset(self.imdb_train_name)
         
