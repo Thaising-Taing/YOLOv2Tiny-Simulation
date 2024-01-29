@@ -1087,7 +1087,7 @@ class App(customtkinter.CTk):
             if self.stop_process: break
             
             # Loop to repeat current epoch until the weight updates are equal to full data weight updates
-            _current_dataset_loop = tqdm(range(repetition), total=repetition, leave=False)
+            _current_dataset_loop = tqdm(range(repetition), total=repetition, leave=True)
             for _e in _current_dataset_loop:
                 if self.stop_process: break
                 
@@ -1103,7 +1103,7 @@ class App(customtkinter.CTk):
                 self.data_iter = iter(self.train_dataloader)
                 
                 # Loop for current epoch - all batches
-                _current_epoch_loop = tqdm(range(self.iters_per_epoch_train),leave=False)
+                _current_epoch_loop = tqdm(range(self.iters_per_epoch_train),leave=True)
                 for _batch,step in enumerate(_current_epoch_loop):
                     if self.stop_process: break
                     _current_epoch_loop.set_description(  f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - Batch {_batch}")
