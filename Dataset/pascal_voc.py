@@ -287,10 +287,10 @@ class pascal_voc(imdb):
                 filename, annopath, imagesetfile, cls, cachedir, ovthresh=0.5,
                 use_07_metric=use_07_metric)
             aps += [ap]
-            if cls=='car': print('\n\nAP for {} = {:.4f}'.format(cls, ap))
+            # if cls=='car': print('\n\nAP for {} = {:.4f}'.format(cls, ap))
             with open(os.path.join(output_dir, cls + '_pr.pkl'), 'wb') as f:
                 pickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
-        print('Mean AP (mAP) = {:.4f}\n\n'.format(np.mean(aps)))
+        # print('Mean AP (mAP) = {:.4f}\n\n'.format(np.mean(aps)))
         # print('~~~~~~~~')
         # print('Results:')
         # for ap in aps:
