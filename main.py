@@ -50,6 +50,7 @@ from Thaising_PyTorch import TorchSimulation
 from Thaising_Python import PythonSimulation
 from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
+from Weight_Update_Algorithm.new_weight_update import new_weight_update
 
 # from Python_CUDA32 import CUDA32
 # from Python_CUDA16 import CUDA16
@@ -1589,10 +1590,15 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data =  self.FPGA
         
-        new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
-                                                                Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
-                                                                gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
-        _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
+        # new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
+        #                                                         Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
+        #                                                         gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
+        # _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
+        # new_weights = new_weights
+        new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
+                                        gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta])
+        
+        _data.Weigth, _data.Bias, _data.Gamma, _data.Beta = new_weights
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Gamma_Layer0_After",_data.Gamma[0])
