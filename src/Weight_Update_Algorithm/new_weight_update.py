@@ -1,4 +1,5 @@
 import torch
+<<<<<<< HEAD
 import os
 from pathlib import Path
 
@@ -6,6 +7,13 @@ def new_weight_update(Inputs=[], gInputs=[]):
     weight, bias, gamma, beta = Inputs
     gweight, gbias, ggamma, gbeta = gInputs
     learning_rate = 0.001
+=======
+
+def new_weight_update(Inputs, gInputs):
+    weight, bias, gamma, beta = Inputs
+    gweight, gbias, ggamma, gbeta = gInputs
+    learning_rate = 0.0001
+>>>>>>> a1ef38db0619ae8fdb75a7b91dda407b1c01fe3f
     with torch.no_grad():
         for i in range(8):
             # pytorch_model.params[f'W{i}'] -= learning_rate * grads[f'W{i}']
