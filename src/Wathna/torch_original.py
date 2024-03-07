@@ -290,7 +290,7 @@ class DeepConvNetTorch(object):
     Evaluate loss and gradient for the deep convolutional network.
     Input / output: Same API as ThreeLayerConvNet.
     """
-    print('Calculating the loss and its gradients for pytorch model.')
+    # print('Calculating the loss and its gradients for pytorch model.')
     out = torch.tensor(out, requires_grad=True)
 
     scores = out
@@ -315,7 +315,7 @@ class DeepConvNetTorch(object):
     box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
     loss = box_loss + iou_loss + class_loss
     
-    print(f"\nLoss = {loss}")
+    # print(f"\nLoss = {loss}")
     out = scores
     out.retain_grad()
     loss.backward(retain_graph=True)

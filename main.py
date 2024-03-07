@@ -29,6 +29,7 @@ sys.path.append(os.path.join(os.getcwd(),"src/Post_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
 sys.path.append(os.path.join(os.getcwd(),"src/Wathna"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
+from Weight_Update_Algorithm.new_weight_update import new_weight_update
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
 import time
@@ -40,9 +41,9 @@ import pickle
 from Post_Processing_Scratch.Post_Processing_2Iterations_Training_Inference import *
 from Detection.Detection import *
 from Weight_Update_Algorithm.weight_update import *
-from Weight_Update_Algorithm.yolov2_tiny import *
+from Weight_Update_Algorithm.yolov2_tiny import Yolov2
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
-from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
+# from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
@@ -121,6 +122,7 @@ class App(customtkinter.CTk):
         
         self.bestmAP=0
         self.bestmAPepoch=0
+        self.Loss_Val = 1000
 
         # configure window
         self.title("Yolov2 Accelerator.py")
@@ -1067,9 +1069,15 @@ class App(customtkinter.CTk):
         else:                                   self.args.output_dir = os.path.join( self.args.output_dir , self.imdb_train_name[18:] )
         self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
-        # print(f"Validation weights before start of training.")
+        print(f"Validation weights before start of training.")
+        self.Check_mAP()
+        
+          
+        # self.Shoaib.weight_path = "path to new weights"
+        # self.loaded_weights = self.Shoaib.load_weights()
         # self.Check_mAP()
         
+
         repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
         
         self.Show_Text(f'Start Training with {self.iters_per_epoch_train*self.args.batch_size} images from {self.imdb_train_name}. \nBatch size of {self.args.batch_size}.', clr=Fore.MAGENTA)
@@ -1104,9 +1112,9 @@ class App(customtkinter.CTk):
                 
                 # Loop for current epoch - all batches
                 _current_epoch_loop = tqdm(range(self.iters_per_epoch_train),leave=True)
-                for _batch,step in enumerate(_current_epoch_loop):
+                for _batch, step in enumerate(_current_epoch_loop):
                     if self.stop_process: break
-                    _current_epoch_loop.set_description(  f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - Batch {_batch}")
+                    _current_epoch_loop.set_description(  f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - Batch {_batch} - Loss {self.Loss_Val}")
                     
                     # Loading dataset
                     self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
@@ -1298,7 +1306,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="", type=str)
                             # default="Dataset/Dataset/pretrained/scratch.pth", type=str)
-                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            default="Dataset/Dataset/pretrained/yolov2_epoch_160.pth", type=str)
                             # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
                             # default="Dataset/Dataset/pretrained/Gitae--2024-01-10-10_42_29.387218-Epoch_47.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
@@ -1555,6 +1563,19 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA.Calculate_Loss(self)
         if self.mode == "FPGA"         :  self.FPGA.Calculate_Loss(self)
 
+        
+        if self.mode == "Pytorch"      :  _data =  self.Pytorch
+        if self.mode == "Python"       :  _data =  self.Python
+        if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data =  self.Python_bn
+        if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
+        if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
+        if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
+        if self.mode == "PythonCUDA16" :  _data =  self.CUDA16
+        if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
+        if self.mode == "FPGA"         :  _data =  self.FPGA
+        self.Loss_Val = _data.loss
+
     def Before_Backward(self):
         if self.mode == "Pytorch"      :  pass
         if self.mode == "Python"       :  pass
@@ -1589,10 +1610,16 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data =  self.FPGA
         
-        new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
-                                                                Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
-                                                                gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
-        _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
+        # new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
+        #                                                         Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
+        #                                                         gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
+        new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
+                                        gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta])
+        
+        # _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
+        # print(self.Shoaib.Bias_Dec[self.Shoaib.Bias_Dec != 0])
+        # new_inputs = [ _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec]
+        # self.Shoaib.set_weights(new_inputs)
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Gamma_Layer0_After",_data.Gamma[0])
@@ -1610,9 +1637,89 @@ class App(customtkinter.CTk):
             
         [self.Weight, self.Bias, self.Gamma, self.Beta] = new_weights
 
+        # checkpoint = {
+        #     "model": self.Pytorch_bn
+        # }
+        
+        # filename = "./test/scratch0/epoch_1.pkl"
+        # with open(filename, 'wb') as f:
+        #     pickle.dump(checkpoint, f)
+
     def Save_Pickle(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
+
+        if self.mode == "Pytorch_BN":
+            if self.map > self.max_map:
+                self.max_map = self.map
+                self.best_map_score = round((self.map*100),2)
+                self.best_map_epoch = self.epoch
+                self.best_map_loss  = round(self.Loss.item(),2)
+                self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+                # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
+                torch.save({
+                    'model': self.custom_model.state_dict(),
+                    'epoch': self.epoch,
+                    'loss': self.Loss.item(),
+                    'map': map
+                    }, self.save_name)
+            if self.epoch == 0: pass
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
+            # return best_map_score, best_map_epoch, best_map_loss
+
+        if self.mode == "Python_BN":
+            if self.map > self.max_map:
+                self.max_map = self.map
+                self.best_map_score = round((self.map*100),2)
+                self.best_map_epoch = self.epoch
+                self.best_map_loss  = round(self.Loss.item(),2)
+                self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+                # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
+                torch.save({
+                    'model': self.custom_model.state_dict(),
+                    'epoch': self.epoch,
+                    'loss': self.Loss.item(),
+                    'map': map
+                    }, self.save_name)
+            if self.epoch == 0: pass
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
+            # return best_map_score, best_map_epoch, best_map_loss
+
+        if self.mode == "Pytorch"   :
+            if self.map > self.max_map:
+                self.max_map = self.map
+                self.best_map_score = round((self.map*100),2)
+                self.best_map_epoch = self.epoch
+                self.best_map_loss  = round(self.Loss.item(),2)
+                self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+                # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
+                torch.save({
+                    'model': self.custom_model.state_dict(),
+                    'epoch': self.epoch,
+                    'loss': self.Loss.item(),
+                    'map': map
+                    }, self.save_name)
+            if self.epoch == 0: pass
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
+            # return best_map_score, best_map_epoch, best_map_loss
+
+        if self.mode == "Python"    :
+            # Check and save the best mAP
+            if self.map > self.max_map:
+                self.max_map = self.map
+                self.best_map_score = round((self.map*100),2)
+                self.best_map_epoch = self.epoch
+                self.best_map_loss  = round(self.Loss.item(),2)
+                self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+                # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
+                torch.save({
+                    'model': self.custom_model.state_dict(),
+                    'epoch': self.epoch,
+                    'loss': self.Loss.item(),
+                    'map': map
+                    }, self.save_name)
+            if self.epoch == 0: pass
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
+            # return best_map_score, best_map_epoch, best_map_loss
+    
         if self.mode == "Simulation": 
             # Check and save the best mAP
             if self.map > self.max_map:
@@ -1671,13 +1778,13 @@ class App(customtkinter.CTk):
 
         if self.map > self.bestmAP:
             self.bestmAP = self.map
-            self.bestmAPepoch = self.epoch
+            # self.bestmAPepoch = self.epoch
             self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
             # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}%')
             # print(f'\t--------------------->>Saving best weights at Epoch {self.bestmAPepoch}, with mAP={round((self.bestmAP*100),2)}%\n')
             torch.save({
                 'model': self.Shoaib.custom_model.state_dict(),
-                'epoch': self.epoch,
+                # 'epoch': self.epoch,
                 'map': self.map,
                 'lr': self.Shoaib.custom_optimizer.param_groups[0]['lr'],
                 }, self.save_name)
@@ -1910,7 +2017,8 @@ class App(customtkinter.CTk):
             yolo_output = self.reshape_outputs(out)
             yolo_output = [item[0].data for item in yolo_output]
                 
-            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            # detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.005, nms_threshold=0.45)
             
             if len(detections) > 0:
                 for cls in range(len(self.classes)):
