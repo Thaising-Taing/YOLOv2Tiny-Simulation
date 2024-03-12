@@ -23,6 +23,7 @@ src/Pre_Processing_Scratch/data/pretrained/yolov2-tiny-voc.weights
 src/Pre_Processing_Scratch/data/pretrained/yolov2_least_loss.pth
 *pickle
 *zip
+*pickle
 loss.txt
 loss_gradient.txt
 mAP.txt
