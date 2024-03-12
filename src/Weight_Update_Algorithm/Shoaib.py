@@ -297,7 +297,7 @@ class Shoaib_Code(object):
                 param.grad = torch.from_numpy( gb['conv9']  )
                 
                 
-        return custom_model
+        return self.custom_model
 
     def set_weight_values_FPGA(self, Inputs, gInputs):
         """

@@ -285,6 +285,29 @@ class DeepConvNetTorch(object):
     
     return out, cache, out
 
+  def forward_pred(self, out):
+      """
+      Evaluate loss and gradient for the deep convolutional network.
+      Input / output: Same API as ThreeLayerConvNet.
+      """
+      # print('Calculating the loss and its gradients for pytorch model.')
+
+      scores = out
+      bsize, _, h, w = out.shape
+      out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)
+      # Calculate losses based on loss functions(box loss, Intersection over Union(IoU) loss, class loss)
+      xy_pred = torch.sigmoid(out[:, :, 0:2]) #
+      conf_pred = torch.sigmoid(out[:, :, 4:5]) # 
+      hw_pred = torch.exp(out[:, :, 2:4])
+      class_score = out[:, :, 5:]
+      class_pred = F.softmax(class_score, dim=-1)
+      delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
+
+      # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
+      # dout = pickle.load(dout)
+      # print('\n\n',dout.dtype, dout[dout!=0])
+      return delta_pred, conf_pred, class_pred
+
   def loss(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
     """
     Evaluate loss and gradient for the deep convolutional network.
