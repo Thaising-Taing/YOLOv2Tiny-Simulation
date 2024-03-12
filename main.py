@@ -1075,7 +1075,7 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
         print(f"Validation weights before start of training.")
-        # checkmap_new.check( pth = self.args.pretrained, args=self.args)
+        checkmap_new.check( pth = self.args.pretrained, args=self.args)
         # checkmap_new.check( weights = self.load_weights_from_pth(_path = self.args.pretrained), args=self.args)
 
         repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
@@ -1781,7 +1781,7 @@ class App(customtkinter.CTk):
                 with open(self.output_file, 'wb') as handle:
                     pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
     
-    def save_weight(self, epoch):
+    def save_weights(self, epoch):
 
         if self.mode == "Pytorch"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
