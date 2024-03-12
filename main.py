@@ -1800,7 +1800,7 @@ class App(customtkinter.CTk):
         # please change to your named model here
         # for example _data.fpga_model
         torch.save({
-            'model': _data.modtorch_model.params()
+            'model': _data.modtorch_model.params
         }, save_name)
     # def save_weights(self, name=''):
     #     model = self.Shoaib.custom_model
