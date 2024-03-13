@@ -1075,7 +1075,7 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
         print(f"Validation weights before start of training.")
-        # checkmap_new.check( pth = self.args.pretrained, args=self.args)
+        checkmap_new.check( pth = self.args.pretrained, args=self.args)
         # checkmap_new.check( weights = self.load_weights_from_pth(_path = self.args.pretrained), args=self.args)
 
         repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
@@ -1637,6 +1637,7 @@ class App(customtkinter.CTk):
         # new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
         #                                                         Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
         #                                                         gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
+
         # new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
         #                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta])
         
@@ -1644,13 +1645,14 @@ class App(customtkinter.CTk):
         # print(self.Shoaib.Bias_Dec[self.Shoaib.Bias_Dec != 0])
         # new_inputs = [ _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec]
         # self.Shoaib.set_weights(new_inputs)
+
         # _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
         # new_weights = new_weights
         new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
                                         gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta])
         
-        _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
 
+        _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
 
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
@@ -1781,7 +1783,7 @@ class App(customtkinter.CTk):
                 with open(self.output_file, 'wb') as handle:
                     pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
     
-    def save_weight(self, epoch):
+    def save_weights(self, epoch):
 
         if self.mode == "Pytorch"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
@@ -1800,7 +1802,7 @@ class App(customtkinter.CTk):
         # please change to your named model here
         # for example _data.fpga_model
         torch.save({
-            'model': _data.modtorch_model.params()
+            'model': _data.modtorch_model.params
         }, save_name)
     # def save_weights(self, name=''):
     #     model = self.Shoaib.custom_model
@@ -1853,7 +1855,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  _data = self.FPGA
         
         _w = _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec
-        checkmap_new.check( weights = _w, args=self.args)
+        mAP = checkmap_new.check( weights = _w, args=self.args)
 
         # self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
         #     [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
@@ -1872,9 +1874,9 @@ class App(customtkinter.CTk):
         #         }, self.save_name)
 
         # date_time = str(datetime.now()).replace(" ","---").split(".")[0].replace(":","-")
-        # mAP_file = self.args.output_dir + '/mAP.txt'
-        # with open(mAP_file, mode="a+") as output_file_1:
-        #     output_file_1.write(f"{date_time}: {self.map} \n")
+        mAP_file = self.args.output_dir + '/mAP.txt'
+        with open(mAP_file, mode="a+") as output_file_1:
+            output_file_1.write(f"{mAP} \n")
                 
     def Post_Epoch(self): 
         if self.mode == "Pytorch"      :  _data =  self.Pytorch
