@@ -1,1 +1,1 @@
-cmd_/home/msis/Desktop/pcie_python/t_cbu/xdma/modules.order := {   echo /home/msis/Desktop/pcie_python/t_cbu/xdma/xdma.ko; :; } | awk '!x[$$0]++' - > /home/msis/Desktop/pcie_python/t_cbu/xdma/modules.order
+cmd_/home/msis/training/yolov2/src/t_cbu/xdma/modules.order := {   echo /home/msis/training/yolov2/src/t_cbu/xdma/xdma.ko; :; } | awk '!x[$$0]++' - > /home/msis/training/yolov2/src/t_cbu/xdma/modules.order

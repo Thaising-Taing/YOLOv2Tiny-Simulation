@@ -217,28 +217,30 @@ class pascal_voc(imdb):
                 pickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
         print('Mean AP (mAP) = {:.4f}'.format(np.mean(aps)))
         print('~~~~~~~~')
-        print('Results:')
-        for ap in aps:
-            print('{:.3f}'.format(ap))
-        print('{:.3f}'.format(np.mean(aps)))
-        print('~~~~~~~~')
-        print('')
-        print('--------------------------------------------------------------')
-        print('Results computed with the **unofficial** Python eval code.')
-        print('Results should be very close to the official MATLAB eval code.')
-        print('Recompute with `./tools/reval.py --matlab ...` for your paper.')
-        print('-- Thanks, The Management')
-        print('--------------------------------------------------------------')
+        # print('Results:')
+        # for ap in aps:
+        #     print('{:.3f}'.format(ap))
+        # print('{:.3f}'.format(np.mean(aps)))
+        # print('~~~~~~~~')
+        # print('')
+        # print('--------------------------------------------------------------')
+        # print('Results computed with the **unofficial** Python eval code.')
+        # print('Results should be very close to the official MATLAB eval code.')
+        # print('Recompute with `./tools/reval.py --matlab ...` for your paper.')
+        # print('-- Thanks, The Management')
+        # print('--------------------------------------------------------------')
+        return np.mean(aps)
 
     def evaluate_detections(self, all_boxes, output_dir=None):
         self._write_voc_results_file(all_boxes)
-        self._do_python_eval(output_dir)
+        mAP = self._do_python_eval(output_dir)
         if self.config['cleanup']:
             for cls in self._classes:
                 if cls == '__background__':
                     continue
                 filename = self._get_voc_results_file_template().format(cls)
                 os.remove(filename)
+        return mAP
 
 
     def _write_voc_results_file_with_train(self, all_boxes):
@@ -290,14 +292,14 @@ class pascal_voc(imdb):
             # if cls=='car': print('\n\nAP for {} = {:.4f}'.format(cls, ap))
             with open(os.path.join(output_dir, cls + '_pr.pkl'), 'wb') as f:
                 pickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
-        # print('Mean AP (mAP) = {:.4f}\n\n'.format(np.mean(aps)))
-        # print('~~~~~~~~')
-        # print('Results:')
-        # for ap in aps:
-        #     print('{:.3f}'.format(ap), end=', ')
-        # print('{:.3f}'.format(np.mean(aps)))
-        # print('~~~~~~~~')
-        # print('')
+        print('Mean AP (mAP) = {:.4f}\n\n'.format(np.mean(aps)))
+        print('~~~~~~~~')
+#         print('Results:')
+#         for ap in aps:
+#             print('{:.3f}'.format(ap), end=', ')
+#         print('{:.3f}'.format(np.mean(aps)))
+#         print('~~~~~~~~')
+        print('')
         # print('--------------------------------------------------------------')
         # print('Results computed with the **unofficial** Python eval code.')
         # print('Results should be very close to the official MATLAB eval code.')

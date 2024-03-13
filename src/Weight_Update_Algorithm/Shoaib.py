@@ -297,7 +297,7 @@ class Shoaib_Code(object):
                 param.grad = torch.from_numpy( gb['conv9']  )
                 
                 
-        return custom_model
+        return self.custom_model
 
     def set_weight_values_FPGA(self, Inputs, gInputs):
         """
@@ -901,7 +901,7 @@ class Shoaib_Code(object):
         self.set_weights(Inputs_with_running=Inputs_with_running)
         save_name_temp = self.args.output_dir
         # save_name_temp = os.path.join(self.args.output_dir, 'temp')
-        map = test_for_train(save_name_temp, self.custom_model, self.args, val_dataloader=self.val_dataloader, val_dataset=self.val_dataset, val_imdb=self.val_imdb)
+        map = test_for_train(save_name_temp, self.custom_model, self.args, val_dataloader=[], val_dataset=self.val_dataset, val_imdb=self.val_imdb)
         return map
     
     def get_dataset_names(self, name):

@@ -6,7 +6,7 @@ import shutil
 import os
 import warnings
 import torch
-from config import config as cfg
+from my_config import config as cfg
 # from util.bbox import generate_all_anchors, xywh2xxyy, box_transform_inv, box_ious, xxyy2xywh, box_transform
 
 import pickle
@@ -285,12 +285,35 @@ class DeepConvNetTorch(object):
     
     return out, cache, out
 
+  def forward_pred(self, out):
+      """
+      Evaluate loss and gradient for the deep convolutional network.
+      Input / output: Same API as ThreeLayerConvNet.
+      """
+      # print('Calculating the loss and its gradients for pytorch model.')
+
+      scores = out
+      bsize, _, h, w = out.shape
+      out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)
+      # Calculate losses based on loss functions(box loss, Intersection over Union(IoU) loss, class loss)
+      xy_pred = torch.sigmoid(out[:, :, 0:2]) #
+      conf_pred = torch.sigmoid(out[:, :, 4:5]) # 
+      hw_pred = torch.exp(out[:, :, 2:4])
+      class_score = out[:, :, 5:]
+      class_pred = F.softmax(class_score, dim=-1)
+      delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
+
+      # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
+      # dout = pickle.load(dout)
+      # print('\n\n',dout.dtype, dout[dout!=0])
+      return delta_pred, conf_pred, class_pred
+
   def loss(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
     """
     Evaluate loss and gradient for the deep convolutional network.
     Input / output: Same API as ThreeLayerConvNet.
     """
-    print('Calculating the loss and its gradients for pytorch model.')
+    # print('Calculating the loss and its gradients for pytorch model.')
     out = torch.tensor(out, requires_grad=True)
 
     scores = out
@@ -315,7 +338,7 @@ class DeepConvNetTorch(object):
     box_loss, iou_loss, class_loss = yolo_loss(output_variable, target_variable)
     loss = box_loss + iou_loss + class_loss
     
-    print(f"\nLoss = {loss}")
+    # print(f"\nLoss = {loss}")
     out = scores
     out.retain_grad()
     loss.backward(retain_graph=True)

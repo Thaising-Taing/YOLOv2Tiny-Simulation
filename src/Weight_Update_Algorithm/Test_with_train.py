@@ -9,7 +9,8 @@ from torch.autograd import Variable
 from pathlib import Path
 from PIL import Image
 import os
-from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
+from Weight_Update_Algorithm.yolov2_tiny import Yolov2
+# from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Dataset.factory import get_imdb
 from Dataset.roidb import RoiDataset
 from Weight_Update_Algorithm.yolo_eval import yolo_eval
@@ -50,7 +51,7 @@ def prepare_im_data(img):
 
 def test_for_train(temp_path, model, args, val_dataloader=[], val_dataset=[], val_imdb=[]):
     # args.dataset = "voc07test"
-    args.conf_thresh = 0.001
+    args.conf_thresh = 0.005
     if args.vis:
         args.conf_thresh = 0.5
     args.nms_thresh = 0.45
@@ -60,6 +61,7 @@ def test_for_train(temp_path, model, args, val_dataloader=[], val_dataset=[], va
     
     if val_dataloader==[]:
         # prepare dataset
+        print('Loading data for validation.')
         args.imdbval_name = 'voc_2007_test'
         # args.imdbval_name = 'voc_2007_test-car'
         val_imdb = get_imdb(args.imdbval_name)
@@ -67,7 +69,7 @@ def test_for_train(temp_path, model, args, val_dataloader=[], val_dataset=[], va
         val_dataset = RoiDataset(val_imdb, train=False)
         # if args.use_small_dataset: args.data_limit = 80
         # if not args.data_limit==0:
-        #     val_dataset = torch.utils.data.Subset(val_dataset, range(0, args.data_limit))
+        # val_dataset = torch.utils.data.Subset(val_dataset, range(0, args.data_limit))
         val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size*8, shuffle=False, drop_last=True, num_workers=args.num_workers, persistent_workers=True)
 
     # load model
@@ -93,13 +95,13 @@ def test_for_train(temp_path, model, args, val_dataloader=[], val_dataset=[], va
 
     all_boxes = [[[] for _ in range(dataset_size)] for _ in range(val_imdb.num_classes)]
 
-    args.output_dir = os.path.join(args.output_dir, "Outputs")
+    # args.output_dir = os.path.join(args.output_dir, "Outputs")
     os.makedirs( args.output_dir, exist_ok=True )
     det_file = os.path.join(args.output_dir, 'detections.pkl')
 
     img_id = -1
     with torch.no_grad():
-        for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), total=int(dataset_size/args.batch_size), desc="Performing validation with {} images".format(dataset_size), leave=False):
+        for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), total=int(dataset_size/args.batch_size), desc="Performing validation with {} images".format(dataset_size), leave=True):
         # for batch, (im_data, im_infos) in enumerate(val_dataloader):
         # for batch, (im_data, im_infos) in enumerate(small_val_dataloader):
             if args.use_cuda:

@@ -3,7 +3,7 @@ import time
 import ctypes
 import os
 libconv = ctypes.CDLL('./Practice_cuda.so')
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 def forward(x, w, conv_param, device):
     x = x.to(device)
