@@ -1637,6 +1637,7 @@ class App(customtkinter.CTk):
         # new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
         #                                                         Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
         #                                                         gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
+
         # new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
         #                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta])
         
@@ -1644,13 +1645,14 @@ class App(customtkinter.CTk):
         # print(self.Shoaib.Bias_Dec[self.Shoaib.Bias_Dec != 0])
         # new_inputs = [ _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec]
         # self.Shoaib.set_weights(new_inputs)
+
         # _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
         # new_weights = new_weights
         new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
                                         gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta])
         
-        _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
 
+        _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
 
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])

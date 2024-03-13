@@ -294,11 +294,11 @@ class pascal_voc(imdb):
                 pickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
         print('Mean AP (mAP) = {:.4f}\n\n'.format(np.mean(aps)))
         print('~~~~~~~~')
-        print('Results:')
-        for ap in aps:
-            print('{:.3f}'.format(ap), end=', ')
-        print('{:.3f}'.format(np.mean(aps)))
-        print('~~~~~~~~')
+#         print('Results:')
+#         for ap in aps:
+#             print('{:.3f}'.format(ap), end=', ')
+#         print('{:.3f}'.format(np.mean(aps)))
+#         print('~~~~~~~~')
         print('')
         # print('--------------------------------------------------------------')
         # print('Results computed with the **unofficial** Python eval code.')
