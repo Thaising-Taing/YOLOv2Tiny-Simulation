@@ -353,6 +353,8 @@ deps_/home/msis/training/yolov2/src/t_cbu/xdma/xdma_thread.o := \
   include/linux/string.h \
     $(wildcard include/config/BINARY_PRINTF) \
     $(wildcard include/config/FORTIFY_SOURCE) \
+  include/linux/err.h \
+  include/linux/overflow.h \
   include/uapi/linux/string.h \
   arch/x86/include/asm/string.h \
   arch/x86/include/asm/string_64.h \
@@ -385,7 +387,6 @@ deps_/home/msis/training/yolov2/src/t_cbu/xdma/xdma_thread.o := \
   arch/x86/include/asm/vdso/processor.h \
   include/linux/personality.h \
   include/uapi/linux/personality.h \
-  include/linux/err.h \
   include/linux/bottom_half.h \
   include/linux/lockdep.h \
     $(wildcard include/config/DEBUG_LOCKING_API_SELFTESTS) \
@@ -801,7 +802,6 @@ deps_/home/msis/training/yolov2/src/t_cbu/xdma/xdma_thread.o := \
     $(wildcard include/config/DEBUG_PAGE_REF) \
   include/linux/memremap.h \
   include/linux/ioport.h \
-  include/linux/overflow.h \
   include/linux/sizes.h \
   include/linux/pgtable.h \
     $(wildcard include/config/HIGHPTE) \
@@ -830,7 +830,6 @@ deps_/home/msis/training/yolov2/src/t_cbu/xdma/xdma_thread.o := \
   include/linux/kasan.h \
     $(wildcard include/config/KASAN_STACK) \
     $(wildcard include/config/KASAN_VMALLOC) \
-    $(wildcard include/config/KASAN_INLINE) \
   include/linux/huge_mm.h \
   include/linux/sched/coredump.h \
     $(wildcard include/config/CORE_DUMP_DEFAULT_ELF_HEADERS) \

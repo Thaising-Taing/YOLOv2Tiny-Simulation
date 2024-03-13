@@ -48,14 +48,14 @@ pytorch_model = Pytorch_bn("none")
 # with open('./Dataset/Dataset/pretrained/epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # model = x['model']
-checkpoint = torch.load('./Dataset/Dataset/pretrained/yolov2_epoch_548.pth')
+# checkpoint = torch.load('./Dataset/Dataset/pretrained/yolov2_epoch_548.pth')
 
-for param, val in checkpoint['model'].items():
-    for param_mod, val_mod in pytorch_model.modtorch_model.params.items():
-        if (param == param_mod):
-            pytorch_model.modtorch_model.params[param] = val
+# for param, val in checkpoint['model'].items():
+#     for param_mod, val_mod in pytorch_model.modtorch_model.params.items():
+#         if (param == param_mod):
+#             pytorch_model.modtorch_model.params[param] = val
 
-pytorch_model.get_weights()
+# pytorch_model.get_weights()
 
 # with open('./random_search_weights/scratch1/epoch_19.pkl', 'rb') as f:
 #     x = pickle.load(f)
