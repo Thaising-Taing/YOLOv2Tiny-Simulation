@@ -1853,7 +1853,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  _data = self.FPGA
         
         _w = _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec
-        checkmap_new.check( weights = _w, args=self.args)
+        mAP = checkmap_new.check( weights = _w, args=self.args)
 
         # self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
         #     [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
@@ -1872,9 +1872,9 @@ class App(customtkinter.CTk):
         #         }, self.save_name)
 
         # date_time = str(datetime.now()).replace(" ","---").split(".")[0].replace(":","-")
-        # mAP_file = self.args.output_dir + '/mAP.txt'
-        # with open(mAP_file, mode="a+") as output_file_1:
-        #     output_file_1.write(f"{date_time}: {self.map} \n")
+        mAP_file = self.args.output_dir + '/mAP.txt'
+        with open(mAP_file, mode="a+") as output_file_1:
+            output_file_1.write(f"{mAP} \n")
                 
     def Post_Epoch(self): 
         if self.mode == "Pytorch"      :  _data =  self.Pytorch
