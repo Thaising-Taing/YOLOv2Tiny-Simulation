@@ -48,14 +48,14 @@ pytorch_model = Pytorch_bn("none")
 # with open('./Dataset/Dataset/pretrained/epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # model = x['model']
-checkpoint = torch.load('./Dataset/Dataset/pretrained/yolov2_epoch_548.pth')
+# checkpoint = torch.load('./Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth')
 
-for param, val in checkpoint['model'].items():
-    for param_mod, val_mod in pytorch_model.modtorch_model.params.items():
-        if (param == param_mod):
-            pytorch_model.modtorch_model.params[param] = val
+# for param, val in checkpoint['model'].items():
+#     for param_mod, val_mod in pytorch_model.modtorch_model.params.items():
+#         if (param == param_mod):
+#             pytorch_model.modtorch_model.params[param] = val
 
-pytorch_model.get_weights()
+# pytorch_model.get_weights()
 
 # with open('./random_search_weights/scratch1/epoch_19.pkl', 'rb') as f:
 #     x = pickle.load(f)
@@ -218,10 +218,12 @@ def check(weights=[], pth='', args=[]):
                     plt.imshow(im2show)
                     plt.show()
 
-    with open(det_file, 'wb') as f:
-        pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+    # with open(det_file, 'wb') as f:
+    #     pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
 
-    val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
+    mAP = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
+    
+    return mAP
     
 
 if __name__ == '__main__':

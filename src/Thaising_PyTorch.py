@@ -69,7 +69,12 @@ class TorchSimulation(object):
         self.image          = data.im_data
         self.im_data        = data.im_data
         
-        im_data             = self.im_data
+        self.gt_boxes = self.gt_boxes.cuda()
+        self.gt_classes = self.gt_classes.cuda()
+        self.num_boxes = self.num_boxes.cuda()
+        self.num_obj = self.num_obj.cuda()
+        
+        im_data             = self.im_data.cuda()
         Weight_Tensor       = self.Weight_Dec
         Gamma_Tensor        = self.Gamma_Dec
         Beta_Tensor         = self.Beta_Dec
@@ -82,6 +87,15 @@ class TorchSimulation(object):
         cache = {}
         temp_Out = {}
         temp_cache = {}
+        
+        for i in range(8):
+            Weight_Tensor[i] = Weight_Tensor[i].cuda()
+            Gamma_Tensor[i] = Gamma_Tensor[i].cuda()
+            Beta_Tensor[i] = Beta_Tensor[i].cuda()
+            running_mean[i] = running_mean[i].cuda()
+            running_var[i] = running_var[i].cuda()
+        Weight_Tensor[8] = Weight_Tensor[8].cuda()
+        bias = bias.cuda()
 
         # Create the Directory
         if self.save_bfloat16:
@@ -245,7 +259,7 @@ class TorchSimulation(object):
         # return Output_Image, cache
         
     def Calculate_Loss(self,data):
-        self.Loss, self.Loss_Gradient = loss(out=self.Output_Image, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_boxes)
+        self.loss, self.Loss_Gradient = loss(out=self.Output_Image, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_boxes)
         if self.save_debug_data: Save_File(f"{self.directory_path}/Backward_Loss_Grad", self.Loss_Gradient)
         if self.save_debug_data: Save_File(f"{self.directory_path}/Backward_Loss", self.Loss)
 
@@ -395,14 +409,14 @@ class TorchSimulation(object):
         if self.save_bfloat16: Save_File(f"{self.directory_path_bfloat}/Backward_Beta_Gradient_Layer0", Beta_Gradient_Layer0.to(torch.bfloat16))
        
         # Gradient Value for Weight Update
-        self.gWeight = [Weight_Gradient_Layer0, Weight_Gradient_Layer1, Weight_Gradient_Layer2, Weight_Gradient_Layer3, 
-                        Weight_Gradient_Layer4, Weight_Gradient_Layer5, Weight_Gradient_Layer6, Weight_Gradient_Layer7, 
-                        Weight_Gradient_Layer8]
+        self.gWeight = [Weight_Gradient_Layer0.cuda(), Weight_Gradient_Layer1.cuda(), Weight_Gradient_Layer2.cuda(), Weight_Gradient_Layer3.cuda(), 
+                        Weight_Gradient_Layer4.cuda(), Weight_Gradient_Layer5.cuda(), Weight_Gradient_Layer6.cuda(), Weight_Gradient_Layer7.cuda(), 
+                        Weight_Gradient_Layer8.cuda()]
         
-        self.gBias  = Bias_Grad
+        self.gBias  = Bias_Grad.cuda()
         
-        self.gGamma = [Gamma_Gradient_Layer0, Gamma_Gradient_Layer1, Gamma_Gradient_Layer2, Gamma_Gradient_Layer3, 
-                        Gamma_Gradient_Layer4, Gamma_Gradient_Layer5, Gamma_Gradient_Layer6, Gamma_Gradient_Layer7]
+        self.gGamma = [Gamma_Gradient_Layer0.cuda(), Gamma_Gradient_Layer1.cuda(), Gamma_Gradient_Layer2.cuda(), Gamma_Gradient_Layer3.cuda(), 
+                        Gamma_Gradient_Layer4.cuda(), Gamma_Gradient_Layer5.cuda(), Gamma_Gradient_Layer6.cuda(), Gamma_Gradient_Layer7.cuda()]
         
-        self.gBeta  = [Beta_Gradient_Layer0, Beta_Gradient_Layer1, Beta_Gradient_Layer2, Beta_Gradient_Layer3, 
-                        Beta_Gradient_Layer4, Beta_Gradient_Layer5,Beta_Gradient_Layer6, Beta_Gradient_Layer7]
+        self.gBeta  = [Beta_Gradient_Layer0.cuda(), Beta_Gradient_Layer1.cuda(), Beta_Gradient_Layer2.cuda(), Beta_Gradient_Layer3.cuda(), 
+                        Beta_Gradient_Layer4.cuda(), Beta_Gradient_Layer5.cuda(),Beta_Gradient_Layer6.cuda(), Beta_Gradient_Layer7.cuda()]
