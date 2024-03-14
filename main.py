@@ -69,6 +69,8 @@ warnings.filterwarnings("ignore")
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.system('clear')
 
+torch.manual_seed(3407)
+
 DDR_SIZE = 0x10000
 MAX_LINE_LENGTH = 1000
 
@@ -1100,7 +1102,7 @@ class App(customtkinter.CTk):
                 if self.stop_process: break
                 
                 # Update LR
-                self.Adjust_Learning_Rate()
+                # self.Adjust_Learning_Rate()
                 
                 # Progress bar info
                 # _lr_txt  = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
@@ -1129,7 +1131,7 @@ class App(customtkinter.CTk):
                     self.Calculate_Loss()
                     self.Before_Backward() ######################## - Individual Functions
                     self.Backward() ############################### - Individual Functions
-                    self.Weight_Update() 
+                    self.Weight_Update(self.epoch)
 
                     # if step>20:
                     #     break
@@ -1194,7 +1196,7 @@ class App(customtkinter.CTk):
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.Adjust_Learning_Rate()
+            # self.Adjust_Learning_Rate()
             print(f"Validation weights.")
             self.Check_mAP()
         self.Show_Text(f"Validation is finished")
@@ -1310,7 +1312,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="", type=str)
                             # default="Dataset/Dataset/pretrained/scratch.pth", type=str)
-                            default="Dataset/Dataset/pretrained/scratch.pth", type=str)
+                            default="./weights/yolov2_epoch_2.pth", type=str)
                             # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
                             # default="Dataset/Dataset/pretrained/Gitae--2024-01-10-10_42_29.387218-Epoch_47.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
@@ -1429,7 +1431,7 @@ class App(customtkinter.CTk):
         if self.args.dataset=='car'        : self.imdb_train_name = 'voc_2007_trainval-car'
         if self.args.dataset=='car-64'     : self.imdb_train_name = 'voc_2007_trainval-car-64'
         if self.args.dataset=='random-64'  : self.imdb_train_name = 'voc_2007_trainval-random-64'
-        if self.args.dataset=='random-128' : self.imdb_train_name = 'voc_2007_trainval-random-128'
+        if self.args.dataset=='random-128' : self.imdb_train_name = 'voc_2007_trainval-random-128' 
         if self.args.dataset=='random-256' : self.imdb_train_name = 'voc_2007_trainval-random-256'
         if self.args.dataset=='random-512' : self.imdb_train_name = 'voc_2007_trainval-random-512'
         if self.args.dataset=='random-5517': self.imdb_train_name = 'voc_2012_train-5517'
@@ -1622,7 +1624,7 @@ class App(customtkinter.CTk):
         _data.Weight, _data.Bias, _data.Gamma_WeightBN, _data.BetaBN, _data.Running_Mean_Dec, _data.Running_Var_Dec = loaded_weights
 
 
-    def Weight_Update(self):
+    def Weight_Update(self, epochs):
         if self.mode == "Pytorch"      :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
@@ -1649,7 +1651,7 @@ class App(customtkinter.CTk):
         # _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
         # new_weights = new_weights
         new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
-                                        gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta])
+                                        gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)
         
 
         _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights

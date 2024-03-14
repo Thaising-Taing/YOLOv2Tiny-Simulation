@@ -8,10 +8,16 @@ from pathlib import Path
 #     learning_rate = 0.01
 
 
-def new_weight_update(Inputs, gInputs):
+def new_weight_update(Inputs=[], gInputs=[], epochs = 0):
     weight, bias, gamma, beta = Inputs
     gweight, gbias, ggamma, gbeta = gInputs
-    learning_rate = 0.01
+    # learning_rate = 0.001
+    if epochs < 10:
+        learning_rate = 1e-2
+    elif epochs > 10 and epochs < 10:
+        learning_rate = 1e-3
+    elif epochs > 20 and epochs < 20:
+        learning_rate = 1e-4
     for i in range(8):
         weight[i] = weight[i].cuda()
         gamma[i] = gamma[i].cuda()

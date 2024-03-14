@@ -28,8 +28,8 @@ loss.txt
 loss_gradient.txt
 mAP.txt
 result_old/
-
-# Byte-compiled / optimized / DLL files
+*.pth
+# Byte-compiled / optimized / DLL fi1es
 __pycache__/
 *.py[cod]
 *$py.class
