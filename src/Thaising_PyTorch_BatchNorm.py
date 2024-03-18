@@ -56,7 +56,7 @@ class TorchSimulation(object):
             self.params['running_var{i}'] = self.Running_Var_Dec[i]
             self.params['gamma{i}'] = self.Gamma[i]
             self.params['beta{i}'] = self.Beta[i]
-        self.params['W9'] = self.Weight[9]
+        self.params['W8'] = self.Weight[8]
         self.params['bias'] = self.Bias
         
         self.Mode                 = self.self.Mode     
