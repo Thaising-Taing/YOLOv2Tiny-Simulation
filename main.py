@@ -46,8 +46,8 @@ from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 # from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
-from Thaising_PyTorch import TorchSimulation
-# from Thaising_PyTorch_BatchNorm import TorchSimulation
+# from Thaising_PyTorch import TorchSimulation
+from Thaising_PyTorch_BatchNorm import TorchSimulation
 from Thaising_Python import PythonSimulation
 from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
@@ -1798,14 +1798,24 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data = self.FPGA
 
-        _data.get_weights()
-        output_dir = "weights"
-        save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
-        # please change to your named model here
-        # for example _data.fpga_model
-        torch.save({
-            'model': _data.modtorch_model.params
-        }, save_name)
+        if self.mode == "Pytorch_BN":
+            _data.get_weights()
+            output_dir = "weights"
+            save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
+            # please change to your named model here
+            # for example _data.fpga_model
+            torch.save({
+                'model': _data.modtorch_model.params
+            }, save_name)
+        elif self.mode == "PytorchSim":
+            output_dir = "weights"
+            save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
+            # please change to your named model here
+            # for example _data.fpga_model
+            torch.save({
+                'model': _data.params
+            }, save_name)
+
     # def save_weights(self, name=''):
     #     model = self.Shoaib.custom_model
     #     save_dir = os.path.join(self.args.output_dir, "trained_weights")
