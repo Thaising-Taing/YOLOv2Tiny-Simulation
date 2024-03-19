@@ -34,8 +34,30 @@ class TorchSimulation(object):
         self.save_debug_data= False
         self.save_txt = False
         
-        self.save_debug_data1= True
-        self.save_bfloat16 = True
+        self.save_debug_data1= False
+        self.save_bfloat16 = False
+
+        self.Weight = [[] for _ in range(9)]
+        self.Bias = None
+        self.Gamma = [[] for _ in range(8)]
+        self.Beta = [[] for _ in range(8)]
+        self.Running_Mean_Dec = [[] for _ in range(8)]
+        self.Running_Var_Dec = [[] for _ in range(8)]
+        self.gWeight = [[] for _ in range(9)]
+        self.gBias = None
+        self.gGamma = [[] for _ in range(8)]
+        self.gBeta = [[] for _ in range(8)]
+
+        self.params = {}
+
+        for i in range(8):
+            self.params['W{i}'] = self.Weight[0]
+            self.params['running_mean{i}'] = self.Running_Mean_Dec[i]
+            self.params['running_var{i}'] = self.Running_Var_Dec[i]
+            self.params['gamma{i}'] = self.Gamma[i]
+            self.params['beta{i}'] = self.Beta[i]
+        self.params['W8'] = self.Weight[8]
+        self.params['bias'] = self.Bias
         
         self.Mode                 = self.self.Mode     
         self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
@@ -59,6 +81,18 @@ class TorchSimulation(object):
         else:
             [self.Weight,     self.Bias,     self.Gamma,     self.Beta     ] = values
             [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec ] = values
+
+        for i in range(8):
+            self.params['W{i}'] = self.Weight[0]
+            self.params['running_mean{i}'] = self.Running_Mean_Dec[i]
+            self.params['running_var{i}'] = self.Running_Var_Dec[i]
+            self.params['gamma{i}'] = self.Gamma[i]
+            self.params['beta{i}'] = self.Beta[i]
+        self.params['W8'] = self.Weight[8]
+        self.params['bias'] = self.Bias
+        
+
+
         
     def Forward(self, data):
         
