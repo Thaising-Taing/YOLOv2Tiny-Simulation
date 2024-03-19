@@ -1800,16 +1800,16 @@ class App(customtkinter.CTk):
 
         if self.mode == "Pytorch_BN":
             _data.get_weights()
-            output_dir = "weights"
-            save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
+            # output_dir = "weights"
+            save_name = os.path.join(self.args.output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
             # please change to your named model here
             # for example _data.fpga_model
             torch.save({
                 'model': _data.modtorch_model.params
             }, save_name)
         elif self.mode == "PytorchSim":
-            output_dir = "weights"
-            save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
+            # output_dir = "weights"
+            save_name = os.path.join(self.args.output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
             # please change to your named model here
             # for example _data.fpga_model
             torch.save({

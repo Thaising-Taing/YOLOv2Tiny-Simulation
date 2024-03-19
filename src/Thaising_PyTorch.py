@@ -37,6 +37,7 @@ class TorchSimulation(object):
         self.save_debug_data1= False
         self.save_bfloat16 = False
 
+        self.Weight = [[] for _ in range(9)]
         self.Bias = None
         self.Gamma = [[] for _ in range(8)]
         self.Beta = [[] for _ in range(8)]
@@ -46,6 +47,17 @@ class TorchSimulation(object):
         self.gBias = None
         self.gGamma = [[] for _ in range(8)]
         self.gBeta = [[] for _ in range(8)]
+        
+        self.params = {}
+        
+        for i in range(8):
+            self.params['W{i}'] = self.Weight[i]
+            self.params['running_mean{i}'] = self.Running_Mean_Dec[i]
+            self.params['running_var{i}'] = self.Running_Var_Dec[i]
+            self.params['gamma{i}'] = self.Gamma[i]
+            self.params['beta{i}'] = self.Beta[i]
+        self.params['W8'] = self.Weight[8]
+        self.params['bias'] = self.Bias
         
         self.Mode                 = self.self.Mode     
         self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
@@ -70,6 +82,15 @@ class TorchSimulation(object):
             [self.Weight,     self.Bias,     self.Gamma,     self.Beta     ] = values
             [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec ] = values
         
+        for i in range(8):
+            self.params['W{i}'] = self.Weight[i]
+            self.params['running_mean{i}'] = self.Running_Mean_Dec[i]
+            self.params['running_var{i}'] = self.Running_Var_Dec[i]
+            self.params['gamma{i}'] = self.Gamma[i]
+            self.params['beta{i}'] = self.Beta[i]
+        self.params['W8'] = self.Weight[8]
+        self.params['bias'] = self.Bias
+        
     def Forward(self, data):
         
         self.gt_boxes       = data.gt_boxes  
@@ -78,6 +99,11 @@ class TorchSimulation(object):
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
         self.im_data        = data.im_data
+        
+        self.gt_boxes = self.gt_boxes.cuda()
+        self.gt_classes = self.gt_classes.cuda()
+        self.num_boxes = self.num_boxes.cuda()
+        self.num_obj = self.num_obj.cuda()
         
         im_data             = self.im_data.cuda()
         Weight_Tensor       = self.Weight_Dec
@@ -92,11 +118,6 @@ class TorchSimulation(object):
         cache = {}
         temp_Out = {}
         temp_cache = {}
-        
-        self.gt_boxes = self.gt_boxes.cuda()
-        self.gt_classes = self.gt_classes.cuda()
-        self.num_boxes = self.num_boxes.cuda()
-        self.num_obj = self.num_obj.cuda()
         
         for i in range(8):
             Weight_Tensor[i] = Weight_Tensor[i].cuda()
