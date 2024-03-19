@@ -14,10 +14,12 @@ def new_weight_update(Inputs=[], gInputs=[], epochs = 0):
     # learning_rate = 0.001
     if epochs <= 7:
         learning_rate = 1e-2
-    elif epochs >= 8:
+    elif epochs <= 15:
         learning_rate = 1e-3
-    elif epochs >= 20:
+    elif epochs <= 30:
         learning_rate = 1e-4
+    else:
+        learning_rate = 1e-5
     for i in range(8):
         weight[i] = weight[i].cuda()
         gamma[i] = gamma[i].cuda()
