@@ -91,9 +91,6 @@ class TorchSimulation(object):
         self.params['W8'] = self.Weight[8]
         self.params['bias'] = self.Bias
         
-
-
-        
     def Forward(self, data):
         
         self.gt_boxes       = data.gt_boxes  
