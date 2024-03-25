@@ -6,6 +6,7 @@ import torch
 import os
 from pathlib import Path
 
+torch.manual_seed(3407)
 
 def new_weight_update(Inputs=[], gInputs=[], epochs = 0):
     weight, bias, gamma, beta = Inputs
