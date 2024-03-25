@@ -29,7 +29,8 @@ sys.path.append(os.path.join(os.getcwd(),"src/Post_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
 sys.path.append(os.path.join(os.getcwd(),"src/Wathna"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
-from Weight_Update_Algorithm.new_weight_update import new_weight_update
+from Weight_Update_Algorithm.new_weight_update import new_weight_update, new_weight_update_sim
+
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
 import time
@@ -1650,8 +1651,10 @@ class App(customtkinter.CTk):
 
         # _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
         # new_weights = new_weights
+        # new_weights = new_weight_update_two(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
+        #                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)  
         new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
-                                        gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)
+                                        gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)    
         
 
         _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
