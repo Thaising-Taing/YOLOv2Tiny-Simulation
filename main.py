@@ -47,8 +47,8 @@ from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 # from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
-# from Thaising_PyTorch import TorchSimulation
-from Thaising_PyTorch_BatchNorm import TorchSimulation
+from Thaising_PyTorch import TorchSimulation
+# from Thaising_PyTorch_BatchNorm import TorchSimulation
 from Thaising_Python import PythonSimulation
 from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn

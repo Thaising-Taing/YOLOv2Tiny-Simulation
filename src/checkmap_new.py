@@ -47,7 +47,7 @@ from src.Thaising_PyTorch_BatchNorm import *
 
 from tqdm import tqdm
 
-pytorch_model = Pytorch_bn("none")
+# pytorch_model = Pytorch_bn("none")
 # with open('./Dataset/Dataset/pretrained/epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # model = x['model']
