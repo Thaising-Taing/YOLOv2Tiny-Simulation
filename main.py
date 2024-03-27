@@ -47,8 +47,8 @@ from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 # from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
-# from Thaising_PyTorch import TorchSimulation
-from Thaising_PyTorch_BatchNorm import TorchSimulation
+from Thaising_PyTorch import TorchSimulation
+# from Thaising_PyTorch_BatchNorm import TorchSimulation
 from Thaising_Python import PythonSimulation
 from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
@@ -1677,7 +1677,7 @@ class App(customtkinter.CTk):
                                         gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], \
                                             epochs = epochs, optimizer_config=_data.optimizer_config)
         
-        # _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
+        _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
         _data.optimizer_config = optims
 
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])

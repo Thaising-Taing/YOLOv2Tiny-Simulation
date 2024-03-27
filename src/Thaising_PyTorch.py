@@ -51,11 +51,11 @@ class TorchSimulation(object):
         self.params = {}
         
         for i in range(8):
-            self.params['W{i}'] = self.Weight[i]
-            self.params['running_mean{i}'] = self.Running_Mean_Dec[i]
-            self.params['running_var{i}'] = self.Running_Var_Dec[i]
-            self.params['gamma{i}'] = self.Gamma[i]
-            self.params['beta{i}'] = self.Beta[i]
+            self.params['W{}'.format(i)] = self.Weight[i]
+            self.params['running_mean{}'.format(i)] = self.Running_Mean_Dec[i]
+            self.params['running_var{}'.format(i)] = self.Running_Var_Dec[i]
+            self.params['gamma{}'.format(i)] = self.Gamma[i]
+            self.params['beta{}'.format(i)] = self.Beta[i]
         self.params['W8'] = self.Weight[8]
         self.params['b8'] = self.Bias
 
@@ -89,11 +89,11 @@ class TorchSimulation(object):
             [self.Weight_Dec, self.Bias_Dec, self.Gamma_Dec, self.Beta_Dec ] = values
         
         for i in range(8):
-            self.params['W{i}'] = self.Weight[i]
-            self.params['running_mean{i}'] = self.Running_Mean_Dec[i]
-            self.params['running_var{i}'] = self.Running_Var_Dec[i]
-            self.params['gamma{i}'] = self.Gamma[i]
-            self.params['beta{i}'] = self.Beta[i]
+            self.params['W{}'.format(i)] = self.Weight[i]
+            self.params['running_mean{}'.format(i)] = self.Running_Mean_Dec[i]
+            self.params['running_var{}'.format(i)] = self.Running_Var_Dec[i]
+            self.params['gamma{}'.format(i)] = self.Gamma[i]
+            self.params['beta{}'.format(i)] = self.Beta[i]
         self.params['W8'] = self.Weight[8]
         self.params['b8'] = self.Bias
         

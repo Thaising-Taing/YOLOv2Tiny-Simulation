@@ -115,13 +115,13 @@ def sgd_momentum_update(Inputs=[], gInputs=[], epochs = 0, optimizer_config = No
 		# for i in range(8):
 			config = optimizer_config['gamma{}'.format(i)]
 			config['learning_rate'] = learning_rate
-			gamma[i], next_config = sgd_momentum(gamma[i], ggamma[i], config)
+			gamma[i], next_config = sgd_momentum(gamma[i], ggamma[i].reshape(-1), config)
 			optimizer_config['gamma{}'.format(i)] = next_config
 		
 		# for i in range(8):
 			config = optimizer_config['beta{}'.format(i)]
 			config['learning_rate'] = learning_rate
-			beta[i], next_config = sgd_momentum(beta[i], gbeta[i], config)
+			beta[i], next_config = sgd_momentum(beta[i], gbeta[i].reshape(-1), config)
 			optimizer_config['beta{}'.format(i)] = next_config
 
 		config = optimizer_config['W8']
