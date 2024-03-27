@@ -1677,7 +1677,7 @@ class App(customtkinter.CTk):
                                         gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], \
                                             epochs = epochs, optimizer_config=_data.optimizer_config)
         
-        # _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
+        _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
         _data.optimizer_config = optims
 
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])

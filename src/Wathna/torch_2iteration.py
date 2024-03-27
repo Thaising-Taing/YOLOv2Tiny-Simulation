@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from my_config import config as cfg
+from config import config as cfg
 from pathlib import Path
 from torch.autograd import Variable
 import numpy as np
@@ -2471,6 +2471,7 @@ class Torch_SpatialBatchNorm(object):
         avg = avg.to(running_mean.device)
         scale = scale.to(running_mean.device)
         
+        # print(output.shape, gamma.shape, beta.shape)
         output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
         
         running_mean = running_mean * momentum + (1 - momentum) * avg
