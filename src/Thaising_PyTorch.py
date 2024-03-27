@@ -57,7 +57,7 @@ class TorchSimulation(object):
             self.params['gamma{}'.format(i)] = self.Gamma[i]
             self.params['beta{}'.format(i)] = self.Beta[i]
         self.params['W8'] = self.Weight[8]
-        self.params['bias'] = self.Bias
+        self.params['b8'] = self.Bias
 
         self.optimizer_config = {}
         optim_config = {'learning_rate': 0.01, 'momentum': 0.9}
@@ -95,7 +95,7 @@ class TorchSimulation(object):
             self.params['gamma{}'.format(i)] = self.Gamma[i]
             self.params['beta{}'.format(i)] = self.Beta[i]
         self.params['W8'] = self.Weight[8]
-        self.params['bias'] = self.Bias
+        self.params['b8'] = self.Bias
         
     def Forward(self, data):
         
