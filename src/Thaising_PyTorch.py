@@ -58,6 +58,12 @@ class TorchSimulation(object):
             self.params['beta{i}'] = self.Beta[i]
         self.params['W8'] = self.Weight[8]
         self.params['bias'] = self.Bias
+
+        self.optimizer_config = {}
+        optim_config = {'learning_rate': 0.01, 'momentum': 0.9}
+        for p, _ in self.params.items():
+            d = {k: v for k, v in optim_config.items()}
+            self.optimizer_config[p] = d
         
         self.Mode                 = self.self.Mode     
         self.Brain_Floating_Point = self.self.Brain_Floating_Point                     

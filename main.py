@@ -29,7 +29,7 @@ sys.path.append(os.path.join(os.getcwd(),"src/Post_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
 sys.path.append(os.path.join(os.getcwd(),"src/Wathna"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
-from Weight_Update_Algorithm.new_weight_update import new_weight_update, new_weight_update_two
+from Weight_Update_Algorithm.new_weight_update import new_weight_update, new_weight_update_two, sgd_momentum_update
 
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
@@ -83,7 +83,7 @@ save_debug_data = False
 # with open('./epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # Pytorch_bn = x['model']
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '7'
 
 class App(customtkinter.CTk):
 
@@ -1078,7 +1078,7 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
         print(f"Validation weights before start of training.")
-        checkmap_new.check( pth = self.args.pretrained, args=self.args)
+        # checkmap_new.check( pth = self.args.pretrained, args=self.args)
         # checkmap_new.check( weights = self.load_weights_from_pth(_path = self.args.pretrained), args=self.args)
 
         repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
@@ -1093,12 +1093,12 @@ class App(customtkinter.CTk):
         
         # Loop for total number of epochs
         _full_dataset_loop = tqdm(range(self.args.start_epoch, self.args.max_epochs), total=self.args.max_epochs   ,   leave=True)
-        for self.epoch in _full_dataset_loop:
+        for self.epoch in range(self.args.max_epochs):
             _full_dataset_loop.set_description(   f"{Fore.GREEN+Style.BRIGHT}Epoch equal to full dataset")
             if self.stop_process: break
             
             # Loop to repeat current epoch until the weight updates are equal to full data weight updates
-            _current_dataset_loop = tqdm(range(repetition), total=repetition, leave=True)
+            _current_dataset_loop = tqdm(range(1), total=1, leave=True)
             for _e in _current_dataset_loop:
                 if self.stop_process: break
                 
@@ -1116,6 +1116,10 @@ class App(customtkinter.CTk):
                 
                 # Loop for current epoch - all batches
                 _current_epoch_loop = tqdm(range(self.iters_per_epoch_train),leave=True)
+
+
+            
+
                 for _batch, step in enumerate(_current_epoch_loop):
                     if self.stop_process: break
                     _current_epoch_loop.set_description(  f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - Batch {_batch} - Loss {self.Loss_Val}")
@@ -1130,13 +1134,19 @@ class App(customtkinter.CTk):
                     self.Forward() ################################ - Individual Functions
                     # self.Visualize()
                     self.Calculate_Loss()
+
+                    # self._data.Pytorch_bn.optimizer_config = {}
+                    # optim_config = {'learning_rate': 0.01, 'momentum': 0.9}
+                    # for p, _ in self._data.Pytorch_bn.params.items():
+                    #     d = {k: v for k, v in optim_config.items()}
+                    #     self.optimizer_config[p] = d
+                        
                     self.Before_Backward() ######################## - Individual Functions
                     self.Backward() ############################### - Individual Functions
                     self.Weight_Update(self.epoch)
 
                     # if step>20:
                     #     break
-                    
             self.Check_mAP()
             self.save_weights(self.epoch)
         #     self.Save_Pickle()
@@ -1312,8 +1322,9 @@ class App(customtkinter.CTk):
                             help='list servers, storage, or both (default: %(default)s)')
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="", type=str)
-                            # default="Dataset/Dataset/pretrained/scratch.pth", type=str)
-                            default="./weights/yolov2_epoch_2.pth", type=str)
+                            default="Dataset/Dataset/pretrained/scratch.pth", type=str)
+                            # default="./weights/yolov2_epoch_2.pth", type=str)
+                            # default="Dataset/Dataset/pretrained/yolov2_epoch_80.pth", type=str)
                             # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
                             # default="Dataset/Dataset/pretrained/Gitae--2024-01-10-10_42_29.387218-Epoch_47.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
@@ -1652,12 +1663,22 @@ class App(customtkinter.CTk):
         # _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
         # new_weights = new_weights
         # new_weights = new_weight_update_two(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
-        #                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)  
-        new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
-                                        gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)    
-        
+        #                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)
+    
 
-        _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
+        # new_weights = new_weight_update_two(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
+        #                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)
+                
+        # parameters = ['W0', 'W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8', 'B8', \
+        #         'gamma0', 'gamma1', 'gamma2', 'gamma3', 'gamma4', 'gamma5', 'gamm6', 'gamma7',
+        #         'beta0', 'beta1', 'beta2', 'beta3', 'beta4', 'beta5', 'beta6', 'beta7']
+
+        new_weights, optims = sgd_momentum_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
+                                        gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], \
+                                            epochs = epochs, optimizer_config=_data.optimizer_config)
+        
+        # _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
+        _data.optimizer_config = optims
 
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
@@ -1803,20 +1824,20 @@ class App(customtkinter.CTk):
 
         if self.mode == "Pytorch_BN":
             _data.get_weights()
-            # output_dir = "weights"
-            save_name = os.path.join(self.args.output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
+            output_dir = "weights_bn"
+            save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
             # please change to your named model here
             # for example _data.fpga_model
             torch.save({
                 'model': _data.modtorch_model.params
             }, save_name)
-        elif self.mode == "PytorchSim":
-            # output_dir = "weights"
-            save_name = os.path.join(self.args.output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
+        elif self.mode == "Pytorch":
+            output_dir = "weights_2iteration"
+            save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
             # please change to your named model here
             # for example _data.fpga_model
             torch.save({
-                'model': _data.params
+                'model': _data.modtorch_model.params
             }, save_name)
 
     # def save_weights(self, name=''):

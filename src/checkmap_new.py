@@ -41,6 +41,9 @@ from Dataset.pascal_voc import *
 from util.visualize import *
 from Dataset.yolo_eval import *
 from src.batchnorm_pytorch import *
+from src.Wathna_pytorch import *
+from src.Thaising_PyTorch import *
+from src.Thaising_PyTorch_BatchNorm import *
 
 from tqdm import tqdm
 
@@ -119,8 +122,14 @@ def prepare_im_data(img):
     return im_data, im_info
 
 
-def check(weights=[], pth='', args=[]):
-    pytorch_model = Pytorch_bn("none")
+def check(weights=[], pth='', args=[], model = "Pytorch_BN"):
+
+    if model == "Pytorch_BN":
+        pytorch_model = Pytorch_bn("none")
+    elif model == "Pytorch":
+        pytorch_model = Pytorch("none")
+    elif model == "PytorchSim":
+        pytorch_model = TorchSimulation()
 
     if weights==[]:      
         checkpoint = torch.load(pth)
@@ -185,7 +194,7 @@ def check(weights=[], pth='', args=[]):
     with torch.no_grad():
         for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), desc='Checking mAP'):
             if args.use_cuda or True:
-                im_data_variable = Variable(im_data).cuda()
+                im_data_variable = Variable(im_data).to(pytorch_model._device)
             else:
                 im_data_variable = Variable(im_data)
 

@@ -73,7 +73,7 @@ class DeepConvNetTorch(object):
     self.num_filters = num_filters
   
     if device == 'cuda':
-      device = 'cuda:0'
+      device = 'cuda:7'
     
     ############################################################################
     # TO DO: Initialize the parameters for the DeepConvNet. All weights,        #

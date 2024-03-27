@@ -9,6 +9,7 @@ from Pre_Processing_Scratch.Pre_Processing import *
 from src.Wathna.torch_original import *
 
 
+
 def Save_File(_path, data):
     _dir = _path.split('/')[1:-1]
     if len(_dir)>1: _dir = os.path.join(_dir)
@@ -40,6 +41,7 @@ class Pytorch_bn(object):
         self.gGamma = [[] for _ in range(8)]
         self.gBeta = [[] for _ in range(8)]
 
+
         if parent != "none":
             self.Mode                 = self.self.Mode     
             self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
@@ -59,6 +61,16 @@ class Pytorch_bn(object):
                                         weight_scale='kaiming',
                                         batchnorm=True,
                                         dtype=torch.float32, device='cuda')
+        
+        self._device = self.modtorch_model.params['W0'].device
+
+
+        self.optimizer_config = {}
+        optim_config = {'learning_rate': 0.01, 'momentum': 0.9}
+        for p, _ in self.modtorch_model.params.items():
+            d = {k: v for k, v in optim_config.items()}
+            self.optimizer_config[p] = d
+            
 
     def get_grads(self):
         self.gWeight, self.gBias, self.gGamma, self.gBeta, self.gRunning_Mean_Dec, self.gRunning_Var_Dec = \
@@ -200,7 +212,7 @@ class Pytorch_bn(object):
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
         
-        X = data.im_data.cuda()
+        X = data.im_data.to(self._device)
         self.out, self.cache, self.Out_all_layers = self.modtorch_model.forward(X)
         # Save_File("./Wathna_PyTorch/Output", self.out)
 
@@ -229,14 +241,14 @@ class Pytorch_bn(object):
         
     def Calculate_Loss(self,data):
         out = self.out
-        out = out.cuda()
-        self.gt_boxes = self.gt_boxes.cuda()
-        self.gt_classes = self.gt_classes.cuda()
-        self.num_boxes = self.num_boxes.cuda()
+        out = out.to(self._device)
+        self.gt_boxes = self.gt_boxes.to(self._device)
+        self.gt_classes = self.gt_classes.to(self._device)
+        self.num_boxes = self.num_boxes.to(self._device)
         self.loss, self.dout = self.modtorch_model.loss(out, self.gt_boxes, self.gt_classes, self.num_boxes)
         # Save_File("./Wathna_PyTorch/Loss_Grad", self.dout)
         
-    def Backward(self,data):
+    def Backward(self, data):
         self.dout, self.grads = self.modtorch_model.backward(self.dout, self.cache)
         self.get_weights()
         self.get_grads()
