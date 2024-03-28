@@ -29,6 +29,8 @@ sys.path.append(os.path.join(os.getcwd(),"src/Post_Processing_Scratch"))
 sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
 sys.path.append(os.path.join(os.getcwd(),"src/Wathna"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
+from Weight_Update_Algorithm.new_weight_update import new_weight_update, new_weight_update_two, sgd_momentum_update
+
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
 import time
@@ -40,9 +42,9 @@ import pickle
 from Post_Processing_Scratch.Post_Processing_2Iterations_Training_Inference import *
 from Detection.Detection import *
 from Weight_Update_Algorithm.weight_update import *
-from Weight_Update_Algorithm.yolov2_tiny import *
+from Weight_Update_Algorithm.yolov2_tiny import Yolov2
 from Weight_Update_Algorithm.Shoaib import Shoaib_Code
-from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
+# from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation
@@ -50,7 +52,8 @@ from Thaising_PyTorch import TorchSimulation
 from Thaising_Python import PythonSimulation
 from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
-
+from Weight_Update_Algorithm.new_weight_update import new_weight_update
+import checkmap_new
 # from Python_CUDA32 import CUDA32
 # from Python_CUDA16 import CUDA16
 # from RFFP_CUDA import RFFP_CUDA
@@ -67,6 +70,8 @@ warnings.filterwarnings("ignore")
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.system('clear')
 
+torch.manual_seed(3407)
+
 DDR_SIZE = 0x10000
 MAX_LINE_LENGTH = 1000
 
@@ -75,9 +80,13 @@ customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "gre
 
 save_debug_data = False
 
+# with open('./epoch_548.pkl', 'rb') as f:
+#     x = pickle.load(f)
+# Pytorch_bn = x['model']
+os.environ["CUDA_VISIBLE_DEVICES"] = '7'
 
 class App(customtkinter.CTk):
-    
+
     def __init__(self):
         super().__init__()
         
@@ -121,6 +130,7 @@ class App(customtkinter.CTk):
         
         self.bestmAP=0
         self.bestmAPepoch=0
+        self.Loss_Val = 1000
 
         # configure window
         self.title("Yolov2 Accelerator.py")
@@ -1067,9 +1077,10 @@ class App(customtkinter.CTk):
         else:                                   self.args.output_dir = os.path.join( self.args.output_dir , self.imdb_train_name[18:] )
         self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
-        # print(f"Validation weights before start of training.")
-        # self.Check_mAP()
-        
+        print(f"Validation weights before start of training.")
+        # checkmap_new.check( pth = self.args.pretrained, args=self.args)
+        # checkmap_new.check( weights = self.load_weights_from_pth(_path = self.args.pretrained), args=self.args)
+
         repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
         
         self.Show_Text(f'Start Training with {self.iters_per_epoch_train*self.args.batch_size} images from {self.imdb_train_name}. \nBatch size of {self.args.batch_size}.', clr=Fore.MAGENTA)
@@ -1082,20 +1093,21 @@ class App(customtkinter.CTk):
         
         # Loop for total number of epochs
         _full_dataset_loop = tqdm(range(self.args.start_epoch, self.args.max_epochs), total=self.args.max_epochs   ,   leave=True)
-        for self.epoch in _full_dataset_loop:
+        for self.epoch in range(self.args.max_epochs):
             _full_dataset_loop.set_description(   f"{Fore.GREEN+Style.BRIGHT}Epoch equal to full dataset")
             if self.stop_process: break
             
             # Loop to repeat current epoch until the weight updates are equal to full data weight updates
-            _current_dataset_loop = tqdm(range(repetition), total=repetition, leave=False)
+            _current_dataset_loop = tqdm(range(1), total=1, leave=True)
             for _e in _current_dataset_loop:
                 if self.stop_process: break
                 
                 # Update LR
-                self.Adjust_Learning_Rate()
+                # self.Adjust_Learning_Rate()
                 
                 # Progress bar info
-                _lr_txt  = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
+                # _lr_txt  = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
+                _lr_txt = "0.01"
                 _map_txt = f"Best mAP {round((self.bestmAP*100),2)} (E-{self.bestmAPepoch})"
                 _current_dataset_loop.set_description(f"  {_lr_txt} - {Fore.YELLOW+_map_txt+Style.RESET_ALL} - {Style.RESET_ALL+Fore.LIGHTGREEN_EX}Epochs for current dataset")
                 
@@ -1103,10 +1115,14 @@ class App(customtkinter.CTk):
                 self.data_iter = iter(self.train_dataloader)
                 
                 # Loop for current epoch - all batches
-                _current_epoch_loop = tqdm(range(self.iters_per_epoch_train),leave=False)
-                for _batch,step in enumerate(_current_epoch_loop):
+                _current_epoch_loop = tqdm(range(self.iters_per_epoch_train),leave=True)
+
+
+            
+
+                for _batch, step in enumerate(_current_epoch_loop):
                     if self.stop_process: break
-                    _current_epoch_loop.set_description(  f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - Batch {_batch}")
+                    _current_epoch_loop.set_description(  f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - Batch {_batch} - Loss {self.Loss_Val}")
                     
                     # Loading dataset
                     self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
@@ -1118,12 +1134,21 @@ class App(customtkinter.CTk):
                     self.Forward() ################################ - Individual Functions
                     # self.Visualize()
                     self.Calculate_Loss()
+
+                    # self._data.Pytorch_bn.optimizer_config = {}
+                    # optim_config = {'learning_rate': 0.01, 'momentum': 0.9}
+                    # for p, _ in self._data.Pytorch_bn.params.items():
+                    #     d = {k: v for k, v in optim_config.items()}
+                    #     self.optimizer_config[p] = d
+                        
                     self.Before_Backward() ######################## - Individual Functions
                     self.Backward() ############################### - Individual Functions
-                    self.Weight_Update() 
-                    
+                    self.Weight_Update(self.epoch)
+
+                    # if step>20:
+                    #     break
             self.Check_mAP()
-            self.save_weights()
+            self.save_weights(self.epoch)
         #     self.Save_Pickle()
         self.Post_Epoch()
         self.Show_Text(f"Training is finished")
@@ -1182,7 +1207,7 @@ class App(customtkinter.CTk):
 
         for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
             self.whole_process_start = time.time()
-            self.Adjust_Learning_Rate()
+            # self.Adjust_Learning_Rate()
             print(f"Validation weights.")
             self.Check_mAP()
         self.Show_Text(f"Validation is finished")
@@ -1297,8 +1322,9 @@ class App(customtkinter.CTk):
                             help='list servers, storage, or both (default: %(default)s)')
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="", type=str)
-                            # default="Dataset/Dataset/pretrained/scratch.pth", type=str)
-                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            default="Dataset/Dataset/pretrained/scratch.pth", type=str)
+                            # default="./weights/yolov2_epoch_2.pth", type=str)
+                            # default="Dataset/Dataset/pretrained/yolov2_epoch_80.pth", type=str)
                             # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
                             # default="Dataset/Dataset/pretrained/Gitae--2024-01-10-10_42_29.387218-Epoch_47.pth", type=str)
         parser.add_argument('--output_dir', dest='output_dir',
@@ -1336,7 +1362,6 @@ class App(customtkinter.CTk):
         self.count = dict()
         self.count['detections'], self.count['no_detections'] = 0, 0
 
-
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn       = Pytorch_bn(self)
         if self.mode == "Python_BN"    :  self.Python_bn        = Python_bn(self)
         if self.mode == "Pytorch"      :  self.Pytorch          = Pytorch(self)
@@ -1370,22 +1395,27 @@ class App(customtkinter.CTk):
                                             Mantissa_Bits        =   self.Mantissa_Bits)
         self.Weight, self.Bias, self.Gamma, self.Beta, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
         
-        # Initialize Pre-Trained Weight
-        self.Shoaib = Shoaib_Code(  Weight_Dec=self.Weight, 
-                                    Bias_Dec=self.Bias, 
-                                    Beta_Dec=self.Beta, 
-                                    Gamma_Dec=self.Gamma,
-                                    Running_Mean_Dec=self.Running_Mean_Dec, 
-                                    Running_Var_Dec=self.Running_Var_Dec,
-                                    args=self.args,
-                                    pth_weights_path=self.args.pretrained,
-                                    model=Yolov2,
-                                    optim=optim,
-                                    parent=self)
+        # # Initialize Pre-Trained Weight
+        # self.Shoaib = Shoaib_Code(  Weight_Dec=self.Weight, 
+        #                             Bias_Dec=self.Bias, 
+        #                             Beta_Dec=self.Beta, 
+        #                             Gamma_Dec=self.Gamma,
+        #                             Running_Mean_Dec=self.Running_Mean_Dec, 
+        #                             Running_Var_Dec=self.Running_Var_Dec,
+        #                             args=self.args,
+        #                             pth_weights_path=self.args.pretrained,
+        #                             model=Yolov2,
+        #                             optim=optim,
+        #                             parent=self)
         
-        # Loading Weight From pth File
-        self.loaded_weights = self.Shoaib.load_weights()
-        Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec = self.loaded_weights
+        # # Loading Weight From pth File
+        # self.loaded_weights = self.Shoaib.load_weights()
+        # Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec = self.loaded_weights
+
+        
+        
+        self.loaded_weights = self.load_weights_from_pth(_path = self.args.pretrained)
+        # Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec 
 
         if self.mode == "Pytorch_BN"  :  self.Pytorch_bn.load_weights(self.loaded_weights)
         if self.mode == "Python_BN"   :  self.Python_bn.load_weights(self.loaded_weights)
@@ -1413,7 +1443,7 @@ class App(customtkinter.CTk):
         if self.args.dataset=='car'        : self.imdb_train_name = 'voc_2007_trainval-car'
         if self.args.dataset=='car-64'     : self.imdb_train_name = 'voc_2007_trainval-car-64'
         if self.args.dataset=='random-64'  : self.imdb_train_name = 'voc_2007_trainval-random-64'
-        if self.args.dataset=='random-128' : self.imdb_train_name = 'voc_2007_trainval-random-128'
+        if self.args.dataset=='random-128' : self.imdb_train_name = 'voc_2007_trainval-random-128' 
         if self.args.dataset=='random-256' : self.imdb_train_name = 'voc_2007_trainval-random-256'
         if self.args.dataset=='random-512' : self.imdb_train_name = 'voc_2007_trainval-random-512'
         if self.args.dataset=='random-5517': self.imdb_train_name = 'voc_2012_train-5517'
@@ -1555,6 +1585,19 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA.Calculate_Loss(self)
         if self.mode == "FPGA"         :  self.FPGA.Calculate_Loss(self)
 
+        
+        if self.mode == "Pytorch"      :  _data =  self.Pytorch
+        if self.mode == "Python"       :  _data =  self.Python
+        if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data =  self.Python_bn
+        if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
+        if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
+        if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
+        if self.mode == "PythonCUDA16" :  _data =  self.CUDA16
+        if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
+        if self.mode == "FPGA"         :  _data =  self.FPGA
+        self.Loss_Val = _data.loss
+
     def Before_Backward(self):
         if self.mode == "Pytorch"      :  pass
         if self.mode == "Python"       :  pass
@@ -1577,7 +1620,8 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA.Backward(self)
         if self.mode == "FPGA"         :  self.FPGA.Backward(self)
 
-    def Weight_Update(self):
+    def Register_loaded_parms(self, loaded_weights):
+
         if self.mode == "Pytorch"      :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
@@ -1589,10 +1633,53 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data =  self.FPGA
         
-        new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
-                                                                Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
-                                                                gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
-        _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
+        _data.Weight, _data.Bias, _data.Gamma_WeightBN, _data.BetaBN, _data.Running_Mean_Dec, _data.Running_Var_Dec = loaded_weights
+
+
+    def Weight_Update(self, epochs):
+        if self.mode == "Pytorch"      :  _data =  self.Pytorch
+        if self.mode == "Python"       :  _data =  self.Python
+        if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data =  self.Python_bn
+        if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
+        if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
+        if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
+        if self.mode == "PythonCUDA16" :  _data =  self.CUDA16
+        if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
+        if self.mode == "FPGA"         :  _data =  self.FPGA
+        
+        # new_weights, self.custom_model = self.Shoaib.update_weights_FPGA(
+        #                                                         Inputs  = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta], 
+        #                                                         gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta ])
+
+        # new_weights = new_weight_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
+        #                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta])
+        
+        # _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
+        # print(self.Shoaib.Bias_Dec[self.Shoaib.Bias_Dec != 0])
+        # new_inputs = [ _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec]
+        # self.Shoaib.set_weights(new_inputs)
+
+        # _data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta = new_weights
+        # new_weights = new_weights
+        # new_weights = new_weight_update_two(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
+        #                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)
+    
+
+        # new_weights = new_weight_update_two(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
+        #                                 gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], epochs = epochs)
+                
+        # parameters = ['W0', 'W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8', 'B8', \
+        #         'gamma0', 'gamma1', 'gamma2', 'gamma3', 'gamma4', 'gamma5', 'gamm6', 'gamma7',
+        #         'beta0', 'beta1', 'beta2', 'beta3', 'beta4', 'beta5', 'beta6', 'beta7']
+
+        new_weights, optims = sgd_momentum_update(Inputs = [_data.Weight,  _data.Bias,  _data.Gamma,  _data.Beta],
+                                        gInputs = [_data.gWeight, _data.gBias, _data.gGamma, _data.gBeta], \
+                                            epochs = epochs, optimizer_config=_data.optimizer_config)
+        
+        _data.Weight, _data.Bias, _data.Gamma, _data.Beta = new_weights
+        _data.optimizer_config = optims
+
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Weight_Layer0_After",_data.Weight[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Gamma_Layer0_After",_data.Gamma[0])
@@ -1610,9 +1697,91 @@ class App(customtkinter.CTk):
             
         [self.Weight, self.Bias, self.Gamma, self.Beta] = new_weights
 
+        # checkpoint = {
+        #     "model": self.Pytorch_bn
+        # }
+        
+        # filename = "./test/scratch0/epoch_1.pkl"
+        # with open(filename, 'wb') as f:
+        #     pickle.dump(checkpoint, f)
+    
+
+
     def Save_Pickle(self):
-        if self.mode == "Pytorch"   : pass
-        if self.mode == "Python"    : pass
+
+        if self.mode == "Pytorch_BN":
+            if self.map > self.max_map:
+                self.max_map = self.map
+                self.best_map_score = round((self.map*100),2)
+                self.best_map_epoch = self.epoch
+                self.best_map_loss  = round(self.Loss.item(),2)
+                self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+                # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
+                torch.save({
+                    'model': self.custom_model.state_dict(),
+                    'epoch': self.epoch,
+                    'loss': self.Loss.item(),
+                    'map': map
+                    }, self.save_name)
+            if self.epoch == 0: pass
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
+            # return best_map_score, best_map_epoch, best_map_loss
+
+        if self.mode == "Python_BN":
+            if self.map > self.max_map:
+                self.max_map = self.map
+                self.best_map_score = round((self.map*100),2)
+                self.best_map_epoch = self.epoch
+                self.best_map_loss  = round(self.Loss.item(),2)
+                self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+                # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
+                torch.save({
+                    'model': self.custom_model.state_dict(),
+                    'epoch': self.epoch,
+                    'loss': self.Loss.item(),
+                    'map': map
+                    }, self.save_name)
+            if self.epoch == 0: pass
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
+            # return best_map_score, best_map_epoch, best_map_loss
+
+        if self.mode == "Pytorch"   :
+            if self.map > self.max_map:
+                self.max_map = self.map
+                self.best_map_score = round((self.map*100),2)
+                self.best_map_epoch = self.epoch
+                self.best_map_loss  = round(self.Loss.item(),2)
+                self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+                # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
+                torch.save({
+                    'model': self.custom_model.state_dict(),
+                    'epoch': self.epoch,
+                    'loss': self.Loss.item(),
+                    'map': map
+                    }, self.save_name)
+            if self.epoch == 0: pass
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
+            # return best_map_score, best_map_epoch, best_map_loss
+
+        if self.mode == "Python"    :
+            # Check and save the best mAP
+            if self.map > self.max_map:
+                self.max_map = self.map
+                self.best_map_score = round((self.map*100),2)
+                self.best_map_epoch = self.epoch
+                self.best_map_loss  = round(self.Loss.item(),2)
+                self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+                # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}% and loss={round(self.Loss.item(),2)}\n')
+                torch.save({
+                    'model': self.custom_model.state_dict(),
+                    'epoch': self.epoch,
+                    'loss': self.Loss.item(),
+                    'map': map
+                    }, self.save_name)
+            if self.epoch == 0: pass
+            print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
+            # return best_map_score, best_map_epoch, best_map_loss
+    
         if self.mode == "Simulation": 
             # Check and save the best mAP
             if self.map > self.max_map:
@@ -1640,19 +1809,74 @@ class App(customtkinter.CTk):
                 with open(self.output_file, 'wb') as handle:
                     pickle.dump(self._data, handle, protocol=pickle.HIGHEST_PROTOCOL) 
     
-    def save_weights(self, name=''):
-        model = self.Shoaib.custom_model
-        save_dir = os.path.join(self.args.output_dir, "trained_weights")
-        Path(save_dir).mkdir(parents=True, exist_ok=True)
-        _now = str(datetime.now()).split()
-        if name=='': save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
-        else:        save_name = os.path.join(save_dir, f'{name}.pth') 
-        # self.Show_Text(f"\nSaving weights at\n{save_name}\n")
-        torch.save({
-            'model': self.Shoaib.custom_model.state_dict(),
-            'epoch': self.epoch,
-            'lr': self.Shoaib.custom_optimizer.param_groups[0]['lr'],
+    def save_weights(self, epoch):
+
+        if self.mode == "Pytorch"      :  _data = self.Pytorch
+        if self.mode == "Python"       :  _data = self.Python
+        if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data = self.Python_bn
+        if self.mode == "PythonSim"    :  _data = self.PythonSimulation
+        if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
+        if self.mode == "PythonCUDA"   :  _data = self.CUDA32
+        if self.mode == "PythonCUDA16" :  _data = self.CUDA16
+        if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
+        if self.mode == "FPGA"         :  _data = self.FPGA
+
+        if self.mode == "Pytorch_BN":
+            _data.get_weights()
+            output_dir = "weights_bn"
+            save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
+            # please change to your named model here
+            # for example _data.fpga_model
+            torch.save({
+                'model': _data.modtorch_model.params
             }, save_name)
+        elif self.mode == "Pytorch":
+            output_dir = "weights_2iteration"
+            save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
+            # please change to your named model here
+            # for example _data.fpga_model
+            torch.save({
+                'model': _data.modtorch_model.params
+            }, save_name)
+
+    # def save_weights(self, name=''):
+    #     model = self.Shoaib.custom_model
+    #     save_dir = os.path.join(self.args.output_dir, "trained_weights")
+    #     Path(save_dir).mkdir(parents=True, exist_ok=True)
+    #     _now = str(datetime.now()).split()
+    #     if name=='': save_name = os.path.join(save_dir, f'{_now[0]}-{_now[1]}-Epoch_{self.epoch}.pth') 
+    #     else:        save_name = os.path.join(save_dir, f'{name}.pth') 
+    #     # self.Show_Text(f"\nSaving weights at\n{save_name}\n")
+    #     torch.save({
+    #         'model': self.Shoaib.custom_model.state_dict(),
+    #         'epoch': self.epoch,
+    #         'lr': self.Shoaib.custom_optimizer.param_groups[0]['lr'],
+    #         }, save_name)
+
+    def Check_mAP_new(self):
+
+        if self.mode == "Pytorch"      :  _data = self.Pytorch
+        if self.mode == "Python"       :  _data = self.Python
+        if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
+        if self.mode == "Python_BN"    :  _data = self.Python_bn
+        if self.mode == "PythonSim"    :  _data = self.PythonSimulation
+        if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
+        if self.mode == "PythonCUDA"   :  _data = self.CUDA32
+        if self.mode == "PythonCUDA16" :  _data = self.CUDA16
+        if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
+        if self.mode == "FPGA"         :  _data = self.FPGA
+
+        
+        # self.Shoaib.set_weights(Inputs_with_running = \
+        #     [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
+
+        Inputs_with_running = _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec
+        
+        # print(1)
+        # checkmap_new.check(pth = self.Shoaib.weight_path, args=self.args)
+        # print(2)
+        # checkmap_new.check(custom_model = self.Shoaib.custom_model, args=self.args)
     
     def Check_mAP(self):
         if self.mode == "Pytorch"      :  _data = self.Pytorch
@@ -1666,26 +1890,29 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data = self.FPGA
         
-        self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
-            [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
+        _w = _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec
+        mAP = checkmap_new.check( weights = _w, args=self.args)
 
-        if self.map > self.bestmAP:
-            self.bestmAP = self.map
-            self.bestmAPepoch = self.epoch
-            self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
-            # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}%')
-            # print(f'\t--------------------->>Saving best weights at Epoch {self.bestmAPepoch}, with mAP={round((self.bestmAP*100),2)}%\n')
-            torch.save({
-                'model': self.Shoaib.custom_model.state_dict(),
-                'epoch': self.epoch,
-                'map': self.map,
-                'lr': self.Shoaib.custom_optimizer.param_groups[0]['lr'],
-                }, self.save_name)
+        # self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
+        #     [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
 
-        date_time = str(datetime.now()).replace(" ","---").split(".")[0].replace(":","-")
+        # if self.map > self.bestmAP:
+        #     self.bestmAP = self.map
+        #     # self.bestmAPepoch = self.epoch
+        #     self.save_name = os.path.join(self.args.output_dir, 'yolov2_best_map.pth')
+        #     # print(f'\n\t--------------------->>Saving best weights at Epoch {self.epoch}, with mAP={round((self.map*100),2)}%')
+        #     # print(f'\t--------------------->>Saving best weights at Epoch {self.bestmAPepoch}, with mAP={round((self.bestmAP*100),2)}%\n')
+        #     torch.save({
+        #         'model': self.Shoaib.custom_model.state_dict(),
+        #         # 'epoch': self.epoch,
+        #         'map': self.map,
+        #         'lr': self.Shoaib.custom_optimizer.param_groups[0]['lr'],
+        #         }, self.save_name)
+
+        # date_time = str(datetime.now()).replace(" ","---").split(".")[0].replace(":","-")
         mAP_file = self.args.output_dir + '/mAP.txt'
         with open(mAP_file, mode="a+") as output_file_1:
-            output_file_1.write(f"{date_time}: {self.map} \n")
+            output_file_1.write(f"{mAP} \n")
                 
     def Post_Epoch(self): 
         if self.mode == "Pytorch"      :  _data =  self.Pytorch
@@ -1910,7 +2137,8 @@ class App(customtkinter.CTk):
             yolo_output = self.reshape_outputs(out)
             yolo_output = [item[0].data for item in yolo_output]
                 
-            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            # detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.005, nms_threshold=0.45)
             
             if len(detections) > 0:
                 for cls in range(len(self.classes)):
@@ -1927,6 +2155,218 @@ class App(customtkinter.CTk):
         plt.imshow(img)
         plt.show()
 
+
+
+    def load_weights_from_pth(self, _path=''):
+        """
+        Update the weights of a custom model using the provided gradients and optimizer.
+
+        Args:
+            w  (Tensor): The weights of the model.
+            gw (Tensor): The gradients of the weights.
+            b  (Tensor): The biases of the model.
+            gb (Tensor): The gradients of the biases.
+            custom_model (nn.Module): The custom model to update.
+            custom_optimizer (Optimizer): The optimizer to use for updating the weights.
+
+        Returns:
+            Dict[str, Tensor]: The updated state dictionary of the custom model.
+        """
+
+        if not _path=='':
+            self.Show_Text(f'\n--> Loading weights from:\n{_path}\n', clr=Fore.MAGENTA)
+            
+            self.pretrained_checkpoint = torch.load(_path,map_location='cpu')
+            loaded_model = torch.load(_path,map_location='cpu')['model']
+            
+            try:
+                self.custom_model.load_state_dict(loaded_model)
+                _model_state_dict = self.custom_model.state_dict()        
+            except:
+                _model_state_dict = loaded_model       
+            
+        else:
+            self.Show_Text(f'--> Starting training from scratch.')
+            _model_state_dict = self.custom_model.state_dict()        
+            
+        # self.pretrained_checkpoint = torch.load(self.weight_path,map_location='cpu')
+        # loaded_model = torch.load(self.weight_path,map_location='cpu')['model']
+        # self.custom_model.load_state_dict(loaded_model)
+        Weight,   Bias,  Gamma_WeightBN,  BetaBN, Running_Mean_Dec, Running_Var_Dec = self.Weight, self.Bias, self.Gamma, self.Beta, self.Running_Mean_Dec, self.Running_Var_Dec    # Gamma is weight for BN, Beta is Bias for BN
+        
+        _delete_after_copy=False
+        for name in _model_state_dict:
+            if name == "conv1.weight": 
+                Weight[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "conv2.weight": 
+                Weight[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "conv3.weight": 
+                Weight[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "conv4.weight": 
+                Weight[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "conv5.weight": 
+                Weight[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "conv6.weight": 
+                Weight[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "conv7.weight": 
+                Weight[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "conv8.weight": 
+                Weight[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "conv9.0.weight": 
+                Weight[8] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn1.weight": 
+                Gamma_WeightBN[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn2.weight": 
+                Gamma_WeightBN[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn3.weight": 
+                Gamma_WeightBN[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn4.weight": 
+                Gamma_WeightBN[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn5.weight": 
+                Gamma_WeightBN[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn6.weight": 
+                Gamma_WeightBN[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn7.weight": 
+                Gamma_WeightBN[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn8.weight": 
+                Gamma_WeightBN[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn1.bias": 
+                BetaBN[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn2.bias": 
+                BetaBN[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn3.bias": 
+                BetaBN[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn4.bias": 
+                BetaBN[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn5.bias": 
+                BetaBN[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn6.bias": 
+                BetaBN[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn7.bias": 
+                BetaBN[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn8.bias": 
+                BetaBN[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "conv9.0.bias": 
+                Bias = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn1.running_mean": 
+                Running_Mean_Dec[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn1.running_var": 
+                Running_Var_Dec[0] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn2.running_mean": 
+                Running_Mean_Dec[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn2.running_var": 
+                Running_Var_Dec[1] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn3.running_mean": 
+                Running_Mean_Dec[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn3.running_var": 
+                Running_Var_Dec[2] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn4.running_mean": 
+                Running_Mean_Dec[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn4.running_var": 
+                Running_Var_Dec[3] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn5.running_mean": 
+                Running_Mean_Dec[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn5.running_var": 
+                Running_Var_Dec[4] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn6.running_mean": 
+                Running_Mean_Dec[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn6.running_var": 
+                Running_Var_Dec[5] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn7.running_mean": 
+                Running_Mean_Dec[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn7.running_var": 
+                Running_Var_Dec[6] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+            if name == "bn8.running_mean": 
+                Running_Mean_Dec[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+        
+            if name == "bn8.running_var": 
+                Running_Var_Dec[7] = _model_state_dict[name]
+                if _delete_after_copy: del _model_state_dict[name]
+
+        
+        Outputs = Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec
+        return Outputs
 if __name__ == "__main__":
     app = App()
     app.mainloop()

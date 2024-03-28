@@ -398,9 +398,9 @@ if _Load_Weights:
             return delta_pred, conf_pred, class_pred
 
 
-    model = Yolov2()
-    weightloader = WeightLoader()
-    pytorch_model = weightloader.load(pytorch_model, model, './data/pretrained/yolov2-tiny-voc.weights')
+    # model = Yolov2()
+    # weightloader = WeightLoader()
+    # pytorch_model = weightloader.load(pytorch_model, model, './data/pretrained/yolov2-tiny-voc.weights')
 # weightloader.load(model, self.scratch_torch, './yolov2-tiny-voc.weights')
 
 _Dataset = False
@@ -453,14 +453,14 @@ if _Get_Next_Data:
     Path("Temp_Files").mkdir(parents=True, exist_ok=True)
     with open('./data/pretrained/Input_Data_Batch8.pickle', 'wb') as handle:
         pickle.dump(_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-else:
-    with open('./data/pretrained/Input_Data_Batch8.pickle', 'rb') as handle:
-        b = pickle.load(handle)
-    im_data, gt_boxes, gt_classes, num_obj = b
-    # im_data, gt_boxes, gt_classes, num_obj = im_data[0].unsqueeze(0), gt_boxes[0].unsqueeze(0), gt_classes[0].unsqueeze(
-    #     0), num_obj[0].unsqueeze(0)
-    __data = im_data, gt_boxes, gt_classes, num_obj
-    print(f"\n\nLoading data from saved file\n\nImage (im_data[0,:3,66:69,66:69]\n{im_data[0, :3, 66:69, 66:69]}\n\n")
+# else:
+#     with open('./data/pretrained/Input_Data_Batch8.pickle', 'rb') as handle:
+#         b = pickle.load(handle)
+#     im_data, gt_boxes, gt_classes, num_obj = b
+#     # im_data, gt_boxes, gt_classes, num_obj = im_data[0].unsqueeze(0), gt_boxes[0].unsqueeze(0), gt_classes[0].unsqueeze(
+#     #     0), num_obj[0].unsqueeze(0)
+#     __data = im_data, gt_boxes, gt_classes, num_obj
+#     print(f"\n\nLoading data from saved file\n\nImage (im_data[0,:3,66:69,66:69]\n{im_data[0, :3, 66:69, 66:69]}\n\n")
 
 
 if __name__ == '__main__':
@@ -522,11 +522,30 @@ if __name__ == '__main__':
         for step in range(iters_per_epoch):
             im_data, gt_boxes, gt_classes, num_obj = next(train_data_iter)
             # Fout, Fcache = pytorch_model.train(im_data, gt_boxes=gt_boxes, gt_classes=gt_classes, num_boxes=num_obj)
+            im_data = im_data.cuda()
+            gt_boxes = gt_boxes.cuda()
+            gt_classes = gt_classes.cuda()
+            num_obj = num_obj.cuda()
             out, cache, FOut = pytorch_model.forward(im_data)
             loss, loss_grad = pytorch_model.loss(out, gt_boxes=gt_boxes, gt_classes=gt_classes, num_boxes=num_obj)
             lDout, grads = pytorch_model.backward(loss_grad, cache)
             # for k, v in grads.items():
                 # print(k)
+            for i in range(8):
+                pytorch_model.params[f'W{i}'] = pytorch_model.params[f'W{i}'].cuda()
+                grads[f'W{i}'] = grads[f'W{i}'].cuda()
+                grads[f'gamma{i}'] = grads[f'gamma{i}'].cuda()
+                grads[f'beta{i}'] = grads[f'beta{i}'].cuda()
+                pytorch_model.params[f'gamma{i}'] = pytorch_model.params[f'gamma{i}'].cuda()
+                pytorch_model.params[f'beta{i}'] = pytorch_model.params[f'beta{i}'].cuda()
+            grads['W8'] = grads['W8'].cuda()
+            grads['b8'] = grads['b8'].cuda()
+            pytorch_model.params['W8'] = pytorch_model.params['W8'].cuda()
+            pytorch_model.params['b8'] = pytorch_model.params['b8'].cuda()
+
+            pytorch_model.params['W8'] -= learning_rate * grads['W8']
+            pytorch_model.params['b8'] -= learning_rate * grads['b8']
+
             with torch.no_grad():
                 for i in range(8):
                     pytorch_model.params[f'W{i}'] -= learning_rate * grads[f'W{i}']

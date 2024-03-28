@@ -1,4 +1,5 @@
 #Custom
+test_momentum
 Comparison.py
 Dataset/Dataset/
 src/GiTae/Image_CH0.txt
@@ -23,12 +24,13 @@ src/Pre_Processing_Scratch/data/pretrained/yolov2-tiny-voc.weights
 src/Pre_Processing_Scratch/data/pretrained/yolov2_least_loss.pth
 *pickle
 *zip
+*pickle
 loss.txt
 loss_gradient.txt
 mAP.txt
 result_old/
-
-# Byte-compiled / optimized / DLL files
+*.pth
+# Byte-compiled / optimized / DLL fi1es
 __pycache__/
 *.py[cod]
 *$py.class

@@ -64,6 +64,14 @@ class FPGA(object):
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
         self.im_data        = data.im_data
+
+        self.gt_boxes = self.gt_boxes.cuda()
+        self.gt_classes = self.gt_classes.cuda()
+        self.num_boxes = self.num_boxes.cuda()
+        self.num_obj = self.num_obj.cuda()
+        self.image = self.image.cuda()
+        self.im_data = self.im_data.cuda()
+
         
         # self.Weight           = data.Weight_Dec
         # self.Bias             = data.Bias_Dec
@@ -115,7 +123,15 @@ class FPGA(object):
         self.num_boxes      = data.num_obj 
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
-        self.im_data        = data.im_data    
+        self.im_data        = data.im_data
+
+
+        self.gt_boxes = self.gt_boxes.cuda()
+        self.gt_classes = self.gt_classes.cuda()
+        self.num_boxes = self.num_boxes.cuda()
+        self.num_obj = self.num_obj.cuda()
+        self.image = self.image.cuda()
+        self.im_data = self.im_data.cuda()
               
         if DEBUG: print("Start NPU")
         
@@ -140,7 +156,15 @@ class FPGA(object):
         self.num_boxes      = data.num_obj 
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
-        self.im_data        = data.im_data    
+        self.im_data        = data.im_data
+
+
+        self.gt_boxes = self.gt_boxes.cuda()
+        self.gt_classes = self.gt_classes.cuda()
+        self.num_boxes = self.num_boxes.cuda()
+        self.num_obj = self.num_obj.cuda()
+        self.image = self.image.cuda()
+        self.im_data = self.im_data.cuda()
               
         if DEBUG: print("Start NPU")
         
