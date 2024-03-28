@@ -47,8 +47,8 @@ from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 # from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
-from Thaising_PyTorch import TorchSimulation
-# from Thaising_PyTorch_BatchNorm import TorchSimulation
+# from Thaising_PyTorch import TorchSimulation
+from Thaising_PyTorch_BatchNorm import TorchSimulation
 from Thaising_Python import PythonSimulation
 from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
@@ -83,7 +83,7 @@ save_debug_data = False
 # with open('./epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # Pytorch_bn = x['model']
-os.environ["CUDA_VISIBLE_DEVICES"] = '7'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 class App(customtkinter.CTk):
 
@@ -1891,7 +1891,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  _data = self.FPGA
         
         _w = _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec
-        mAP = checkmap_new.check( weights = _w, args=self.args)
+        mAP = checkmap_new.check( weights = _w, args=self.args, model = self.mode)
 
         # self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
         #     [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
