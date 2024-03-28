@@ -20,7 +20,7 @@ def Save_File(_path, data):
 def Create_Directory(directory_path):  
     os.makedirs(directory_path, exist_ok=True)
 
-class TorchSimulation(object):
+class TorchSimulation_LN(object):
     
     def __init__(self, parent):
         self.self           = parent
