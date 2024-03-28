@@ -65,20 +65,22 @@ class TorchSimulation(object):
             d = {k: v for k, v in optim_config.items()}
             self.optimizer_config[p] = d
         
-        self.Mode                 = self.self.Mode     
-        self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
-        self.Exponent_Bits        = self.self.Exponent_Bits             
-        self.Mantissa_Bits        = self.self.Mantissa_Bits  
 
-        if self.save_bfloat16: 
-            self.directory_path_bfloat = f"./Output_Sim_PyTorch_BatchNorm_Bfloat16"
-        if self.save_debug_data or self.save_debug_data1: 
-            self.directory_path = f"./Output_Sim_PyTorch_BatchNorm"           
+        if parent != "none":
+            self.Mode                 = self.self.Mode     
+            self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
+            self.Exponent_Bits        = self.self.Exponent_Bits             
+            self.Mantissa_Bits        = self.self.Mantissa_Bits  
 
-        self.PreProcessing = Pre_Processing(Mode =   self.Mode,
-                            Brain_Floating_Point =   self.Brain_Floating_Point,
-                            Exponent_Bits        =   self.Exponent_Bits,
-                            Mantissa_Bits        =   self.Mantissa_Bits)
+            if self.save_bfloat16: 
+                self.directory_path_bfloat = f"./Output_Sim_PyTorch_BatchNorm_Bfloat16"
+            if self.save_debug_data or self.save_debug_data1: 
+                self.directory_path = f"./Output_Sim_PyTorch_BatchNorm"           
+
+            self.PreProcessing = Pre_Processing(Mode =   self.Mode,
+                                Brain_Floating_Point =   self.Brain_Floating_Point,
+                                Exponent_Bits        =   self.Exponent_Bits,
+                                Mantissa_Bits        =   self.Mantissa_Bits)
         
     def load_weights(self, values):
         if len(values)>4:
@@ -96,6 +98,8 @@ class TorchSimulation(object):
             self.params['beta{}'.format(i)] = self.Beta[i]
         self.params['W8'] = self.Weight[8]
         self.params['b8'] = self.Bias
+
+    
         
     def Forward(self, data):
         
@@ -247,6 +251,29 @@ class TorchSimulation(object):
         self.Output_Image, self.cache = Out8, cache 
         self.out = Out8
         # return Output_Image, cache
+
+    def forward_pred(self, out):
+        """
+        Evaluate loss and gradient for the deep convolutional network.
+        Input / output: Same API as ThreeLayerConvNet.
+        """
+        # print('Calculating the loss and its gradients for pytorch model.')
+
+        scores = out
+        bsize, _, h, w = out.shape
+        out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)
+        # Calculate losses based on loss functions(box loss, Intersection over Union(IoU) loss, class loss)
+        xy_pred = torch.sigmoid(out[:, :, 0:2]) #
+        conf_pred = torch.sigmoid(out[:, :, 4:5]) # 
+        hw_pred = torch.exp(out[:, :, 2:4])
+        class_score = out[:, :, 5:]
+        class_pred = F.softmax(class_score, dim=-1)
+        delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
+
+        # dout = open("./Pytorch_Backward_loss_gradients.pickle", "rb")
+        # dout = pickle.load(dout)
+        # print('\n\n',dout.dtype, dout[dout!=0])
+        return delta_pred, conf_pred, class_pred
         
     def Calculate_Loss(self,data):
         self.loss, self.Loss_Gradient = loss(out=self.Output_Image, gt_boxes=self.gt_boxes, gt_classes=self.gt_classes, num_boxes=self.num_boxes)

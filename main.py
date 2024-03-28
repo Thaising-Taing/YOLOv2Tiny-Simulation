@@ -84,7 +84,11 @@ save_debug_data = False
 # with open('./epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # Pytorch_bn = x['model']
+<<<<<<< HEAD
 # os.environ["CUDA_VISIBLE_DEVICES"] = '7'
+=======
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+>>>>>>> 6a8238a9a3dc3efe21e39da3e508ff79924d897d
 
 class App(customtkinter.CTk):
 
@@ -1964,7 +1968,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  _data = self.FPGA
         
         _w = _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec
-        mAP = checkmap_new.check( weights = _w, args=self.args)
+        mAP = checkmap_new.check( weights = _w, args=self.args, model = self.mode)
 
         # self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
         #     [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
