@@ -48,8 +48,7 @@ from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
 from Thaising_PyTorch import TorchSimulation_LN
-from Thaising_PyTorch import TorchSimulation_LN as TorchSimulation_BN
-# from Thaising_PyTorch_BatchNorm import TorchSimulation_LN
+from Thaising_PyTorch_BatchNorm import TorchSimulation_BN
 from Thaising_Python import PythonSimulation
 from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
@@ -84,11 +83,7 @@ save_debug_data = False
 # with open('./epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # Pytorch_bn = x['model']
-<<<<<<< HEAD
-# os.environ["CUDA_VISIBLE_DEVICES"] = '7'
-=======
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
->>>>>>> 6a8238a9a3dc3efe21e39da3e508ff79924d897d
 
 class App(customtkinter.CTk):
 
