@@ -23,7 +23,7 @@
 			// "sudo": true,
 			"args": [
 				// "--pretrained" 	,	"Dataset/Dataset/pretrained/yolov2_best_map.pth",
-				// "--dataset" 	,	"random-64",
+				"--dataset" 	,	"random-512",
 				"--batch_size" 	,	"32",
 				"--nw"			,	"4"
 			]

@@ -125,7 +125,7 @@ def prepare_im_data(img):
 def check(weights=[], pth='', args=[], model = "PytorchSim"):
 
     if model == "Pytorch_BN" or "Pytorch":
-        print("Model: ", model)
+        print(f"\n\nModel: ", model)
         pytorch_model = Pytorch_bn("none")
         if weights==[]:      
             checkpoint = torch.load(pth)
@@ -144,8 +144,8 @@ def check(weights=[], pth='', args=[], model = "PytorchSim"):
         args.nms_thresh = 0.45
         if args.vis:
             args.conf_thresh = 0.5
-        print('Called with args:')
-        print(args)
+        # print('Called with args:')
+        # print(args)
 
         # prepare dataset
         args.dataset = 'voc07test'
@@ -175,7 +175,7 @@ def check(weights=[], pth='', args=[], model = "PytorchSim"):
         #     model.cuda()
 
         # model.eval()
-        print('model loaded')
+        # print('model loaded')
 
         dataset_size = len(val_imdb.image_index)
 
@@ -185,7 +185,7 @@ def check(weights=[], pth='', args=[], model = "PytorchSim"):
 
         img_id = -1
         with torch.no_grad():
-            for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), desc='Checking mAP'):
+            for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), desc='Checking mAP', total=len(val_dataloader)):
                 if args.use_cuda or True:
                     im_data_variable = Variable(im_data.cuda())
                 else:
