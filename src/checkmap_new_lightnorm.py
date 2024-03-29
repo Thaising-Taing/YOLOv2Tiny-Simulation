@@ -148,8 +148,8 @@ def check(weights=[], pth='', args=[], model = "Pytorch_BN"):
     args.nms_thresh = 0.45
     if args.vis:
         args.conf_thresh = 0.5
-    print('Called with args:')
-    print(args)
+    # print('Called with args:')
+    # print(args)
 
     # prepare dataset
     args.dataset = 'voc07test'
@@ -189,7 +189,7 @@ def check(weights=[], pth='', args=[], model = "Pytorch_BN"):
 
     img_id = -1
     with torch.no_grad():
-        for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), desc='Checking mAP'):
+        for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), desc='Checking mAP', total=len(val_dataloader)):
             if args.use_cuda or True:
                 im_data_variable = Variable(im_data).to(pytorch_model._device)
             else:
