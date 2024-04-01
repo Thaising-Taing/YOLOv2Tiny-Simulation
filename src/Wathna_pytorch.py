@@ -36,10 +36,27 @@ class Pytorch(object):
         self.Mantissa_Bits        = self.self.Mantissa_Bits   
         
         
-        self.PreProcessing = Pre_Processing(Mode =   self.self.Mode,
-                            Brain_Floating_Point =   self.self.Brain_Floating_Point,
-                            Exponent_Bits        =   self.self.Exponent_Bits,
-                            Mantissa_Bits        =   self.self.Mantissa_Bits)
+        self.Bias = None
+        self.Gamma = [[] for _ in range(8)]
+        self.Beta = [[] for _ in range(8)]
+        self.Running_Mean_Dec = [[] for _ in range(8)]
+        self.Running_Var_Dec = [[] for _ in range(8)]
+        self.gWeight = [[] for _ in range(9)]
+        self.gBias = None
+        self.gGamma = [[] for _ in range(8)]
+        self.gBeta = [[] for _ in range(8)]
+
+        if parent != "none":
+            self.Mode                 = self.self.Mode     
+            self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
+            self.Exponent_Bits        = self.self.Exponent_Bits             
+            self.Mantissa_Bits        = self.self.Mantissa_Bits   
+        
+            
+            self.PreProcessing = Pre_Processing(Mode =   self.self.Mode,
+                                Brain_Floating_Point =   self.self.Brain_Floating_Point,
+                                Exponent_Bits        =   self.self.Exponent_Bits,
+                                Mantissa_Bits        =   self.self.Mantissa_Bits)
         
 
         self.modtorch_model = DeepConvNetTorch(input_dims=(3, 416, 416),
@@ -48,6 +65,12 @@ class Pytorch(object):
                                         weight_scale='kaiming',
                                         batchnorm=True,
                                         dtype=torch.float32, device='cuda')
+        
+        self.optimizer_config = {}
+        optim_config = {'learning_rate': 0.01, 'momentum': 0.9}
+        for p, _ in self.modtorch_model.params.items():
+            d = {k: v for k, v in optim_config.items()}
+            self.optimizer_config[p] = d
 
     def get_grads(self):
         self.gWeight, self.gBias, self.gGamma, self.gBeta, self.gRunning_Mean_Dec, self.gRunning_Var_Dec = \
@@ -182,8 +205,14 @@ class Pytorch(object):
         self.num_boxes      = data.num_obj 
         self.num_obj        = data.num_obj 
         self.image          = data.im_data
+
+        self.gt_boxes       = self.gt_boxes.cuda()
+        self.gt_classes     = self.gt_classes.cuda()
+        self.num_boxes      = self.num_boxes.cuda()
+        self.num_obj        = self.num_obj.cuda()
+        self.image          = self.image.cuda()
         
-        X = data.im_data
+        X = data.im_data.cuda()
         self.out, self.cache, self.Out_all_layers = self.modtorch_model.forward(X)
         if save_debug: Save_File("./Wathna_PyTorch/Output", self.out)
         

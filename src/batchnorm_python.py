@@ -22,7 +22,7 @@ class Python_bn(object):
         self.Mode                 = self.self.Mode     
         self.Brain_Floating_Point = self.self.Brain_Floating_Point                     
         self.Exponent_Bits        = self.self.Exponent_Bits             
-        self.Mantissa_Bits        = self.self.Mantissa_Bits   
+        self.Mantissa_Bits        = self.self.Mantissa_Bits
 
 
         self.PreProcessing = Pre_Processing(Mode =   self.self.Mode,
@@ -37,6 +37,7 @@ class Python_bn(object):
                                         weight_scale='kaiming',
                                         batchnorm=True,
                                         dtype=torch.float32, device='cpu')
+        
 
 
     def get_grads(self):

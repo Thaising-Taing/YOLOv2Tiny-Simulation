@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from my_config import config as cfg
+from config import config as cfg
 from pathlib import Path
 from torch.autograd import Variable
 import numpy as np
@@ -490,10 +490,20 @@ class DeepConvNetTorch(object):
         self.phase = 'Forward'
         temp_Out = {}
         temp_cache = {}
+
+        for i in range(8):
+            self.params['W{}'.format(i)] = self.params['W{}'.format(i)].cuda()
+            self.params['running_mean{}'.format(i)] = self.params['running_mean{}'.format(i)].cuda()
+            self.params['running_var{}'.format(i)] = self.params['running_var{}'.format(i)].cuda()
+            self.params['gamma{}'.format(i)] = self.params['gamma{}'.format(i)].cuda()
+            self.params['beta{}'.format(i)] = self.params['beta{}'.format(i)].cuda()
+        self.params['W8'] = self.params['W8'].cuda()
+        self.params['b8'] = self.params['b8'].cuda()
         
         #0
         # Save_File('PyTorch_Output/Input_Image', X.to(torch.bfloat16))
         # # Save_File('PyTorch_Output/img_torch', X)
+        X = X.cuda()
         temp_Out[0], temp_cache['0'] = Torch_Conv_Pool.forward(X,
                                                     self.params['W0'],
                                                     conv_param,
@@ -503,7 +513,6 @@ class DeepConvNetTorch(object):
                                                     save_hex=False,
                                                     phase=self.phase,
                                                     )
-        
         mean, var = Cal_mean_var.forward(temp_Out[0], layer_no=0, save_txt=self.save_txt, save_hex=self.save_hex, phase=self.phase)
 
         Out[0], cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(X,
@@ -1141,7 +1150,7 @@ def yolo_loss(output, target):
 
 
 
-def kaiming_initializer(Din, Dout, K=None, relu=True, device='cpu',
+def kaiming_initializer(Din, Dout, K=None, relu=True, device='cuda',
 
                         dtype=torch.float64):
     """
@@ -2462,6 +2471,7 @@ class Torch_SpatialBatchNorm(object):
         avg = avg.to(running_mean.device)
         scale = scale.to(running_mean.device)
         
+        # print(output.shape, gamma.shape, beta.shape)
         output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
         
         running_mean = running_mean * momentum + (1 - momentum) * avg
