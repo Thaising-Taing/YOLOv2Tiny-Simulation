@@ -1076,11 +1076,13 @@ class App(customtkinter.CTk):
         else:                                   self.args.output_dir = os.path.join( self.args.output_dir , self.imdb_train_name[18:] )
         self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
-        print(f"Validation weights before start of training.")
-        checkmap_new.check( pth = self.args.pretrained, args=self.args)
+        # print(f"Validation weights before start of training.")
+        # checkmap_new.check( pth = self.args.pretrained, args=self.args)
+        # print(f'\n\n')
         # checkmap_new.check( weights = self.load_weights_from_pth(_path = self.args.pretrained), args=self.args)
 
-        repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
+        # repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
+        repetition = 1
         
         self.Show_Text(f'Start Training with {self.iters_per_epoch_train*self.args.batch_size} images from {self.imdb_train_name}. \nBatch size of {self.args.batch_size}.', clr=Fore.MAGENTA)
         self.Show_Text(f'mAP will be calculated after {repetition} epochs of current dataset - equal to 1 epoch of full dataset', clr=Fore.MAGENTA) 
@@ -1135,6 +1137,8 @@ class App(customtkinter.CTk):
 
                     # if step>20:
                     #     break
+                    
+                    # if self.mode == "FPGA" and step%5==0: self.Check_mAP()
                     
             self.Check_mAP()
             self.save_weights(self.epoch)

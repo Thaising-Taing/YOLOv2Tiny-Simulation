@@ -199,6 +199,9 @@ def build_target(output, gt_data, H, W):
         box_pred = box_transform_inv(all_grid_xywh, delta_pred)
         box_pred = xywh2xxyy(box_pred)
 
+        # import pdb
+        # pdb.set_trace()
+        
         # for each anchor, its iou target is corresponded to the max iou with any gt boxes
         ious = box_ious(box_pred, gt_boxes)  # shape: (H * W * num_anchors, num_obj)
         ious = ious.view(-1, num_anchors, num_obj)
