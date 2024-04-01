@@ -26,6 +26,37 @@ class FPGA(object):
         self.device         = None
         self.train_loader   = None
         
+        
+        self.Weight = [[] for _ in range(9)]
+        self.Bias = None
+        self.Gamma = [[] for _ in range(8)]
+        self.Beta = [[] for _ in range(8)]
+        self.Running_Mean_Dec = [[] for _ in range(8)]
+        self.Running_Var_Dec = [[] for _ in range(8)]
+        self.gWeight = [[] for _ in range(9)]
+        self.gBias = None
+        self.gGamma = [[] for _ in range(8)]
+        self.gBeta = [[] for _ in range(8)]
+        
+        self.params = {}
+
+        for i in range(8):
+            self.params['W{}'.format(i)] = self.Weight[i]
+            self.params['running_mean{}'.format(i)] = self.Running_Mean_Dec[i]
+            self.params['running_var{}'.format(i)] = self.Running_Var_Dec[i]
+            self.params['gamma{}'.format(i)] = self.Gamma[i]
+            self.params['beta{}'.format(i)] = self.Beta[i]
+        self.params['W8'] = self.Weight[8]
+        self.params['b8'] = self.Bias
+
+        self.optimizer_config = {}
+        optim_config = {'learning_rate': 0.01, 'momentum': 0.9}
+        for p, _ in self.params.items():
+            d = {k: v for k, v in optim_config.items()}
+            self.optimizer_config[p] = d
+        
+        
+        
         self.Mode                 = parent.Mode     
         self.Brain_Floating_Point = parent.Brain_Floating_Point                     
         self.Exponent_Bits        = parent.Exponent_Bits             
