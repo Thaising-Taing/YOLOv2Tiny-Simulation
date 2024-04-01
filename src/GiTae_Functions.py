@@ -635,6 +635,14 @@ class YOLOv2_Tiny_FPGA(object):
         self.PreProcessing = app_instance.PreProcessing  
                
     def Forward(self,data):
+        
+        data.Weight_Dec         = [x.cuda() for x in data.Weight_Dec       ]
+        data.Bias_Dec           = [x.cuda() for x in data.Bias_Dec         ]
+        data.Beta_Dec           = [x.cuda() for x in data.Beta_Dec         ]
+        data.Gamma_Dec          = [x.cuda() for x in data.Gamma_Dec        ]
+        data.Running_Mean_Dec   = [x.cuda() for x in data.Running_Mean_Dec ]
+        data.Running_Var_Dec    = [x.cuda() for x in data.Running_Var_Dec  ]
+        
         global layer0_cache, layer1_cache, layer2_cache, layer3_cache, layer4_cache, layer5_cache, layer6_cache, layer7_cache     
         start = time.time()
         #################################################
@@ -855,7 +863,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer0 = Output_Image1_Layer0_1st_Iter + Output_Image2_Layer0_1st_Iter + Output_Image3_Layer0_1st_Iter + Output_Image4_Layer0_1st_Iter + \
                             Output_Image5_Layer0_1st_Iter + Output_Image6_Layer0_1st_Iter + Output_Image7_Layer0_1st_Iter + Output_Image8_Layer0_1st_Iter    
 
-        OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
+        OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).cuda().reshape(8, 16, 208, 208)
         
         if DEBUG2 : Save_File(OutImage_1st_Layer0, "result/Layer_0_Forward_1st_Iteration")
         
@@ -874,6 +882,11 @@ class YOLOv2_Tiny_FPGA(object):
         if DEBUG2 : Save_File(data.Gamma_Dec[0],  "result/Layer_0_Forward_Gamma_Before_Weight_Update")
         if DEBUG2 : Save_File(data.Weight_Dec[0], "result/Layer_0_Forward_weight_Before_Weight_Update")
 
+        OutImage_1st_Layer0     = OutImage_1st_Layer0.cuda()
+        Gamma_Layer0            = Gamma_Layer0.cuda()
+        Beta_Layer0             = Beta_Layer0.cuda()
+        Var_1st_Layer0          = Var_1st_Layer0.cuda()
+        
         # layer0 Caches: 
         layer0_cache = BN(OutImage_1st_Layer0, Gamma_Layer0, Beta_Layer0)
 
@@ -1054,7 +1067,7 @@ class YOLOv2_Tiny_FPGA(object):
         Image_2nd_result = Image0_2nd_result + Image1_2nd_result + Image2_2nd_result + Image3_2nd_result + Image4_2nd_result + Image5_2nd_result +\
                            Image6_2nd_result + Image7_2nd_result
         
-        Image_2nd_result = torch.tensor([float(value) for value in Image_2nd_result], dtype=torch.float32).reshape(8, 16, 208, 208)
+        Image_2nd_result = torch.tensor([float(value) for value in Image_2nd_result], dtype=torch.float32).cuda().reshape(8, 16, 208, 208)
         
         # Save_File(Image0_2nd_result, "result/Image0_2nd_result")
         # Save_File(Image1_2nd_result, "result/Image1_2nd_result")
@@ -1270,7 +1283,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer1 = Output_Image1_Layer1_1st_Iter + Output_Image2_Layer1_1st_Iter + Output_Image3_Layer1_1st_Iter + Output_Image4_Layer1_1st_Iter + \
                             Output_Image5_Layer1_1st_Iter + Output_Image6_Layer1_1st_Iter + Output_Image7_Layer1_1st_Iter + Output_Image8_Layer1_1st_Iter    
 
-        OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).reshape(8, 32, 208, 208)
+        OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).cuda().reshape(8, 32, 208, 208).cuda()
         if DEBUG: print(OutImage_1st_Layer1[0][0][0][0:5])
         
         if DEBUG2 : Save_File(data.Beta_Dec[1],   "result/Layer_1_Forward_Beta_Before_Weight_Update")
@@ -1285,6 +1298,9 @@ class YOLOv2_Tiny_FPGA(object):
         
         Beta_Layer1 = data.Beta_Dec[1]
         Gamma_Layer1 = data.Gamma_Dec[1]
+
+        # import pdb
+        # pdb.set_trace()
 
         layer1_cache = BN(OutImage_1st_Layer1, Gamma_Layer1, Beta_Layer1)
 
@@ -1551,7 +1567,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer2 = Output_Image1_Layer2_1st_Iter + Output_Image2_Layer2_1st_Iter + Output_Image3_Layer2_1st_Iter + Output_Image4_Layer2_1st_Iter + \
                             Output_Image5_Layer2_1st_Iter + Output_Image6_Layer2_1st_Iter + Output_Image7_Layer2_1st_Iter + Output_Image8_Layer2_1st_Iter    
 
-        OutImage_1st_Layer2 = torch.tensor([float(value) for value in OutImages_1st_Layer2], dtype=torch.float32).reshape(8, 64, 104, 104)
+        OutImage_1st_Layer2 = torch.tensor([float(value) for value in OutImages_1st_Layer2], dtype=torch.float32).cuda().reshape(8, 64, 104, 104).cuda()
         # Mean, Var
         s = time.time()
         Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
@@ -1836,7 +1852,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer3 = Output_Image1_Layer3_1st_Iter + Output_Image2_Layer3_1st_Iter + Output_Image3_Layer3_1st_Iter + Output_Image4_Layer3_1st_Iter + \
                             Output_Image5_Layer3_1st_Iter + Output_Image6_Layer3_1st_Iter + Output_Image7_Layer3_1st_Iter + Output_Image8_Layer3_1st_Iter    
 
-        OutImage_1st_Layer3 = torch.tensor([float(value) for value in OutImages_1st_Layer3], dtype=torch.float32).reshape(8, 128, 52, 52)
+        OutImage_1st_Layer3 = torch.tensor([float(value) for value in OutImages_1st_Layer3], dtype=torch.float32).cuda().reshape(8, 128, 52, 52).cuda()
 
         # Mean, Var
         Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
@@ -2119,7 +2135,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer4 = Output_Image1_Layer4_1st_Iter + Output_Image2_Layer4_1st_Iter + Output_Image3_Layer4_1st_Iter + Output_Image4_Layer4_1st_Iter + \
                             Output_Image5_Layer4_1st_Iter + Output_Image6_Layer4_1st_Iter + Output_Image7_Layer4_1st_Iter + Output_Image8_Layer4_1st_Iter    
 
-        OutImage_1st_Layer4 = torch.tensor([float(value) for value in OutImages_1st_Layer4], dtype=torch.float32).reshape(8, 256, 26, 26)
+        OutImage_1st_Layer4 = torch.tensor([float(value) for value in OutImages_1st_Layer4], dtype=torch.float32).cuda().reshape(8, 256, 26, 26).cuda()
 
         # Mean, Var
         s = time.time()
@@ -2404,7 +2420,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer5 = Output_Image1_Layer5_1st_Iter + Output_Image2_Layer5_1st_Iter + Output_Image3_Layer5_1st_Iter + Output_Image4_Layer5_1st_Iter + \
                             Output_Image5_Layer5_1st_Iter + Output_Image6_Layer5_1st_Iter + Output_Image7_Layer5_1st_Iter + Output_Image8_Layer5_1st_Iter    
 
-        OutImage_1st_Layer5 = torch.tensor([float(value) for value in OutImages_1st_Layer5], dtype=torch.float32).reshape(8, 512, 13, 13)
+        OutImage_1st_Layer5 = torch.tensor([float(value) for value in OutImages_1st_Layer5], dtype=torch.float32).cuda().reshape(8, 512, 13, 13).cuda()
 
         # Mean, Var
         s = time.time()
@@ -2690,7 +2706,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer6 = Output_Image1_Layer6_1st_Iter + Output_Image2_Layer6_1st_Iter + Output_Image3_Layer6_1st_Iter + Output_Image4_Layer6_1st_Iter + \
                             Output_Image5_Layer6_1st_Iter + Output_Image6_Layer6_1st_Iter + Output_Image7_Layer6_1st_Iter + Output_Image8_Layer6_1st_Iter    
 
-        OutImage_1st_Layer6 = torch.tensor([float(value) for value in OutImages_1st_Layer6], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        OutImage_1st_Layer6 = torch.tensor([float(value) for value in OutImages_1st_Layer6], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13).cuda()
 
         # Mean, Var
         Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
@@ -2970,7 +2986,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer7 = Output_Image1_Layer7_1st_Iter + Output_Image2_Layer7_1st_Iter + Output_Image3_Layer7_1st_Iter + Output_Image4_Layer7_1st_Iter + \
                             Output_Image5_Layer7_1st_Iter + Output_Image6_Layer7_1st_Iter + Output_Image7_Layer7_1st_Iter + Output_Image8_Layer7_1st_Iter    
 
-        OutImage_1st_Layer7 = torch.tensor([float(value) for value in OutImages_1st_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        OutImage_1st_Layer7 = torch.tensor([float(value) for value in OutImages_1st_Layer7], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13).cuda()
         e = time.time()
         # if DEBUG: print("OutFmap_Bfloat2Dec Convert Time : ", e-s)
 
@@ -3101,7 +3117,7 @@ class YOLOv2_Tiny_FPGA(object):
                     test_output.write(str(item) + "\n")
             test_output.close()                  
             
-            Input_Layer7 = torch.tensor([float(value) for value in Input_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
+            Input_Layer7 = torch.tensor([float(value) for value in Input_Layer7], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13).cuda()
             Save_File(Input_Layer7, "result/Input_Layer7")
         
         resume()
@@ -3330,7 +3346,7 @@ class YOLOv2_Tiny_FPGA(object):
                     test_output.write(str(item) + "\n")
             test_output.close()                  
             
-            Input_Layer8 = torch.tensor([float(value) for value in Input_Layer8], dtype=torch.float32).reshape(8, 1024, 13, 13)
+            Input_Layer8 = torch.tensor([float(value) for value in Input_Layer8], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13).cuda()
             Save_File(Input_Layer8, "result/Input_Layer8")
             
         return Output_Layer8
@@ -3477,6 +3493,10 @@ class YOLOv2_Tiny_FPGA(object):
                     # OutImage8_Data_CH1=Layer8_1st_Iter_Image8_CH1_256
                     )
         s = time.time()
+        # import pdb
+        # pdb.set_trace()
+        
+        PostProcessing.Output_Layer8 = Output_Layer8.cuda()
         Loss, Loss_Gradient = PostProcessing.PostProcessing(gt_boxes, gt_classes, num_boxes)
         e = time.time()
         if DEBUG: print("Calculate Loss : ",e-s)
@@ -3806,7 +3826,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         Output_Grads_Layer8 = Output_Grad1_Layer8 + Output_Grad2_Layer8 + Output_Grad3_Layer8 + Output_Grad4_Layer8 + \
                                 Output_Grad5_Layer8 + Output_Grad6_Layer8 + Output_Grad7_Layer8 + Output_Grad8_Layer8    
-        Output_Grad_Layer8 = torch.tensor([float(value) for value in Output_Grads_Layer8], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        Output_Grad_Layer8 = torch.tensor([float(value) for value in Output_Grads_Layer8], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13).cuda()
         
         if DEBUG2 : Save_File(Output_Grad_Layer8, "result/Layer_8_Backward_Input_Gradient")
 
@@ -3878,14 +3898,14 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking_Layer7 = ReLu_Marking1_Layer7 + ReLu_Marking2_Layer7 + ReLu_Marking3_Layer7 + ReLu_Marking4_Layer7 + ReLu_Marking5_Layer7 + \
                                 ReLu_Marking6_Layer7 + ReLu_Marking7_Layer7 + ReLu_Marking8_Layer7
         
-        ReLu_Marking_Layer7 = torch.tensor([float(value) for value in ReLu_Marking_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        ReLu_Marking_Layer7 = torch.tensor([float(value) for value in ReLu_Marking_Layer7], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13).cuda()
         
         if DEBUG2 : Save_File(ReLu_Marking_Layer7, "result/ReLu_Marking_Layer7")
         
         # BReLu Calculate
         s = time.time()
-        # Output_Grad_layer8_input = torch.tensor(Output_Grad_Layer8, dtype=torch.float32).reshape(8,1024,13,13)
-        # Layer7_Location = torch.tensor(ReLu_Marking_Layer7, dtype=torch.float32).reshape(8,1024,13,13)
+        # Output_Grad_layer8_input = torch.tensor(Output_Grad_Layer8, dtype=torch.float32).cuda().reshape(8,1024,13,13)
+        # Layer7_Location = torch.tensor(ReLu_Marking_Layer7, dtype=torch.float32).cuda().reshape(8,1024,13,13)
         relu_mask, location_mask = split_location(ReLu_Marking_Layer7)
         grad_relu_output = backward_active(Output_Grad_Layer8, relu_mask)
         #grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
@@ -4125,7 +4145,7 @@ class YOLOv2_Tiny_FPGA(object):
         # Weight_Gradient_Layer8 = list(np.mean(np.array(Weight_Gradient_Layer8), axis=0))
         Weight_Gradient_Layer8 = list(np.sum(np.array(Weight_Gradient_Layer8), axis=0))
   
-        Weight_Gradient_Layer8 = torch.tensor([float(value) for value in Weight_Gradient_Layer8], dtype=torch.float32).reshape(125, 1024, 1, 1)   
+        Weight_Gradient_Layer8 = torch.tensor([float(value) for value in Weight_Gradient_Layer8], dtype=torch.float32).cuda().reshape(125, 1024, 1, 1).cuda()
 
         if DEBUG2 : Save_File(Weight_Gradient_Layer8, "result/Layer_8_Backward_Weight_Gradient")
         
@@ -4230,7 +4250,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad8_Layer7 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer7_CH0_16, Output_Grad8_Layer7_CH1_16, Exponent_Bits, Mantissa_Bits, Out_CH=1024, Out_Size=13, Layer8=False)
         Output_Grads_Layer7 = Output_Grad1_Layer7 + Output_Grad2_Layer7 + Output_Grad3_Layer7 + Output_Grad4_Layer7 + \
                                 Output_Grad5_Layer7 + Output_Grad6_Layer7 + Output_Grad7_Layer7 + Output_Grad8_Layer7    
-        Output_Grad_Layer7 = torch.tensor([float(value) for value in Output_Grads_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        Output_Grad_Layer7 = torch.tensor([float(value) for value in Output_Grads_Layer7], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13).cuda()
         e = time.time()
         if DEBUG: print("Read_OutFmap_Bfloat2Dec Time : ", e-s)
         if DEBUG2 : Save_File(Output_Grad_Layer7, "result/Layer_7_Backward_Input_Gradient")
@@ -4301,7 +4321,7 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking_Layer6 = ReLu_Marking1_Layer6 + ReLu_Marking2_Layer6 + ReLu_Marking3_Layer6 + ReLu_Marking4_Layer6 + ReLu_Marking5_Layer6 + \
                                 ReLu_Marking6_Layer6 + ReLu_Marking7_Layer6 + ReLu_Marking8_Layer6                     
         
-        ReLu_Marking_Layer6 = torch.tensor([float(value) for value in ReLu_Marking_Layer6], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        ReLu_Marking_Layer6 = torch.tensor([float(value) for value in ReLu_Marking_Layer6], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13).cuda()
         
         
         e = time.time()
@@ -4309,8 +4329,8 @@ class YOLOv2_Tiny_FPGA(object):
 
         # BReLu Calculate
         
-        # Output_Grad_layer7_input = torch.tensor(Output_Grad_Layer7, dtype=torch.float32).reshape(8,1024,13,13)
-        # Layer6_Location = torch.tensor(ReLu_Marking_Layer6, dtype=torch.float32).reshape(8,1024,13,13)
+        # Output_Grad_layer7_input = torch.tensor(Output_Grad_Layer7, dtype=torch.float32).cuda().reshape(8,1024,13,13)
+        # Layer6_Location = torch.tensor(ReLu_Marking_Layer6, dtype=torch.float32).cuda().reshape(8,1024,13,13)
         s = time.time()
         relu_mask, location_mask = split_location(ReLu_Marking_Layer6)
         grad_relu_output = backward_active(Output_Grad_Layer7, relu_mask)
@@ -4558,7 +4578,7 @@ class YOLOv2_Tiny_FPGA(object):
         # Weight_Gradient_Layer7 = list(np.mean(np.array(Weight_Gradient_Layer7), axis=0))
         Weight_Gradient_Layer7 = list(np.sum(np.array(Weight_Gradient_Layer7), axis=0))
         
-        Weight_Gradient_Layer7 = torch.tensor([float(value) for value in Weight_Gradient_Layer7], dtype=torch.float32).reshape(1024, 1024, 3, 3)
+        Weight_Gradient_Layer7 = torch.tensor([float(value) for value in Weight_Gradient_Layer7], dtype=torch.float32).cuda().reshape(1024, 1024, 3, 3).cuda()
           
         if DEBUG2 : Save_File(Weight_Gradient_Layer7, "result/Layer_7_Backward_Weight_Gradient")
         e = time.time()
@@ -4643,7 +4663,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         Output_Grads_Layer6 = Output_Grad1_Layer6 + Output_Grad2_Layer6 + Output_Grad3_Layer6 + Output_Grad4_Layer6 + \
                                 Output_Grad5_Layer6 + Output_Grad6_Layer6 + Output_Grad7_Layer6 + Output_Grad8_Layer6    
-        Output_Grad_Layer6 = torch.tensor([float(value) for value in Output_Grads_Layer6], dtype=torch.float32).reshape(8, 512, 13, 13)
+        Output_Grad_Layer6 = torch.tensor([float(value) for value in Output_Grads_Layer6], dtype=torch.float32).cuda().reshape(8, 512, 13, 13).cuda()
         
         if DEBUG2 : Save_File(Output_Grad_Layer6, "result/Layer_6_Backward_Input_Gradient")
 
@@ -4716,12 +4736,12 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking_Layer5 = ReLu_Marking1_Layer5 + ReLu_Marking2_Layer5 + ReLu_Marking3_Layer5 + ReLu_Marking4_Layer5 + ReLu_Marking5_Layer5 + \
                                 ReLu_Marking6_Layer5 + ReLu_Marking7_Layer5 + ReLu_Marking8_Layer5
         
-        ReLu_Marking_Layer5 = torch.tensor([float(value) for value in ReLu_Marking_Layer5], dtype=torch.float32).reshape(8, 512, 13, 13)
+        ReLu_Marking_Layer5 = torch.tensor([float(value) for value in ReLu_Marking_Layer5], dtype=torch.float32).cuda().reshape(8, 512, 13, 13).cuda()
 
 
         # BReLu Calculate
-        # Output_Grad_layer6_input = torch.tensor(Output_Grad_Layer6, dtype=torch.float32).reshape(8,512,13,13)
-        # Layer5_Location = torch.tensor(ReLu_Marking_Layer5, dtype=torch.float32).reshape(8,512,13,13)
+        # Output_Grad_layer6_input = torch.tensor(Output_Grad_Layer6, dtype=torch.float32).cuda().reshape(8,512,13,13)
+        # Layer5_Location = torch.tensor(ReLu_Marking_Layer5, dtype=torch.float32).cuda().reshape(8,512,13,13)
         s = time.time()
         relu_mask, location_mask = split_location(ReLu_Marking_Layer5)
         grad_relu_output = backward_active(Output_Grad_Layer6, relu_mask)
@@ -4966,7 +4986,7 @@ class YOLOv2_Tiny_FPGA(object):
         Weight_Gradient_Layer6 = list(np.sum(np.array(Weight_Gradient_Layer6), axis=0))
         
          
-        Weight_Gradient_Layer6 = torch.tensor([float(value) for value in Weight_Gradient_Layer6], dtype=torch.float32).reshape(1024, 512, 3, 3)  
+        Weight_Gradient_Layer6 = torch.tensor([float(value) for value in Weight_Gradient_Layer6], dtype=torch.float32).cuda().reshape(1024, 512, 3, 3).cuda()
         
         if DEBUG2 : Save_File(Weight_Gradient_Layer6, "result/Layer_6_Backward_Weight_Gradient")
 
@@ -5065,7 +5085,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         Output_Grads_Layer5 = Output_Grad1_Layer5 + Output_Grad2_Layer5 + Output_Grad3_Layer5 + Output_Grad4_Layer5 + \
                                 Output_Grad5_Layer5 + Output_Grad6_Layer5 + Output_Grad7_Layer5 + Output_Grad8_Layer5    
-        Output_Grad_Layer5 = torch.tensor([float(value) for value in Output_Grads_Layer5], dtype=torch.float32).reshape(8, 256, 13, 13)
+        Output_Grad_Layer5 = torch.tensor([float(value) for value in Output_Grads_Layer5], dtype=torch.float32).cuda().reshape(8, 256, 13, 13).cuda()
         
         if DEBUG2 : Save_File(Output_Grad_Layer5, "result/Layer_5_Backward_Input_Gradient")
 
@@ -5137,11 +5157,11 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking_Layer4 = ReLu_Marking1_Layer4 + ReLu_Marking2_Layer4 + ReLu_Marking3_Layer4 + ReLu_Marking4_Layer4 + ReLu_Marking5_Layer4 + \
                                 ReLu_Marking6_Layer4 + ReLu_Marking7_Layer4 + ReLu_Marking8_Layer4
         
-        ReLu_Marking_Layer4 = torch.tensor([float(value) for value in ReLu_Marking_Layer4], dtype=torch.float32).reshape(8, 256, 13, 13)
+        ReLu_Marking_Layer4 = torch.tensor([float(value) for value in ReLu_Marking_Layer4], dtype=torch.float32).cuda().reshape(8, 256, 13, 13).cuda()
 
         # BReLu Calculate
-        # Output_Grad_layer5_input = torch.tensor(Output_Grad_Layer5, dtype=torch.float32).reshape(8,256,13,13)
-        # Layer4_Location = torch.tensor(ReLu_Marking_Layer4, dtype=torch.float32).reshape(8,256,13,13)
+        # Output_Grad_layer5_input = torch.tensor(Output_Grad_Layer5, dtype=torch.float32).cuda().reshape(8,256,13,13)
+        # Layer4_Location = torch.tensor(ReLu_Marking_Layer4, dtype=torch.float32).cuda().reshape(8,256,13,13)
 
         s = time.time()
         relu_mask, location_mask = split_location(ReLu_Marking_Layer4)
@@ -5396,7 +5416,7 @@ class YOLOv2_Tiny_FPGA(object):
         # Weight_Gradient_Layer5 = list(np.mean(np.array(Weight_Gradient_Layer5), axis=0))
         Weight_Gradient_Layer5 = list(np.sum(np.array(Weight_Gradient_Layer5), axis=0))
         
-        Weight_Gradient_Layer5 = torch.tensor([float(value) for value in Weight_Gradient_Layer5], dtype=torch.float32).reshape(512, 256, 3, 3)  
+        Weight_Gradient_Layer5 = torch.tensor([float(value) for value in Weight_Gradient_Layer5], dtype=torch.float32).cuda().reshape(512, 256, 3, 3).cuda() 
         
         if DEBUG2 : Save_File(Weight_Gradient_Layer5, "result/Layer_5_Backward_Weight_Gradient")
 
@@ -5496,7 +5516,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         Output_Grads_Layer4 = Output_Grad1_Layer4 + Output_Grad2_Layer4 + Output_Grad3_Layer4 + Output_Grad4_Layer4 + \
                                 Output_Grad5_Layer4 + Output_Grad6_Layer4 + Output_Grad7_Layer4 + Output_Grad8_Layer4    
-        Output_Grad_Layer4 = torch.tensor([float(value) for value in Output_Grads_Layer4], dtype=torch.float32).reshape(8, 128, 26, 26)
+        Output_Grad_Layer4 = torch.tensor([float(value) for value in Output_Grads_Layer4], dtype=torch.float32).cuda().reshape(8, 128, 26, 26).cuda()
         
         if DEBUG2 : Save_File(Output_Grad_Layer4, "result/Layer_4_Backward_Input_Gradient")
 
@@ -5568,11 +5588,11 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking_Layer3 = ReLu_Marking1_Layer3 + ReLu_Marking2_Layer3 + ReLu_Marking3_Layer3 + ReLu_Marking4_Layer3 + ReLu_Marking5_Layer3 + \
                                 ReLu_Marking6_Layer3 + ReLu_Marking7_Layer3 + ReLu_Marking8_Layer3
         
-        ReLu_Marking_Layer3 = torch.tensor([float(value) for value in ReLu_Marking_Layer3], dtype=torch.float32).reshape(8, 128, 26, 26)
+        ReLu_Marking_Layer3 = torch.tensor([float(value) for value in ReLu_Marking_Layer3], dtype=torch.float32).cuda().reshape(8, 128, 26, 26).cuda()
 
         # BReLu Calculate
-        # Output_Grad_layer4_input = torch.tensor(Output_Grad_Layer4, dtype=torch.float32).reshape(8,128,26,26)
-        # Layer3_Location = torch.tensor(ReLu_Marking_Layer3, dtype=torch.float32).reshape(8,128,26,26)
+        # Output_Grad_layer4_input = torch.tensor(Output_Grad_Layer4, dtype=torch.float32).cuda().reshape(8,128,26,26)
+        # Layer3_Location = torch.tensor(ReLu_Marking_Layer3, dtype=torch.float32).cuda().reshape(8,128,26,26)
 
         s = time.time()
         relu_mask, location_mask = split_location(ReLu_Marking_Layer3)
@@ -5818,7 +5838,7 @@ class YOLOv2_Tiny_FPGA(object):
         # Weight_Gradient_Layer4 = list(np.mean(np.array(Weight_Gradient_Layer4), axis=0))
         Weight_Gradient_Layer4 = list(np.sum(np.array(Weight_Gradient_Layer4), axis=0))
         
-        Weight_Gradient_Layer4 = torch.tensor([float(value) for value in Weight_Gradient_Layer4], dtype=torch.float32).reshape(256, 128, 3, 3) 
+        Weight_Gradient_Layer4 = torch.tensor([float(value) for value in Weight_Gradient_Layer4], dtype=torch.float32).cuda().reshape(256, 128, 3, 3).cuda() 
         
         if DEBUG2 : Save_File(Weight_Gradient_Layer4, "result/Layer_4_Backward_Weight_Gradient")  
 
@@ -5900,7 +5920,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         Output_Grads_Layer3 = Output_Grad1_Layer3 + Output_Grad2_Layer3 + Output_Grad3_Layer3 + Output_Grad4_Layer3 + \
                                 Output_Grad5_Layer3 + Output_Grad6_Layer3 + Output_Grad7_Layer3 + Output_Grad8_Layer3    
-        Output_Grad_Layer3 = torch.tensor([float(value) for value in Output_Grads_Layer3], dtype=torch.float32).reshape(8, 64, 52, 52)
+        Output_Grad_Layer3 = torch.tensor([float(value) for value in Output_Grads_Layer3], dtype=torch.float32).cuda().reshape(8, 64, 52, 52).cuda()
         
         if DEBUG2 : Save_File(Output_Grad_Layer3, "result/Layer_3_Backward_Input_Gradient")
 
@@ -5972,11 +5992,11 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking_Layer2 = ReLu_Marking1_Layer2 + ReLu_Marking2_Layer2 + ReLu_Marking3_Layer2 + ReLu_Marking4_Layer2 + ReLu_Marking5_Layer2 + \
                                 ReLu_Marking6_Layer2 + ReLu_Marking7_Layer2 + ReLu_Marking8_Layer2
         
-        ReLu_Marking_Layer2 = torch.tensor([float(value) for value in ReLu_Marking_Layer2], dtype=torch.float32).reshape(8, 64, 52, 52)
+        ReLu_Marking_Layer2 = torch.tensor([float(value) for value in ReLu_Marking_Layer2], dtype=torch.float32).cuda().reshape(8, 64, 52, 52).cuda()
 
         # BReLu Calculate
-        # Output_Grad_layer3_input = torch.tensor(Output_Grad_Layer3, dtype=torch.float32).reshape(8,64,52,52)
-        # Layer2_Location = torch.tensor(ReLu_Marking_Layer2, dtype=torch.float32).reshape(8,64,52,52)
+        # Output_Grad_layer3_input = torch.tensor(Output_Grad_Layer3, dtype=torch.float32).cuda().reshape(8,64,52,52)
+        # Layer2_Location = torch.tensor(ReLu_Marking_Layer2, dtype=torch.float32).cuda().reshape(8,64,52,52)
 
         s = time.time()
         relu_mask, location_mask = split_location(ReLu_Marking_Layer2)
@@ -6221,7 +6241,7 @@ class YOLOv2_Tiny_FPGA(object):
         # Weight_Gradient_Layer3 = list(np.mean(np.array(Weight_Gradient_Layer3), axis=0))
         Weight_Gradient_Layer3 = list(np.sum(np.array(Weight_Gradient_Layer3), axis=0))
          
-        Weight_Gradient_Layer3 = torch.tensor([float(value) for value in Weight_Gradient_Layer3], dtype=torch.float32).reshape(128, 64, 3, 3)   
+        Weight_Gradient_Layer3 = torch.tensor([float(value) for value in Weight_Gradient_Layer3], dtype=torch.float32).cuda().reshape(128, 64, 3, 3).cuda() 
         
         if DEBUG2 : Save_File(Weight_Gradient_Layer3, "result/Layer_3_Backward_Weight_Gradient")
 
@@ -6305,7 +6325,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grads_Layer2 = Output_Grad1_Layer2 + Output_Grad2_Layer2 + Output_Grad3_Layer2 + Output_Grad4_Layer2 + \
                                 Output_Grad5_Layer2 + Output_Grad6_Layer2 + Output_Grad7_Layer2 + Output_Grad8_Layer2    
                                 
-        Output_Grad_Layer2 = torch.tensor([float(value) for value in Output_Grads_Layer2], dtype=torch.float32).reshape(8, 32, 104, 104)
+        Output_Grad_Layer2 = torch.tensor([float(value) for value in Output_Grads_Layer2], dtype=torch.float32).cuda().reshape(8, 32, 104, 104).cuda()
         
 
         if DEBUG2 : Save_File(Output_Grad_Layer2, "result/Layer_2_Backward_Input_Gradient")
@@ -6378,11 +6398,11 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking_Layer1 = ReLu_Marking1_Layer1 + ReLu_Marking2_Layer1 + ReLu_Marking3_Layer1 + ReLu_Marking4_Layer1 + ReLu_Marking5_Layer1 + \
                                 ReLu_Marking6_Layer1 + ReLu_Marking7_Layer1 + ReLu_Marking8_Layer1
                                  
-        ReLu_Marking_Layer1 = torch.tensor([float(value) for value in ReLu_Marking_Layer1], dtype=torch.float32).reshape(8, 32, 104, 104)
+        ReLu_Marking_Layer1 = torch.tensor([float(value) for value in ReLu_Marking_Layer1], dtype=torch.float32).cuda().reshape(8, 32, 104, 104).cuda()
 
         # BReLu Calculate
-        # Output_Grad_Layer2_input = torch.tensor(Output_Grad_Layer2, dtype=torch.float32).reshape(8,32,104,104)
-        # Layer1_Location = torch.tensor(ReLu_Marking_Layer1, dtype=torch.float32).reshape(8,32,104,104)
+        # Output_Grad_Layer2_input = torch.tensor(Output_Grad_Layer2, dtype=torch.float32).cuda().reshape(8,32,104,104)
+        # Layer1_Location = torch.tensor(ReLu_Marking_Layer1, dtype=torch.float32).cuda().reshape(8,32,104,104)
         s = time.time()
         rs = time.time()
         relu_mask, location_mask = split_location(ReLu_Marking_Layer1)
@@ -6638,7 +6658,7 @@ class YOLOv2_Tiny_FPGA(object):
         # Weight_Gradient_Layer2 = list(np.mean(np.array(Weight_Gradient_Layer2), axis=0))
         Weight_Gradient_Layer2 = list(np.sum(np.array(Weight_Gradient_Layer2), axis=0))
         
-        Weight_Gradient_Layer2 = torch.tensor([float(value) for value in Weight_Gradient_Layer2], dtype=torch.float32).reshape(64, 32, 3, 3)  
+        Weight_Gradient_Layer2 = torch.tensor([float(value) for value in Weight_Gradient_Layer2], dtype=torch.float32).cuda().reshape(64, 32, 3, 3).cuda()  
         if DEBUG2 : Save_File(Weight_Gradient_Layer2, "result/Layer_2_Backward_Weight_Gradient") 
 
         Blayer2_end = time.time()
@@ -6720,7 +6740,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         Output_Grads_Layer1 = Output_Grad1_Layer1 + Output_Grad2_Layer1 + Output_Grad3_Layer1 + Output_Grad4_Layer1 + \
                                 Output_Grad5_Layer1 + Output_Grad6_Layer1 + Output_Grad7_Layer1 + Output_Grad8_Layer1    
-        Output_Grad_Layer1 = torch.tensor([float(value) for value in Output_Grads_Layer1], dtype=torch.float32).reshape(8, 16, 208, 208)
+        Output_Grad_Layer1 = torch.tensor([float(value) for value in Output_Grads_Layer1], dtype=torch.float32).cuda().reshape(8, 16, 208, 208).cuda()
         
         if DEBUG2 : Save_File(Output_Grad_Layer1, "result/Layer_1_Backward_Input_Gradient")
 
@@ -6792,16 +6812,19 @@ class YOLOv2_Tiny_FPGA(object):
         ReLu_Marking_Layer0 = ReLu_Marking1_Layer0 + ReLu_Marking2_Layer0 + ReLu_Marking3_Layer0 + ReLu_Marking4_Layer0 + ReLu_Marking5_Layer0 + \
                                 ReLu_Marking6_Layer0 + ReLu_Marking7_Layer0 + ReLu_Marking8_Layer0
         
-        ReLu_Marking_Layer0 = torch.tensor([float(value) for value in ReLu_Marking_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
+        ReLu_Marking_Layer0 = torch.tensor([float(value) for value in ReLu_Marking_Layer0], dtype=torch.float32).cuda().reshape(8, 16, 208, 208).cuda()
 
         # BReLu Calculate
-        # Output_Grad_Layer1_input = torch.tensor(Output_Grad_Layer1, dtype=torch.float32).reshape(8,16,208,208)
-        # Layer0_Location = torch.tensor(ReLu_Marking_Layer0, dtype=torch.float32).reshape(8,16,208,208)
+        # Output_Grad_Layer1_input = torch.tensor(Output_Grad_Layer1, dtype=torch.float32).cuda().reshape(8,16,208,208)
+        # Layer0_Location = torch.tensor(ReLu_Marking_Layer0, dtype=torch.float32).cuda().reshape(8,16,208,208)
 
         s = time.time()
         relu_mask, location_mask = split_location(ReLu_Marking_Layer0)
         grad_relu_output = backward_active(Output_Grad_Layer1, relu_mask)
         # grad_maxpool_output = backward_MaxPool_Location(grad_relu_output, location_mask)
+        # import pdb
+        # pdb.set_trace()
+        
         dL_dgamma_0, dL_dbeta_0, avg_pc_0, backward_const_0, gamma_0 = backward_LightNorm(grad_relu_output, layer0_cache)
         e = time.time()
         avg_pc_0 = avg_pc_0/gamma_0
@@ -7042,7 +7065,7 @@ class YOLOv2_Tiny_FPGA(object):
         # Weight_Gradient_Layer1 = list(np.mean(np.array(Weight_Gradient_Layer1), axis=0))
         Weight_Gradient_Layer1 = list(np.sum(np.array(Weight_Gradient_Layer1), axis=0))
         
-        Weight_Gradient_Layer1 = torch.tensor([float(value) for value in Weight_Gradient_Layer1], dtype=torch.float32).reshape(32, 16, 3, 3)   
+        Weight_Gradient_Layer1 = torch.tensor([float(value) for value in Weight_Gradient_Layer1], dtype=torch.float32).cuda().reshape(32, 16, 3, 3)   
         
         if DEBUG2 : Save_File(Weight_Gradient_Layer1, "result/Layer_1_Backward_Weight_Gradient")
 
@@ -7120,7 +7143,7 @@ class YOLOv2_Tiny_FPGA(object):
         Output_Grad8_Layer0 = Read_OutFmap_Bfloat2Dec(Output_Grad8_Layer0_CH0, Output_Grad8_Layer0_CH1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
         Output_Grads_Layer0 = Output_Grad1_Layer0 + Output_Grad2_Layer0 + Output_Grad3_Layer0 + Output_Grad4_Layer0 + \
                                 Output_Grad5_Layer0 + Output_Grad6_Layer0 + Output_Grad7_Layer0 + Output_Grad8_Layer0    
-        Output_Grad_Layer0 = torch.tensor([float(value) for value in Output_Grads_Layer0], dtype=torch.float32).reshape(8, 16, 416, 416)
+        Output_Grad_Layer0 = torch.tensor([float(value) for value in Output_Grads_Layer0], dtype=torch.float32).cuda().reshape(8, 16, 416, 416)
         
         '''
 
@@ -7330,7 +7353,7 @@ class YOLOv2_Tiny_FPGA(object):
         # Weight_Gradient_Layer0 = list(np.mean(np.array(Weight_Gradient_Layer0), axis=0))
         # Weight_Gradient_Layer0 = list(np.sum(np.array(Weight_Gradient_Layer0), axis=0))
         
-        Weight_Gradient_Layer0 = torch.tensor([float(value) for value in Weight_Gradient_Layer0], dtype=torch.float32).reshape(16, 3, 3, 3)   
+        Weight_Gradient_Layer0 = torch.tensor([float(value) for value in Weight_Gradient_Layer0], dtype=torch.float32).cuda().reshape(16, 3, 3, 3)   
         e = time.time()
         if DEBUG: print("reshape : ",e-s)
         if DEBUG2 : Save_File(Weight_Gradient_Layer0, "result/Layer_0_Backward_Weight_Gradient")
@@ -7479,7 +7502,7 @@ class YOLOv2_Tiny_FPGA(object):
             Image0 = Read_OutFmap_Bfloat2Dec(Im0_ch0, Im0_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
             # if DEBUG: print(len(Image0))
 
-            # Image0 = torch.tensor([float(value) for value in Image0], dtype=torch.float32).reshape(1, 16, 416, 416)
+            # Image0 = torch.tensor([float(value) for value in Image0], dtype=torch.float32).cuda().reshape(1, 16, 416, 416)
             
             Im1_ch0 = Read_DDR(Rd_Address=0X82740000, End_Address=0X82A80000)
             Im1_ch0 = flip_lines_16(Im1_ch0)
@@ -7490,7 +7513,7 @@ class YOLOv2_Tiny_FPGA(object):
             
             Image1 = Read_OutFmap_Bfloat2Dec(Im1_ch0, Im1_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
 
-            # Image1 = torch.tensor([float(value) for value in Image1], dtype=torch.float32).reshape(1, 16, 416, 416)
+            # Image1 = torch.tensor([float(value) for value in Image1], dtype=torch.float32).cuda().reshape(1, 16, 416, 416)
             
             Im2_ch0 = Read_DDR(Rd_Address=0X82A80000, End_Address=0X82DC0000)
             Im2_ch0 = flip_lines_16(Im2_ch0)
@@ -7501,7 +7524,7 @@ class YOLOv2_Tiny_FPGA(object):
             
             Image2 = Read_OutFmap_Bfloat2Dec(Im2_ch0, Im2_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
 
-            # Image2 = torch.tensor([float(value) for value in Image2], dtype=torch.float32).reshape(1, 16, 416, 416)
+            # Image2 = torch.tensor([float(value) for value in Image2], dtype=torch.float32).cuda().reshape(1, 16, 416, 416)
             
             Im3_ch0 = Read_DDR(Rd_Address=0X82DC0000, End_Address=0X83100000)
             Im3_ch0 = flip_lines_16(Im3_ch0)
@@ -7512,7 +7535,7 @@ class YOLOv2_Tiny_FPGA(object):
             
             Image3 = Read_OutFmap_Bfloat2Dec(Im3_ch0, Im3_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
 
-            # Image3 = torch.tensor([float(value) for value in Image3], dtype=torch.float32).reshape(1, 16, 416, 416)
+            # Image3 = torch.tensor([float(value) for value in Image3], dtype=torch.float32).cuda().reshape(1, 16, 416, 416)
             
             Im4_ch0 = Read_DDR(Rd_Address=0X83100000, End_Address=0X83440000)
             Im4_ch0 = flip_lines_16(Im4_ch0)
@@ -7523,7 +7546,7 @@ class YOLOv2_Tiny_FPGA(object):
             
             Image4 = Read_OutFmap_Bfloat2Dec(Im4_ch0, Im4_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
 
-            # Image4 = torch.tensor([float(value) for value in Image4], dtype=torch.float32).reshape(1, 16, 416, 416)
+            # Image4 = torch.tensor([float(value) for value in Image4], dtype=torch.float32).cuda().reshape(1, 16, 416, 416)
             
             Im5_ch0 = Read_DDR(Rd_Address=0X83440000, End_Address=0X83780000)
             Im5_ch0 = flip_lines_16(Im5_ch0)
@@ -7534,7 +7557,7 @@ class YOLOv2_Tiny_FPGA(object):
             
             Image5 = Read_OutFmap_Bfloat2Dec(Im5_ch0, Im5_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
 
-            # Image5 = torch.tensor([float(value) for value in Image5], dtype=torch.float32).reshape(1, 16, 416, 416)
+            # Image5 = torch.tensor([float(value) for value in Image5], dtype=torch.float32).cuda().reshape(1, 16, 416, 416)
             
             Im6_ch0 = Read_DDR(Rd_Address=0X83780000, End_Address=0X83AC0000)
             Im6_ch0 = flip_lines_16(Im6_ch0)
@@ -7545,7 +7568,7 @@ class YOLOv2_Tiny_FPGA(object):
             
             Image6 = Read_OutFmap_Bfloat2Dec(Im6_ch0, Im6_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
 
-            # Image6 = torch.tensor([float(value) for value in Image6], dtype=torch.float32).reshape(1, 16, 416, 416)
+            # Image6 = torch.tensor([float(value) for value in Image6], dtype=torch.float32).cuda().reshape(1, 16, 416, 416)
             
             Im7_ch0 = Read_DDR(Rd_Address=0X83AC0000, End_Address=0X83E00000)
             Im7_ch0 = flip_lines_16(Im7_ch0)
@@ -7556,7 +7579,7 @@ class YOLOv2_Tiny_FPGA(object):
             
             Image7 = Read_OutFmap_Bfloat2Dec(Im7_ch0, Im7_ch1, Exponent_Bits, Mantissa_Bits, Out_CH=16, Out_Size=416, Layer8=False)
 
-            # Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).reshape(1, 16, 416, 416)
+            # Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).cuda().reshape(1, 16, 416, 416)
             
             # Image = Image0 + Image1 + Image2 + Image3 + Image4 + Image5 + Image6 + Image7
             Image0 = Image0[0:3*1*416*416]
@@ -7569,14 +7592,14 @@ class YOLOv2_Tiny_FPGA(object):
             Image7 = Image7[0:3*1*416*416]
             
             
-            Image0 = torch.tensor([float(value) for value in Image0], dtype=torch.float32).reshape(1, 3, 416, 416)
-            Image1 = torch.tensor([float(value) for value in Image1], dtype=torch.float32).reshape(1, 3, 416, 416)
-            Image2 = torch.tensor([float(value) for value in Image2], dtype=torch.float32).reshape(1, 3, 416, 416)
-            Image3 = torch.tensor([float(value) for value in Image3], dtype=torch.float32).reshape(1, 3, 416, 416)
-            Image4 = torch.tensor([float(value) for value in Image4], dtype=torch.float32).reshape(1, 3, 416, 416)
-            Image5 = torch.tensor([float(value) for value in Image5], dtype=torch.float32).reshape(1, 3, 416, 416)
-            Image6 = torch.tensor([float(value) for value in Image6], dtype=torch.float32).reshape(1, 3, 416, 416)
-            Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).reshape(1, 3, 416, 416)
+            Image0 = torch.tensor([float(value) for value in Image0], dtype=torch.float32).cuda().reshape(1, 3, 416, 416)
+            Image1 = torch.tensor([float(value) for value in Image1], dtype=torch.float32).cuda().reshape(1, 3, 416, 416)
+            Image2 = torch.tensor([float(value) for value in Image2], dtype=torch.float32).cuda().reshape(1, 3, 416, 416)
+            Image3 = torch.tensor([float(value) for value in Image3], dtype=torch.float32).cuda().reshape(1, 3, 416, 416)
+            Image4 = torch.tensor([float(value) for value in Image4], dtype=torch.float32).cuda().reshape(1, 3, 416, 416)
+            Image5 = torch.tensor([float(value) for value in Image5], dtype=torch.float32).cuda().reshape(1, 3, 416, 416)
+            Image6 = torch.tensor([float(value) for value in Image6], dtype=torch.float32).cuda().reshape(1, 3, 416, 416)
+            Image7 = torch.tensor([float(value) for value in Image7], dtype=torch.float32).cuda().reshape(1, 3, 416, 416)
 
             _Inputs = [Image0, Image1, Image2, Image3, Image4, Image5, Image6, Image7 ]
             Save_File(_Inputs, "result/Input_Data")
@@ -7805,7 +7828,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer0 = Output_Image1_Layer0_1st_Iter + Output_Image2_Layer0_1st_Iter + Output_Image3_Layer0_1st_Iter + Output_Image4_Layer0_1st_Iter + \
                             Output_Image5_Layer0_1st_Iter + Output_Image6_Layer0_1st_Iter + Output_Image7_Layer0_1st_Iter + Output_Image8_Layer0_1st_Iter    
 
-        OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
+        OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).cuda().reshape(8, 16, 208, 208)
         
         if DEBUG2 : Save_File(OutImage_1st_Layer0, "result/Layer_0_Forward_1st_Iteration")
         
@@ -8004,7 +8027,7 @@ class YOLOv2_Tiny_FPGA(object):
         Image_2nd_result = Image0_2nd_result + Image1_2nd_result + Image2_2nd_result + Image3_2nd_result + Image4_2nd_result + Image5_2nd_result +\
                            Image6_2nd_result + Image7_2nd_result
         
-        Image_2nd_result = torch.tensor([float(value) for value in Image_2nd_result], dtype=torch.float32).reshape(8, 16, 208, 208)
+        Image_2nd_result = torch.tensor([float(value) for value in Image_2nd_result], dtype=torch.float32).cuda().reshape(8, 16, 208, 208)
         
         # Save_File(Image0_2nd_result, "result/Image0_2nd_result")
         # Save_File(Image1_2nd_result, "result/Image1_2nd_result")
@@ -8220,7 +8243,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer1 = Output_Image1_Layer1_1st_Iter + Output_Image2_Layer1_1st_Iter + Output_Image3_Layer1_1st_Iter + Output_Image4_Layer1_1st_Iter + \
                             Output_Image5_Layer1_1st_Iter + Output_Image6_Layer1_1st_Iter + Output_Image7_Layer1_1st_Iter + Output_Image8_Layer1_1st_Iter    
 
-        OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).reshape(8, 32, 208, 208)
+        OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).cuda().reshape(8, 32, 208, 208)
         if DEBUG: print("OutImage_1st_Layer1 : ", OutImage_1st_Layer1[0][0][0][0:5])
         
         if DEBUG2 : Save_File(data.Beta_Dec[1],   "result/Layer_1_Forward_Beta_Before_Weight_Update")
@@ -8501,7 +8524,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer2 = Output_Image1_Layer2_1st_Iter + Output_Image2_Layer2_1st_Iter + Output_Image3_Layer2_1st_Iter + Output_Image4_Layer2_1st_Iter + \
                             Output_Image5_Layer2_1st_Iter + Output_Image6_Layer2_1st_Iter + Output_Image7_Layer2_1st_Iter + Output_Image8_Layer2_1st_Iter    
 
-        OutImage_1st_Layer2 = torch.tensor([float(value) for value in OutImages_1st_Layer2], dtype=torch.float32).reshape(8, 64, 104, 104)
+        OutImage_1st_Layer2 = torch.tensor([float(value) for value in OutImages_1st_Layer2], dtype=torch.float32).cuda().reshape(8, 64, 104, 104)
         # Mean, Var
         s = time.time()
         Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
@@ -8786,7 +8809,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer3 = Output_Image1_Layer3_1st_Iter + Output_Image2_Layer3_1st_Iter + Output_Image3_Layer3_1st_Iter + Output_Image4_Layer3_1st_Iter + \
                             Output_Image5_Layer3_1st_Iter + Output_Image6_Layer3_1st_Iter + Output_Image7_Layer3_1st_Iter + Output_Image8_Layer3_1st_Iter    
 
-        OutImage_1st_Layer3 = torch.tensor([float(value) for value in OutImages_1st_Layer3], dtype=torch.float32).reshape(8, 128, 52, 52)
+        OutImage_1st_Layer3 = torch.tensor([float(value) for value in OutImages_1st_Layer3], dtype=torch.float32).cuda().reshape(8, 128, 52, 52)
 
         # Mean, Var
         Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
@@ -9069,7 +9092,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer4 = Output_Image1_Layer4_1st_Iter + Output_Image2_Layer4_1st_Iter + Output_Image3_Layer4_1st_Iter + Output_Image4_Layer4_1st_Iter + \
                             Output_Image5_Layer4_1st_Iter + Output_Image6_Layer4_1st_Iter + Output_Image7_Layer4_1st_Iter + Output_Image8_Layer4_1st_Iter    
 
-        OutImage_1st_Layer4 = torch.tensor([float(value) for value in OutImages_1st_Layer4], dtype=torch.float32).reshape(8, 256, 26, 26)
+        OutImage_1st_Layer4 = torch.tensor([float(value) for value in OutImages_1st_Layer4], dtype=torch.float32).cuda().reshape(8, 256, 26, 26)
 
         # Mean, Var
         s = time.time()
@@ -9354,7 +9377,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer5 = Output_Image1_Layer5_1st_Iter + Output_Image2_Layer5_1st_Iter + Output_Image3_Layer5_1st_Iter + Output_Image4_Layer5_1st_Iter + \
                             Output_Image5_Layer5_1st_Iter + Output_Image6_Layer5_1st_Iter + Output_Image7_Layer5_1st_Iter + Output_Image8_Layer5_1st_Iter    
 
-        OutImage_1st_Layer5 = torch.tensor([float(value) for value in OutImages_1st_Layer5], dtype=torch.float32).reshape(8, 512, 13, 13)
+        OutImage_1st_Layer5 = torch.tensor([float(value) for value in OutImages_1st_Layer5], dtype=torch.float32).cuda().reshape(8, 512, 13, 13)
 
         # Mean, Var
         s = time.time()
@@ -9640,7 +9663,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer6 = Output_Image1_Layer6_1st_Iter + Output_Image2_Layer6_1st_Iter + Output_Image3_Layer6_1st_Iter + Output_Image4_Layer6_1st_Iter + \
                             Output_Image5_Layer6_1st_Iter + Output_Image6_Layer6_1st_Iter + Output_Image7_Layer6_1st_Iter + Output_Image8_Layer6_1st_Iter    
 
-        OutImage_1st_Layer6 = torch.tensor([float(value) for value in OutImages_1st_Layer6], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        OutImage_1st_Layer6 = torch.tensor([float(value) for value in OutImages_1st_Layer6], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13)
 
         # Mean, Var
         Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
@@ -9920,7 +9943,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImages_1st_Layer7 = Output_Image1_Layer7_1st_Iter + Output_Image2_Layer7_1st_Iter + Output_Image3_Layer7_1st_Iter + Output_Image4_Layer7_1st_Iter + \
                             Output_Image5_Layer7_1st_Iter + Output_Image6_Layer7_1st_Iter + Output_Image7_Layer7_1st_Iter + Output_Image8_Layer7_1st_Iter    
 
-        OutImage_1st_Layer7 = torch.tensor([float(value) for value in OutImages_1st_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
+        OutImage_1st_Layer7 = torch.tensor([float(value) for value in OutImages_1st_Layer7], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13)
         e = time.time()
         # if DEBUG: print("OutFmap_Bfloat2Dec Convert Time : ", e-s)
 

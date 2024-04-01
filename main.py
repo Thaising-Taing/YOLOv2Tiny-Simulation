@@ -1135,8 +1135,9 @@ class App(customtkinter.CTk):
         else:                                   self.args.output_dir = os.path.join( self.args.output_dir , self.imdb_train_name[18:] )
         self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
-        print(f"Validation weights before start of training.")
+        # print(f"Validation weights before start of training.")
         # checkmap_new.check( pth = self.args.pretrained, args=self.args)
+        # print(f'\n\n')
         # checkmap_new.check( weights = self.load_weights_from_pth(_path = self.args.pretrained), args=self.args)
 
         # repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
@@ -1206,6 +1207,9 @@ class App(customtkinter.CTk):
 
                     # if step>20:
                     #     break
+                    
+                    # if self.mode == "FPGA" and step%5==0: self.Check_mAP()
+                    
             self.Check_mAP()
             self.save_weights(self.epoch)
         #     self.Save_Pickle()
@@ -1360,7 +1364,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=8, type=int)
+                            default=256, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=64, type=int)
         parser.add_argument('--batch_size', dest='batch_size',

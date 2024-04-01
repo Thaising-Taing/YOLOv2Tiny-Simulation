@@ -51,7 +51,7 @@ from tqdm import tqdm
 # with open('./Dataset/Dataset/pretrained/epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # model = x['model']
-# checkpoint = torch.load('./Dataset/Dataset/pretrained/yolov2_epoch_100_2iteration.pth')
+# checkpoint = torch.load('./Dataset/Dataset/pretrained/yolov2_epoch_548.pth')
 
 # for param, val in checkpoint['model'].items():
 #     for param_mod, val_mod in pytorch_model.modtorch_model.params.items():
