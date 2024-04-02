@@ -83,7 +83,7 @@ save_debug_data = False
 # with open('./epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # Pytorch_bn = x['model']
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 class App(customtkinter.CTk):
 
@@ -1135,9 +1135,10 @@ class App(customtkinter.CTk):
         else:                                   self.args.output_dir = os.path.join( self.args.output_dir , self.imdb_train_name[18:] )
         self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
-        print(f"Validation weights before start of training.")
-        # checkmap_new.check( pth = self.args.pretrained, args=self.args)
+        # print(f"Validation weights before start of training.")
+        # pre_map = checkmap_new.check( pth = self.args.pretrained, args=self.args)
         # checkmap_new.check( weights = self.load_weights_from_pth(_path = self.args.pretrained), args=self.args)
+        # print('mAP: ', pre_map)
 
         # repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
         repetition = 1
@@ -1153,11 +1154,11 @@ class App(customtkinter.CTk):
         # Loop for total number of epochs
         _full_dataset_loop = tqdm(range(self.args.start_epoch, self.args.max_epochs), total=self.args.max_epochs   ,   leave=True)
         for self.epoch in range(self.args.max_epochs):
-            _full_dataset_loop.set_description(   f"{Fore.GREEN+Style.BRIGHT}Epoch equal to full dataset")
+            _full_dataset_loop.set_description(   f"{Fore.GREEN+Style.BRIGHT}Epoch {self.epoch+1}/{self.args.max_epochs}")
             if self.stop_process: break
             
             # Loop to repeat current epoch until the weight updates are equal to full data weight updates
-            _current_dataset_loop = tqdm(range(1), total=1, leave=True)
+            _current_dataset_loop = tqdm(range(repetition), total=repetition, leave=True)
             for _e in _current_dataset_loop:
                 if self.stop_process: break
                 
@@ -1168,7 +1169,7 @@ class App(customtkinter.CTk):
                 # _lr_txt  = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
                 _lr_txt = "0.01"
                 _map_txt = f"Best mAP {round((self.bestmAP*100),2)} (E-{self.bestmAPepoch})"
-                _current_dataset_loop.set_description(f"  {_lr_txt} - {Fore.YELLOW+_map_txt+Style.RESET_ALL} - {Style.RESET_ALL+Fore.LIGHTGREEN_EX}Epochs for current dataset")
+                _current_dataset_loop.set_description(f"  {_lr_txt} - {Fore.YELLOW+_map_txt+Style.RESET_ALL} - {Style.RESET_ALL+Fore.LIGHTGREEN_EX}Epochs equal to full dataset")
                 
                 # Data iterator
                 self.data_iter = iter(self.train_dataloader)
@@ -1579,17 +1580,17 @@ class App(customtkinter.CTk):
         self.iters_per_epoch_train_full     = int(len(self.train_dataset_full) / self.args.batch_size)
         
         # ------------ Full Test Images
-        self.imdb_test_name                 = 'voc_2007_test'
-        self.test_dataset                   = self.get_dataset(self.imdb_test_name)
-        self.test_dataloader                = DataLoader(   self.test_dataset, 
-                                                            batch_size=self.args.batch_size, 
-                                                            shuffle=True, 
-                                                            num_workers=self.args.num_workers, 
-                                                            collate_fn=detection_collate, 
-                                                            drop_last=True,
-                                                            persistent_workers=True,                                                            
-                                                        )
-        self.iters_per_epoch_test           = int(len(self.test_dataset) / self.args.batch_size)
+        # self.imdb_test_name                 = 'voc_2007_test'
+        # self.test_dataset                   = self.get_dataset(self.imdb_test_name)
+        # self.test_dataloader                = DataLoader(   self.test_dataset, 
+        #                                                     batch_size=self.args.batch_size, 
+        #                                                     shuffle=True, 
+        #                                                     num_workers=self.args.num_workers, 
+        #                                                     collate_fn=detection_collate, 
+        #                                                     drop_last=True,
+        #                                                     persistent_workers=True,                                                            
+        #                                                 )
+        # self.iters_per_epoch_test           = int(len(self.test_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # Various of Learning will Change with the Epochs
