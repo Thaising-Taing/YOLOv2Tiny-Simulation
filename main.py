@@ -2002,8 +2002,8 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data =  self.FPGA
         
-        self.whole_process_end = time.time()
-        self.whole_process_time = self.whole_process_end - self.whole_process_start
+        # self.whole_process_end = time.time()
+        # self.whole_process_time = self.whole_process_end - self.whole_process_start
         self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}--Loss: {_data.Loss}"
         self.Show_Text(self.output_text)
     
