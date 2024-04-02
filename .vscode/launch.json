@@ -20,11 +20,12 @@
 			"program": "main.py",
 			"console": "integratedTerminal",
 			"justMyCode": false,
-			// "sudo": true,
+			"sudo": true,
 			"args": [
 				// "--pretrained" 	,	"Dataset/Dataset/pretrained/yolov2_best_map.pth",
-				"--dataset" 	,	"random-512",
-				"--batch_size" 	,	"32",
+				"--pretrained" 	,	"Dataset/Dataset/pretrained/scratch.pth",
+				"--dataset" 	,	"random-128",
+				// "--batch_size" 	,	"32",
 				"--nw"			,	"4"
 			]
 		},

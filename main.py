@@ -1207,6 +1207,9 @@ class App(customtkinter.CTk):
 
                     # if step>20:
                     #     break
+                    
+                    # if self.mode == "FPGA" and step%5==0: self.Check_mAP()
+                    
             self.Check_mAP()
             self.save_weights(self.epoch)
         #     self.Save_Pickle()
@@ -1361,7 +1364,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=8, type=int)
+                            default=256, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=64, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
