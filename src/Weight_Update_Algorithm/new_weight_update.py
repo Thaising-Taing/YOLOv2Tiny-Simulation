@@ -89,7 +89,20 @@ def new_weight_update_two(Inputs=[], gInputs=[], epochs = 0):
 def sgd_momentum_update(Inputs=[], gInputs=[], epochs = 0, optimizer_config = None):
 	weight, bias, gamma, beta = Inputs
 	gweight, gbias, ggamma, gbeta = gInputs
-	learning_rate = 0.001
+	
+	learning_rate = 4e-5
+	initial_lr = 0.001 # initial learning rate
+	warmup_epochs = 5
+	plateau_epochs = 30
+	decay_rate = 0.1
+
+	if epochs < warmup_epochs:
+		learning_rate = initial_lr * (epochs + 1) / warmup_epochs
+	elif epochs < plateau_epochs:
+		learning_rate = initial_lr
+	else:
+		learning_rate = initial_lr * (decay_rate ** (epochs - plateau_epochs))
+
 
 	for i in range(8):
 		weight[i] = weight[i].cuda()
@@ -103,7 +116,7 @@ def sgd_momentum_update(Inputs=[], gInputs=[], epochs = 0, optimizer_config = No
 	bias = bias.cuda()
 	gbias = gbias.cuda()
 
-	config = {'learning_rate': learning_rate, 'momentum': 0.9}
+	config = {'learning_rate': learning_rate, 'momentum': 0.7}
 	
 	with torch.no_grad():
 		for i in range(8):
