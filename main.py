@@ -47,8 +47,8 @@ from Weight_Update_Algorithm.Shoaib import Shoaib_Code
 # from Weight_Update_Algorithm.yolov2tiny_LightNorm_2Iterations import Yolov2
 from Wathna_pytorch import Pytorch
 from Wathna_python import Python
-# from Thaising_PyTorch import TorchSimulation
-from Thaising_PyTorch_BatchNorm import TorchSimulation
+from Thaising_PyTorch import TorchSimulation_LN
+from Thaising_PyTorch_BatchNorm import TorchSimulation_BN
 from Thaising_Python import PythonSimulation
 from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
@@ -165,7 +165,7 @@ class App(customtkinter.CTk):
         
         
         # Cover
-        self.cover = customtkinter.CTkTextbox(self, width=165+145+10+600-120+10+170+10+170+10, height=680, bg_color="#EBEBEB", fg_color="#EBEBEB")
+        self.cover = customtkinter.CTkTextbox(self, width=165+145+30+10+600-120+10+170+10+170+10, height=680, bg_color="#EBEBEB", fg_color="#EBEBEB")
         self.cover.place(x=0, y=130)
         
         
@@ -173,63 +173,71 @@ class App(customtkinter.CTk):
         
        
         # Model Selection Frame
-        self.mode_frame = customtkinter.CTkFrame(self, width=145, height=680)  # 너비 값 조정
+        self.mode_frame = customtkinter.CTkFrame(self, width=145+30, height=680)  # 너비 값 조정
         self.mode_frame.place(x=10, y=140)
         
         self.mode_label = customtkinter.CTkLabel(self.mode_frame, text="Mode Selection", font=("Helvetica", 15))
         self.mode_label.place(x=15, y=10)  
         
         # Mode Selection Frame
-        button_width = 120
+        button_width = 120+30
         button_height = 30
 
-        self.PythonMode = customtkinter.CTkButton(self.mode_frame, text="Python"      , command=self.PythonMode_click , width=button_width, height=button_height)
-        self.PythonMode.place(x=10, y=50)
         
-        self.PyTorchMode = customtkinter.CTkButton(self.mode_frame, text="PyTorch"    , command=self.PyTorchMode_click , width=button_width, height=button_height)
-        self.PyTorchMode.place(x=10, y=100)
+        self.PyTorchMode = customtkinter.CTkButton(     self.mode_frame, text="Original PyTorch"    , command=self.PyTorchMode_click , width=button_width, height=button_height)
+        self.PyTorchMode.place(x=10, y=50)
         
-        self.PythonSim = customtkinter.CTkButton(self.mode_frame, text="Python Sim"   , command=self.PythonSim_click , width=button_width, height=button_height)
-        self.PythonSim.place(x=10, y=150)
+        self.Pytorch_bn = customtkinter.CTkButton(      self.mode_frame, text="Pytorch - BN"          , command=self.Pytorch_bn_click , width=button_width, height=button_height)
+        self.Pytorch_bn.place(x=10, y=90)
 
-        self.PytorchSim = customtkinter.CTkButton(self.mode_frame, text="Pytorch Sim" , command=self.PytorchSim_click , width=button_width, height=button_height)
-        self.PytorchSim.place(x=10, y=200)
+
+        self.PythonMode = customtkinter.CTkButton(      self.mode_frame, text="Original Python"     , command=self.PythonMode_click , width=button_width, height=button_height)
+        self.PythonMode.place(x=10, y=150)
         
-        self.PythonCUDA = customtkinter.CTkButton(self.mode_frame, text="Python CUDA" , command=self.PythonCUDA_click , width=button_width, height=button_height)
-        self.PythonCUDA.place(x=10, y=250)
+        self.Python_bn = customtkinter.CTkButton(       self.mode_frame, text="Python - BN"           , command=self.Python_bn_click , width=button_width, height=button_height)
+        self.Python_bn.place(x=10, y=190)
+
+
+        self.PythonSim = customtkinter.CTkButton(       self.mode_frame, text="Python Sim - LN"     , command=self.PythonSim_click , width=button_width, height=button_height)
+        self.PythonSim.place(x=10, y=250)
+
+        self.PytorchSim_LN = customtkinter.CTkButton(   self.mode_frame, text="Pytorch Sim - LN"    , command=self.PytorchSim_LN_click , width=button_width, height=button_height)
+        self.PytorchSim_LN.place(x=10, y=290)
         
-        self.PythonCUDA16 = customtkinter.CTkButton(self.mode_frame, text="Python CUDA16" , command=self.PythonCUDA16_click, width=button_width, height=button_height)
-        self.PythonCUDA16.place(x=10, y=300)
+        self.PytorchSim_BN = customtkinter.CTkButton(   self.mode_frame, text="Pytorch Sim - BN"    , command=self.PytorchSim_BN_click , width=button_width, height=button_height)
+        self.PytorchSim_BN.place(x=10, y=330)
         
-        self.RFFP_CUDA = customtkinter.CTkButton(self.mode_frame, text="RFFP CUDA" , command=self.RFFP_CUDA_click , width=button_width, height=button_height)
-        self.RFFP_CUDA.place(x=10, y=350)
+        
+        self.PythonCUDA = customtkinter.CTkButton(      self.mode_frame, text="Python with CUDA"         , command=self.PythonCUDA_click , width=button_width, height=button_height)
+        self.PythonCUDA.place(x=10, y=390)
+        
+        self.PythonCUDA16 = customtkinter.CTkButton(    self.mode_frame, text="Python with CUDA16"       , command=self.PythonCUDA16_click, width=button_width, height=button_height)
+        self.PythonCUDA16.place(x=10, y=430)
+        
+        self.RFFP_CUDA = customtkinter.CTkButton(       self.mode_frame, text="Junaid RFFP CUDA"           , command=self.RFFP_CUDA_click , width=button_width, height=button_height)
+        self.RFFP_CUDA.place(x=10, y=470)
 
-        self.FPGA_Python = customtkinter.CTkButton(self.mode_frame, text="FPGA"       , command=self.FPGA_Python_click , width=button_width, height=button_height)
-        self.FPGA_Python.place(x=10, y=400)
 
-        self.Python_bn = customtkinter.CTkButton(self.mode_frame, text="Python BN"       , command=self.Python_bn_click , width=button_width, height=button_height)
-        self.Python_bn.place(x=10, y=450)
+        self.FPGA_Python = customtkinter.CTkButton(     self.mode_frame, text="FPGA"                , command=self.FPGA_Python_click , width=button_width, height=button_height)
+        self.FPGA_Python.place(x=10, y=530)
 
-        self.Pytorch_bn = customtkinter.CTkButton(self.mode_frame, text="Pytorch BN"       , command=self.Pytorch_bn_click , width=button_width, height=button_height)
-        self.Pytorch_bn.place(x=10, y=500)
-
-        self.ResetMode = customtkinter.CTkButton(self.mode_frame, text="Reset Mode"   , command=self.Reset_Mode_click , width=button_width, height=button_height)
-        self.ResetMode.place(x=10, y=550)
+        self.ResetMode = customtkinter.CTkButton(       self.mode_frame, text="Reset Mode"          , command=self.Reset_Mode_click , width=button_width, height=button_height)
+        self.ResetMode.place(x=10, y=570)
 
 
        
        
        
         # Button Frame 
-        self.left_frame = customtkinter.CTkFrame(self, width=145, height=680)  # 너비 값 조정
-        self.left_frame.place(x=165, y=140)
+        self.left_frame = customtkinter.CTkFrame(self, width=145+30, height=680)  # 너비 값 조정
+        self.left_frame.place(x=165+30, y=140)
         
         
         self.left_label = customtkinter.CTkLabel(self.left_frame, text="Control Panel", font=("Helvetica", 15))
         self.left_label.place(x=10, y=10)  
         
         #left_frame_button
-        button_width = 120
+        button_width = 120+30
         button_height = 30
         self.Load_PCIe  = customtkinter.CTkButton(  self.left_frame, 
                                                     text="Load PCIe",
@@ -247,7 +255,7 @@ class App(customtkinter.CTk):
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Load_Data.place(x=10, y=100)
+        self.Load_Data.place(x=10, y=90)
         
         self.Load_Microcode_Train = customtkinter.CTkButton(self.left_frame, 
                                                     text="Microcode Train",
@@ -256,7 +264,7 @@ class App(customtkinter.CTk):
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Load_Microcode_Train.place(x=10, y=150)
+        self.Load_Microcode_Train.place(x=10, y=130)
         
         self.Load_Microcode_Infer = customtkinter.CTkButton(self.left_frame, 
                                                     text="Microcode Infer",
@@ -265,7 +273,7 @@ class App(customtkinter.CTk):
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Load_Microcode_Infer.place(x=10, y=200)
+        self.Load_Microcode_Infer.place(x=10, y=170)
 
         self.Train= customtkinter.CTkButton(        self.left_frame, 
                                                     text="Train ",
@@ -283,7 +291,7 @@ class App(customtkinter.CTk):
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Infer.place(x=10, y=300)
+        self.Infer.place(x=10, y=290)
 
         
         self._Val = customtkinter.CTkButton(        self.left_frame, 
@@ -293,7 +301,7 @@ class App(customtkinter.CTk):
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self._Val.place(x=10, y=350)
+        self._Val.place(x=10, y=330)
 
         self.Stop = customtkinter.CTkButton(        self.left_frame, 
                                                     text="Stop",
@@ -302,7 +310,7 @@ class App(customtkinter.CTk):
                                                     height=button_height,
                                                     state='disabled'
                                                     )
-        self.Stop.place(x=10, y=400)
+        self.Stop.place(x=10, y=390)
         
         # self.Reset = customtkinter.CTkButton(        self.left_frame, 
         #                                             text="Reset",
@@ -315,11 +323,11 @@ class App(customtkinter.CTk):
 
         # create textbox
         self.textbox = customtkinter.CTkTextbox(self, width=600-120, height=680)  # Adjust the height value as needed
-        self.textbox.place(x=165+145+10, y=140)
+        self.textbox.place(x=165+145+30+10+30, y=140)
 
         # right_frame_1
         self.right_frame_1 = customtkinter.CTkFrame(self, width=170, height=680)
-        self.right_frame_1.place(x=165+145+10+600-120+10, y=140)
+        self.right_frame_1.place(x=165+145+30+10+600-120+10+30, y=140)
         if True:
             text_label = customtkinter.CTkLabel(self.right_frame_1, text="Layer Status", font=("Helvetica", 15))
             text_label.place(x=40, y=5)
@@ -537,7 +545,8 @@ class App(customtkinter.CTk):
         self.PyTorchMode.configure(state="disabled")
         self.PyTorchMode.configure(fg_color='green')
         self.PythonMode.configure(state="disabled")
-        self.PytorchSim.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
         self.PythonSim.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA16.configure(state="disabled")
@@ -565,7 +574,8 @@ class App(customtkinter.CTk):
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
         self.Pytorch_bn.configure(fg_color='green')
-        self.PytorchSim.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
         self.PythonSim.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA16.configure(state="disabled")
@@ -588,41 +598,15 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Pytorch BN mode selected.")
         self.update()
 
-    def Python_bn_click(self):
-        self.mode =  'Python_BN'
-        self.PyTorchMode.configure(state="disabled")
-        self.PythonMode.configure(state="disabled")
-        self.Python_bn.configure(fg_color='green')
-        self.Pytorch_bn.configure(state="disabled")
-        self.PytorchSim.configure(state="disabled")
-        self.PythonSim.configure(state="disabled")
-        self.PythonCUDA.configure(state="disabled")
-        self.PythonCUDA16.configure(state="disabled")
-        self.Python_bn.configure(state="disabled")
-        self.RFFP_CUDA.configure(state="disabled")
-        self.FPGA_Python.configure(state="disabled")
-        self.ResetMode.configure(state="normal")
         
-        self.Train.configure(state="normal")
-        self.Infer.configure(state="normal")
-        self.Stop.configure(state="normal")
-        
-        self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        
-        self.cover.lower()
-        self.right_frame_1.lower(self.cover)
-        self.right_frame_2.lower(self.cover)
-        self.Show_Text(f"Python BN mode selected.")
-        self.update()
         
     def PythonMode_click(self):
         self.mode =  'Python'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
         self.PythonMode.configure(fg_color='green')
-        self.PytorchSim.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
         self.PythonSim.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA16.configure(state="disabled")
@@ -646,40 +630,44 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Python mode selected.")
         self.update()
         
-    def PytorchSim_click(self):
-        self.mode =  'PytorchSim'
+    def Python_bn_click(self):
+        self.mode =  'Python_BN'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
-        self.PytorchSim.configure(state="disabled")
-        self.PytorchSim.configure(fg_color='green')
+        self.Python_bn.configure(fg_color='green')
+        self.Pytorch_bn.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
         self.PythonSim.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA16.configure(state="disabled")
-        self.RFFP_CUDA.configure(state="disabled")
-        self.Pytorch_bn.configure(state="disabled")
         self.Python_bn.configure(state="disabled")
+        self.RFFP_CUDA.configure(state="disabled")
         self.FPGA_Python.configure(state="disabled")
         self.ResetMode.configure(state="normal")
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self._Val.configure(state="normal")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-       
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
         self.right_frame_2.lower(self.cover)
-        self.Show_Text(f"Simulation mode selected.")
+        self.Show_Text(f"Python BN mode selected.")
         self.update()
+
+
              
     def PythonSim_click(self):
         self.mode =  'PythonSim'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
-        self.PytorchSim.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
         self.PythonSim.configure(state="disabled")
         self.PythonSim.configure(fg_color='green')
         self.PythonCUDA.configure(state="disabled")
@@ -704,11 +692,74 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Simulation mode selected.")
         self.update()
         
+    def PytorchSim_LN_click(self):
+        self.mode =  'PytorchSim_LN'
+        self.PyTorchMode.configure(state="disabled")
+        self.PythonMode.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_LN.configure(fg_color='green')
+        self.PytorchSim_BN.configure(state="disabled")
+        self.PythonSim.configure(state="disabled")
+        self.PythonCUDA.configure(state="disabled")
+        self.PythonCUDA16.configure(state="disabled")
+        self.RFFP_CUDA.configure(state="disabled")
+        self.Pytorch_bn.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
+        self.FPGA_Python.configure(state="disabled")
+        self.ResetMode.configure(state="normal")
+        
+        self.Train.configure(state="normal")
+        self.Infer.configure(state="normal")
+        self._Val.configure(state="normal")
+        
+        self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+       
+        self.cover.lower()
+        self.right_frame_1.lower(self.cover)
+        self.right_frame_2.lower(self.cover)
+        self.Show_Text(f"Simulation mode selected.")
+        self.update()
+
+    def PytorchSim_BN_click(self):
+        self.mode =  'PytorchSim_BN'
+        self.PyTorchMode.configure(state="disabled")
+        self.PythonMode.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
+        self.PytorchSim_BN.configure(fg_color='green')
+        self.PythonSim.configure(state="disabled")
+        self.PythonCUDA.configure(state="disabled")
+        self.PythonCUDA16.configure(state="disabled")
+        self.RFFP_CUDA.configure(state="disabled")
+        self.Pytorch_bn.configure(state="disabled")
+        self.Python_bn.configure(state="disabled")
+        self.FPGA_Python.configure(state="disabled")
+        self.ResetMode.configure(state="normal")
+        
+        self.Train.configure(state="normal")
+        self.Infer.configure(state="normal")
+        self._Val.configure(state="normal")
+        
+        self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+       
+        self.cover.lower()
+        self.right_frame_1.lower(self.cover)
+        self.right_frame_2.lower(self.cover)
+        self.Show_Text(f"Simulation mode selected.")
+        self.update()
+
+
+
     def PythonCUDA_click(self):
         self.mode =  'PythonCUDA'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
-        self.PytorchSim.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
         self.PythonSim.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA.configure(fg_color='green')
@@ -737,7 +788,8 @@ class App(customtkinter.CTk):
         self.mode =  'PythonCUDA16'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
-        self.PytorchSim.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
         self.PythonSim.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
@@ -766,7 +818,8 @@ class App(customtkinter.CTk):
         self.mode =  'RFFP_CUDA'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
-        self.PytorchSim.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
         self.PythonSim.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
@@ -791,11 +844,14 @@ class App(customtkinter.CTk):
         self.Show_Text(f"RFFP mode selected.")
         self.update()
     
+    
+    
     def FPGA_Python_click(self):
         self.mode =  'FPGA'
         self.PyTorchMode.configure(state="disabled")
         self.PythonMode.configure(state="disabled")
-        self.PytorchSim.configure(state="disabled")
+        self.PytorchSim_LN.configure(state="disabled")
+        self.PytorchSim_BN.configure(state="disabled")
         self.PythonSim.configure(state="disabled")
         self.PythonCUDA.configure(state="disabled")
         self.PythonCUDA16.configure(state="disabled")
@@ -828,7 +884,8 @@ class App(customtkinter.CTk):
         self.mode =  4
         self.PyTorchMode.configure(state="enabled")
         self.PythonMode.configure(state="enabled")
-        self.PytorchSim.configure(state="enabled")
+        self.PytorchSim_LN.configure(state="enabled")
+        self.PytorchSim_BN.configure(state="enabled")
         self.PythonSim.configure(state="enabled")
         self.PythonCUDA.configure(state="enabled")
         self.PythonCUDA16.configure(state="enabled")
@@ -842,7 +899,8 @@ class App(customtkinter.CTk):
         
         self.PyTorchMode.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.PythonMode.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self.PytorchSim.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.PytorchSim_LN.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.PytorchSim_BN.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.PythonSim.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.PythonCUDA.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.PythonCUDA16.configure(fg_color=['#3B8ED0', '#1F6AA5'])
@@ -1077,11 +1135,13 @@ class App(customtkinter.CTk):
         else:                                   self.args.output_dir = os.path.join( self.args.output_dir , self.imdb_train_name[18:] )
         self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
-        print(f"Validation weights before start of training.")
+        # print(f"Validation weights before start of training.")
         # checkmap_new.check( pth = self.args.pretrained, args=self.args)
+        # print(f'\n\n')
         # checkmap_new.check( weights = self.load_weights_from_pth(_path = self.args.pretrained), args=self.args)
 
-        repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
+        # repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
+        repetition = 1
         
         self.Show_Text(f'Start Training with {self.iters_per_epoch_train*self.args.batch_size} images from {self.imdb_train_name}. \nBatch size of {self.args.batch_size}.', clr=Fore.MAGENTA)
         self.Show_Text(f'mAP will be calculated after {repetition} epochs of current dataset - equal to 1 epoch of full dataset', clr=Fore.MAGENTA) 
@@ -1147,6 +1207,9 @@ class App(customtkinter.CTk):
 
                     # if step>20:
                     #     break
+                    
+                    # if self.mode == "FPGA" and step%5==0: self.Check_mAP()
+                    
             self.Check_mAP()
             self.save_weights(self.epoch)
         #     self.Save_Pickle()
@@ -1301,7 +1364,7 @@ class App(customtkinter.CTk):
         parser.add_argument('--start_epoch', dest='start_epoch',
                             default=0, type=int)
         parser.add_argument('--total_training_set', dest='total_training_set',
-                            default=8, type=int)
+                            default=256, type=int)
         parser.add_argument('--total_inference_set', dest='total_inference_set',
                             default=64, type=int)
         parser.add_argument('--batch_size', dest='batch_size',
@@ -1367,7 +1430,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"      :  self.Pytorch          = Pytorch(self)
         if self.mode == "Python"       :  self.Python           = Python(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation = PythonSimulation(self)
-        if self.mode == "PytorchSim"   :  self.TorchSimulation  = TorchSimulation(self)
+        if self.mode == "PytorchSim_LN":  self.TorchSimulation_LN  = TorchSimulation_LN(self)
+        if self.mode == "PytorchSim_BN":  self.TorchSimulation_BN  = TorchSimulation_BN(self)
         if self.mode == "PythonCUDA"   :  self.CUDA32           = CUDA32(self)
         if self.mode == "PythonCUDA16" :  self.CUDA16           = CUDA16(self)
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA        = RFFP_CUDA(self)
@@ -1379,7 +1443,7 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"      :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "Python"       :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "PythonSim"    :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "PytorchSim"   :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if self.mode == "PytorchSim_LN"   :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "PythonCUDA"   :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "PythonCUDA16" :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if self.mode == "RFFP_CUDA"    :  self.args.output_dir = self.args.output_dir + '/' + self.mode
@@ -1422,7 +1486,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"     :  self.Pytorch.load_weights(self.loaded_weights)
         if self.mode == "Python"      :  self.Python.load_weights(self.loaded_weights)
         if self.mode == "PythonSim"   :  self.PythonSimulation.load_weights(self.loaded_weights)
-        if self.mode == "PytorchSim"  :  self.TorchSimulation.load_weights(self.loaded_weights)
+        if self.mode == "PytorchSim_LN"  :  self.TorchSimulation_LN.load_weights(self.loaded_weights)
+        if self.mode == "PytorchSim_BN"  :  self.TorchSimulation_BN.load_weights(self.loaded_weights)
         if self.mode == "PythonCUDA"  :  self.CUDA32.load_weights(self.loaded_weights)
         if self.mode == "PythonCUDA16":  self.CUDA16.load_weights(self.loaded_weights)
         if self.mode == "RFFP_CUDA"   :  self.RFFP_CUDA.load_weights(self.loaded_weights)
@@ -1543,7 +1608,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"      :  pass
         if self.mode == "Python"       :  pass
         if self.mode == "PythonSim"    :  pass
-        if self.mode == "PytorchSim"   :  pass
+        if self.mode == "PytorchSim_LN"   :  pass
+        if self.mode == "PytorchSim_BN"   :  pass
         if self.mode == "PythonCUDA"   :  pass
         if self.mode == "PythonCUDA16" :  pass
         if self.mode == "RFFP_CUDA"    :  pass
@@ -1555,7 +1621,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"      :  self.Pytorch.Forward(self)
         if self.mode == "Python"       :  self.Python.Forward(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Forward(self)
-        if self.mode == "PytorchSim"   :  self.TorchSimulation.Forward(self)
+        if self.mode == "PytorchSim_LN"   :  self.TorchSimulation_LN.Forward(self)
+        if self.mode == "PytorchSim_BN"   :  self.TorchSimulation_BN.Forward(self)
         if self.mode == "PythonCUDA"   :  self.CUDA32.Forward(self)
         if self.mode == "PythonCUDA16" :  self.CUDA16.Forward(self)
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA.Forward(self)
@@ -1567,7 +1634,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Forward(self)
         if self.mode == "Python_BN"    :  self.Python_bn.Forward(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Forward(self)
-        if self.mode == "PytorchSim"   :  self.TorchSimulation.Forward(self)
+        if self.mode == "PytorchSim_LN"   :  self.TorchSimulation_LN.Forward(self)
+        if self.mode == "PytorchSim_BN"   :  self.TorchSimulation_BN.Forward(self)
         if self.mode == "PythonCUDA"   :  self.CUDA32.Forward(self)
         if self.mode == "PythonCUDA16" :  self.CUDA16.Forward(self)
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA.Forward(self)
@@ -1579,7 +1647,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"      :  self.Pytorch.Calculate_Loss(self)
         if self.mode == "Python"       :  self.Python.Calculate_Loss(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Calculate_Loss(self)
-        if self.mode == "PytorchSim"   :  self.TorchSimulation.Calculate_Loss(self)
+        if self.mode == "PytorchSim_LN"   :  self.TorchSimulation_LN.Calculate_Loss(self)
+        if self.mode == "PytorchSim_BN"   :  self.TorchSimulation_BN.Calculate_Loss(self)
         if self.mode == "PythonCUDA"   :  self.CUDA32.Calculate_Loss(self)
         if self.mode == "PythonCUDA16" :  self.CUDA16.Calculate_Loss(self)
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA.Calculate_Loss(self)
@@ -1591,7 +1660,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data =  self.Python_bn
         if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data =  self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data =  self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
         if self.mode == "PythonCUDA16" :  _data =  self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
@@ -1602,7 +1672,7 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch"      :  pass
         if self.mode == "Python"       :  pass
         if self.mode == "PythonSim"    :  pass
-        if self.mode == "PytorchSim"   :  pass
+        if self.mode == "PytorchSim_LN"   :  pass
         if self.mode == "PythonCUDA"   :  pass
         if self.mode == "PythonCUDA16" :  pass
         if self.mode == "RFFP_CUDA"    :  pass
@@ -1614,7 +1684,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Backward(self)
         if self.mode == "Python_BN"    :  self.Python_bn.Backward(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Backward(self)
-        if self.mode == "PytorchSim"   :  self.TorchSimulation.Backward(self)
+        if self.mode == "PytorchSim_LN"   :  self.TorchSimulation_LN.Backward(self)
+        if self.mode == "PytorchSim_BN"   :  self.TorchSimulation_BN.Backward(self)
         if self.mode == "PythonCUDA"   :  self.CUDA32.Backward(self)
         if self.mode == "PythonCUDA16" :  self.CUDA16.Backward(self)
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA.Backward(self)
@@ -1627,7 +1698,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data =  self.Python_bn
         if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data =  self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data =  self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
         if self.mode == "PythonCUDA16" :  _data =  self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
@@ -1642,7 +1714,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data =  self.Python_bn
         if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data =  self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data =  self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
         if self.mode == "PythonCUDA16" :  _data =  self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
@@ -1689,7 +1762,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.load_weights(new_weights)
         if self.mode == "Python_BN"    :  self.Python_bn.load_weights(new_weights)
         if self.mode == "PythonSim"    :  self.PythonSimulation.load_weights(new_weights)
-        if self.mode == "PytorchSim"   :  self.TorchSimulation.load_weights(new_weights)
+        if self.mode == "PytorchSim_LN"   :  self.TorchSimulation_LN.load_weights(new_weights)
+        if self.mode == "PytorchSim_BN"   :  self.TorchSimulation_BN.load_weights(new_weights)
         if self.mode == "PythonCUDA"   :  self.CUDA32.load_weights(new_weights)
         if self.mode == "PythonCUDA16" :  self.CUDA16.load_weights(new_weights)
         if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA.load_weights(new_weights)
@@ -1816,7 +1890,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data = self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data = self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
         if self.mode == "PythonCUDA16" :  _data = self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
@@ -1825,6 +1900,7 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN":
             _data.get_weights()
             output_dir = "weights_bn"
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
             save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
             # please change to your named model here
             # for example _data.fpga_model
@@ -1833,6 +1909,7 @@ class App(customtkinter.CTk):
             }, save_name)
         elif self.mode == "Pytorch":
             output_dir = "weights_2iteration"
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
             save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
             # please change to your named model here
             # for example _data.fpga_model
@@ -1861,7 +1938,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data = self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data = self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
         if self.mode == "PythonCUDA16" :  _data = self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
@@ -1884,7 +1962,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data = self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data = self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
         if self.mode == "PythonCUDA16" :  _data = self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
@@ -1920,7 +1999,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data =  self.Python_bn
         if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data =  self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data =  self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data =  self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
         if self.mode == "PythonCUDA16" :  _data =  self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
@@ -1937,7 +2017,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data = self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data = self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
         if self.mode == "PythonCUDA16" :  _data = self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
@@ -1995,7 +2076,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data = self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data = self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
         if self.mode == "PythonCUDA16" :  _data = self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
@@ -2116,7 +2198,8 @@ class App(customtkinter.CTk):
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
         if self.mode == "PythonSim"    :  _data = self.PythonSimulation
-        if self.mode == "PytorchSim"   :  _data = self.TorchSimulation
+        if self.mode == "PytorchSim_LN"   :  _data = self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"   :  _data = self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data = self.CUDA32
         if self.mode == "PythonCUDA16" :  _data = self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
