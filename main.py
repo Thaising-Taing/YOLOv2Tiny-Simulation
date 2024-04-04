@@ -30,6 +30,7 @@ sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
 sys.path.append(os.path.join(os.getcwd(),"src/Wathna"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
 from Weight_Update_Algorithm.new_weight_update import new_weight_update, new_weight_update_two, sgd_momentum_update
+from Weight_Update_Algorithm.new_weight_update import initial_lr as Initial_LR_SGD
 
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
@@ -83,7 +84,7 @@ save_debug_data = False
 # with open('./epoch_548.pkl', 'rb') as f:
 #     x = pickle.load(f)
 # Pytorch_bn = x['model']
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 class App(customtkinter.CTk):
 
@@ -184,17 +185,17 @@ class App(customtkinter.CTk):
         button_height = 30
 
         
-        self.PyTorchMode = customtkinter.CTkButton(     self.mode_frame, text="Original PyTorch"    , command=self.PyTorchMode_click , width=button_width, height=button_height)
+        self.PyTorchMode = customtkinter.CTkButton(     self.mode_frame, text="Pytorch - LN"        , command=self.PyTorchMode_click , width=button_width, height=button_height)
         self.PyTorchMode.place(x=10, y=50)
         
-        self.Pytorch_bn = customtkinter.CTkButton(      self.mode_frame, text="Pytorch - BN"          , command=self.Pytorch_bn_click , width=button_width, height=button_height)
+        self.Pytorch_bn = customtkinter.CTkButton(      self.mode_frame, text="Pytorch - BN"        , command=self.Pytorch_bn_click , width=button_width, height=button_height)
         self.Pytorch_bn.place(x=10, y=90)
 
 
         self.PythonMode = customtkinter.CTkButton(      self.mode_frame, text="Original Python"     , command=self.PythonMode_click , width=button_width, height=button_height)
         self.PythonMode.place(x=10, y=150)
         
-        self.Python_bn = customtkinter.CTkButton(       self.mode_frame, text="Python - BN"           , command=self.Python_bn_click , width=button_width, height=button_height)
+        self.Python_bn = customtkinter.CTkButton(       self.mode_frame, text="Python - BN"         , command=self.Python_bn_click , width=button_width, height=button_height)
         self.Python_bn.place(x=10, y=190)
 
 
@@ -541,7 +542,7 @@ class App(customtkinter.CTk):
 
     # Select Modes
     def PyTorchMode_click(self):
-        self.mode =  "Pytorch"
+        self.mode =  "Pytorch_LN"
         self.PyTorchMode.configure(state="disabled")
         self.PyTorchMode.configure(fg_color='green')
         self.PythonMode.configure(state="disabled")
@@ -1113,6 +1114,11 @@ class App(customtkinter.CTk):
             self.bar.write(0x0, 0x00000010) # wr en low
         print("mic write done")    
         
+        
+        
+        
+        
+        
     def Run_Train(self):  
         self.Train.configure(state="disabled")
         self.Train.configure(fg_color='green')
@@ -1122,67 +1128,64 @@ class App(customtkinter.CTk):
         self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.Show_Text(f"\nStart Training", clr=Fore.MAGENTA)
-        self.Show_Text(f"\nMode : {self.mode}", clr=Fore.MAGENTA)
+        self.Show_Text(f"Mode                       : {Fore.LIGHTYELLOW_EX}{self.mode}\n", clr=Fore.BLUE)
         self.stop_process = False
         
         self.parse_args()
         self.Pre_Process()
-        self.Create_Output_Dir()
         self.Load_Weights()
         self.Load_Dataset()
+        self.Create_Output_Dir()
 
         if 'voc' in self.imdb_train_name[18:]:  self.args.output_dir = os.path.join( self.args.output_dir , 'FullData' )
         else:                                   self.args.output_dir = os.path.join( self.args.output_dir , self.imdb_train_name[18:] )
-        self.Show_Text(f"Output directory : {self.args.output_dir}\n", clr=Fore.MAGENTA)
         
         # print(f"Validation weights before start of training.")
-        # checkmap_new.check( pth = self.args.pretrained, args=self.args)
-        # print(f'\n\n')
+        # pre_map = checkmap_new.check( pth = self.args.pretrained, args=self.args)
         # checkmap_new.check( weights = self.load_weights_from_pth(_path = self.args.pretrained), args=self.args)
+        # print('mAP: ', pre_map)
 
-        # repetition = int(self.iters_per_epoch_train_full/self.iters_per_epoch_train)
-        repetition = 1
-        
-        self.Show_Text(f'Start Training with {self.iters_per_epoch_train*self.args.batch_size} images from {self.imdb_train_name}. \nBatch size of {self.args.batch_size}.', clr=Fore.MAGENTA)
-        self.Show_Text(f'mAP will be calculated after {repetition} epochs of current dataset - equal to 1 epoch of full dataset', clr=Fore.MAGENTA) 
+        self.Show_Text(f"Output directory           : {Fore.LIGHTYELLOW_EX}{self.args.output_dir}\n"                 , clr=Fore.BLUE)
+        self.Show_Text(f'Training Dataset           : {Fore.LIGHTYELLOW_EX}{self.imdb_train_name}'                  , clr=Fore.BLUE)
+        self.Show_Text(f'Number of training images  : {Fore.LIGHTYELLOW_EX}{len(self.train_dataset._image_paths)}'   , clr=Fore.BLUE)
+        self.Show_Text(f'Batch size                 : {Fore.LIGHTYELLOW_EX}{self.args.batch_size}'                  , clr=Fore.BLUE)
         print()
-        self.Show_Text(f'Number of training images: {len(self.train_dataset._image_paths)}', clr=Fore.BLUE)
-        self.Show_Text(f'Number of original images: {len(self.train_dataset_full._image_paths)} {Fore.RED}({repetition} times the current training images)', clr=Fore.BLUE)
-        self.Show_Text(f'{repetition} epochs of current dataset will equal weight updates as 1 Epoch of Full Dataset', clr=Fore.BLUE) 
+        
+        # self.Show_Text(f'Number of original images: {Fore.LIGHTYELLOW_EX}{len(self.train_dataset_full._image_paths)}'               , clr=Fore.BLUE)
         print()
         
         # Loop for total number of epochs
-        _full_dataset_loop = tqdm(range(self.args.start_epoch, self.args.max_epochs), total=self.args.max_epochs   ,   leave=True)
+        _full_dataset_loop = tqdm(range(self.args.start_epoch, self.args.max_epochs), total=self.args.max_epochs   ,   leave=False)
         for self.epoch in range(self.args.max_epochs):
-            _full_dataset_loop.set_description(   f"{Fore.GREEN+Style.BRIGHT}Epoch equal to full dataset")
-            if self.stop_process: break
-            
-            # Loop to repeat current epoch until the weight updates are equal to full data weight updates
-            _current_dataset_loop = tqdm(range(1), total=1, leave=True)
-            for _e in _current_dataset_loop:
+                _full_dataset_loop.set_description(   f"{Fore.GREEN+Style.BRIGHT}Epoch {self.epoch+1}/{self.args.max_epochs}")
                 if self.stop_process: break
+            
+            # # Loop to repeat current epoch until the weight updates are equal to full data weight updates
+            # _current_dataset_loop = tqdm(range(repetition), total=repetition, leave=True)
+            # for _e in _current_dataset_loop:
+            #     if self.stop_process: break
                 
-                # Update LR
-                # self.Adjust_Learning_Rate()
+            #     # Update LR
+            #     # self.Adjust_Learning_Rate()
                 
-                # Progress bar info
-                # _lr_txt  = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
-                _lr_txt = "0.01"
-                _map_txt = f"Best mAP {round((self.bestmAP*100),2)} (E-{self.bestmAPepoch})"
-                _current_dataset_loop.set_description(f"  {_lr_txt} - {Fore.YELLOW+_map_txt+Style.RESET_ALL} - {Style.RESET_ALL+Fore.LIGHTGREEN_EX}Epochs for current dataset")
+            #     # Progress bar info
+            #     # _lr_txt  = f"LR {self.Shoaib.custom_optimizer.param_groups[0]['lr']}"
+            #     _lr_txt = "0.01"
+            #     _map_txt = f"Best mAP {round((self.bestmAP*100),2)} (E-{self.bestmAPepoch})"
+            #     _current_dataset_loop.set_description(f"  {_lr_txt} - {Fore.YELLOW+_map_txt+Style.RESET_ALL} - {Style.RESET_ALL+Fore.LIGHTGREEN_EX}Epochs equal to full dataset")
                 
-                # Data iterator
+            #     # Data iterator
                 self.data_iter = iter(self.train_dataloader)
                 
                 # Loop for current epoch - all batches
-                _current_epoch_loop = tqdm(range(self.iters_per_epoch_train),leave=True)
+                _current_epoch_loop = tqdm(range(self.iters_per_epoch_train),leave=False)
 
 
             
 
                 for _batch, step in enumerate(_current_epoch_loop):
                     if self.stop_process: break
-                    _current_epoch_loop.set_description(  f"    {Fore.LIGHTGREEN_EX}Epoch {_e}{Style.RESET_ALL} - Batch {_batch} - Loss {self.Loss_Val}")
+                    _current_epoch_loop.set_description(  f"    {Fore.LIGHTGREEN_EX}Epoch {self.epoch}{Style.RESET_ALL} - Batch {_batch} - Loss {self.Loss_Val}")
                     
                     # Loading dataset
                     self.im_data, self.gt_boxes, self.gt_classes, self.num_obj = next(self.data_iter)
@@ -1210,8 +1213,8 @@ class App(customtkinter.CTk):
                     
                     # if self.mode == "FPGA" and step%5==0: self.Check_mAP()
                     
-            self.Check_mAP()
-            self.save_weights(self.epoch)
+                self.Check_mAP()
+                self.save_weights(self.epoch)
         #     self.Save_Pickle()
         self.Post_Epoch()
         self.Show_Text(f"Training is finished")
@@ -1427,7 +1430,7 @@ class App(customtkinter.CTk):
 
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn       = Pytorch_bn(self)
         if self.mode == "Python_BN"    :  self.Python_bn        = Python_bn(self)
-        if self.mode == "Pytorch"      :  self.Pytorch          = Pytorch(self)
+        if self.mode == "Pytorch_LN"      :  self.Pytorch          = Pytorch(self)
         if self.mode == "Python"       :  self.Python           = Python(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation = PythonSimulation(self)
         if self.mode == "PytorchSim_LN":  self.TorchSimulation_LN  = TorchSimulation_LN(self)
@@ -1438,16 +1441,18 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  self.FPGA             = FPGA(self)
 
     def Create_Output_Dir(self):
-        if self.mode == "Pytorch_BN"   :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "Python_BN"    :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "Pytorch"      :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "Python"       :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "PythonSim"    :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "PytorchSim_LN"   :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "PythonCUDA"   :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "PythonCUDA16" :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "RFFP_CUDA"    :  self.args.output_dir = self.args.output_dir + '/' + self.mode
-        if self.mode == "FPGA"         :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        if   self.mode == "Pytorch_BN"        :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "Python_BN"         :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "Pytorch_LN"        :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "Python"            :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "PythonSim"         :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "PytorchSim_LN"     :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "PytorchSim_BN"     :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "PythonCUDA"        :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "PythonCUDA16"      :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "RFFP_CUDA"         :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        elif self.mode == "FPGA"              :  self.args.output_dir = self.args.output_dir + '/' + self.mode
+        else                                  :  self.args.output_dir = self.args.output_dir + '/' + self.mode
         if not os.path.exists(self.args.output_dir):
             os.makedirs(self.args.output_dir)
 
@@ -1483,7 +1488,7 @@ class App(customtkinter.CTk):
 
         if self.mode == "Pytorch_BN"  :  self.Pytorch_bn.load_weights(self.loaded_weights)
         if self.mode == "Python_BN"   :  self.Python_bn.load_weights(self.loaded_weights)
-        if self.mode == "Pytorch"     :  self.Pytorch.load_weights(self.loaded_weights)
+        if self.mode == "Pytorch_LN"     :  self.Pytorch.load_weights(self.loaded_weights)
         if self.mode == "Python"      :  self.Python.load_weights(self.loaded_weights)
         if self.mode == "PythonSim"   :  self.PythonSimulation.load_weights(self.loaded_weights)
         if self.mode == "PytorchSim_LN"  :  self.TorchSimulation_LN.load_weights(self.loaded_weights)
@@ -1583,17 +1588,17 @@ class App(customtkinter.CTk):
         self.iters_per_epoch_train_full     = int(len(self.train_dataset_full) / self.args.batch_size)
         
         # ------------ Full Test Images
-        self.imdb_test_name                 = 'voc_2007_test'
-        self.test_dataset                   = self.get_dataset(self.imdb_test_name)
-        self.test_dataloader                = DataLoader(   self.test_dataset, 
-                                                            batch_size=self.args.batch_size, 
-                                                            shuffle=True, 
-                                                            num_workers=self.args.num_workers, 
-                                                            collate_fn=detection_collate, 
-                                                            drop_last=True,
-                                                            persistent_workers=True,                                                            
-                                                        )
-        self.iters_per_epoch_test           = int(len(self.test_dataset) / self.args.batch_size)
+        # self.imdb_test_name                 = 'voc_2007_test'
+        # self.test_dataset                   = self.get_dataset(self.imdb_test_name)
+        # self.test_dataloader                = DataLoader(   self.test_dataset, 
+        #                                                     batch_size=self.args.batch_size, 
+        #                                                     shuffle=True, 
+        #                                                     num_workers=self.args.num_workers, 
+        #                                                     collate_fn=detection_collate, 
+        #                                                     drop_last=True,
+        #                                                     persistent_workers=True,                                                            
+        #                                                 )
+        # self.iters_per_epoch_test           = int(len(self.test_dataset) / self.args.batch_size)
         
     def Adjust_Learning_Rate(self):
         # Various of Learning will Change with the Epochs
@@ -1605,7 +1610,7 @@ class App(customtkinter.CTk):
             # self.Show_Text('Learning Rate is adjusted to: ' + str(self.Shoaib.custom_optimizer.param_groups[0]['lr']), clr=Fore.MAGENTA, end='\r')
             
     def Before_Forward(self):
-        if self.mode == "Pytorch"      :  pass
+        if self.mode == "Pytorch_LN"      :  pass
         if self.mode == "Python"       :  pass
         if self.mode == "PythonSim"    :  pass
         if self.mode == "PytorchSim_LN"   :  pass
@@ -1618,7 +1623,7 @@ class App(customtkinter.CTk):
     def Forward(self):
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Forward(self)
         if self.mode == "Python_BN"    :  self.Python_bn.Forward(self)
-        if self.mode == "Pytorch"      :  self.Pytorch.Forward(self)
+        if self.mode == "Pytorch_LN"      :  self.Pytorch.Forward(self)
         if self.mode == "Python"       :  self.Python.Forward(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Forward(self)
         if self.mode == "PytorchSim_LN"   :  self.TorchSimulation_LN.Forward(self)
@@ -1629,7 +1634,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  self.FPGA.Forward(self)
     
     def Forward_Infer(self):
-        if self.mode == "Pytorch"      :  self.Pytorch.Forward(self)
+        if self.mode == "Pytorch_LN"      :  self.Pytorch.Forward(self)
         if self.mode == "Python"       :  self.Python.Forward(self)
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Forward(self)
         if self.mode == "Python_BN"    :  self.Python_bn.Forward(self)
@@ -1644,7 +1649,7 @@ class App(customtkinter.CTk):
     def Calculate_Loss(self):
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Calculate_Loss(self)
         if self.mode == "Python_BN"    :  self.Python_bn.Calcualte_Loss(self)
-        if self.mode == "Pytorch"      :  self.Pytorch.Calculate_Loss(self)
+        if self.mode == "Pytorch_LN"      :  self.Pytorch.Calculate_Loss(self)
         if self.mode == "Python"       :  self.Python.Calculate_Loss(self)
         if self.mode == "PythonSim"    :  self.PythonSimulation.Calculate_Loss(self)
         if self.mode == "PytorchSim_LN"   :  self.TorchSimulation_LN.Calculate_Loss(self)
@@ -1655,7 +1660,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  self.FPGA.Calculate_Loss(self)
 
         
-        if self.mode == "Pytorch"      :  _data =  self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data =  self.Python_bn
@@ -1669,7 +1674,7 @@ class App(customtkinter.CTk):
         self.Loss_Val = _data.loss
 
     def Before_Backward(self):
-        if self.mode == "Pytorch"      :  pass
+        if self.mode == "Pytorch_LN"      :  pass
         if self.mode == "Python"       :  pass
         if self.mode == "PythonSim"    :  pass
         if self.mode == "PytorchSim_LN"   :  pass
@@ -1679,7 +1684,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         : self.FPGA.Before_Backward(self)
         
     def Backward(self):
-        if self.mode == "Pytorch"      :  self.Pytorch.Backward(self)
+        if self.mode == "Pytorch_LN"      :  self.Pytorch.Backward(self)
         if self.mode == "Python"       :  self.Python.Backward(self)
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.Backward(self)
         if self.mode == "Python_BN"    :  self.Python_bn.Backward(self)
@@ -1693,7 +1698,7 @@ class App(customtkinter.CTk):
 
     def Register_loaded_parms(self, loaded_weights):
 
-        if self.mode == "Pytorch"      :  _data =  self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data =  self.Python_bn
@@ -1709,7 +1714,7 @@ class App(customtkinter.CTk):
 
 
     def Weight_Update(self, epochs):
-        if self.mode == "Pytorch"      :  _data =  self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data =  self.Python_bn
@@ -1757,7 +1762,7 @@ class App(customtkinter.CTk):
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Beta_Layer0_After",_data.Beta[0])
         # if save_debug_data: self.Save_File("./Output_Sim_Python/Gamma_Layer0_After",_data.Gamma[0])
         
-        if self.mode == "Pytorch"      :  self.Pytorch.load_weights(new_weights)
+        if self.mode == "Pytorch_LN"      :  self.Pytorch.load_weights(new_weights)
         if self.mode == "Python"       :  self.Python.load_weights(new_weights)
         if self.mode == "Pytorch_BN"   :  self.Pytorch_bn.load_weights(new_weights)
         if self.mode == "Python_BN"    :  self.Python_bn.load_weights(new_weights)
@@ -1819,7 +1824,7 @@ class App(customtkinter.CTk):
             print(f"Epoch: {self.epoch}/{self.args.max_epochs} --Loss: {round(self.Loss.item(),2)} --mAP: {self.map} --Best mAP: {self.best_map_score}  at Epoch {self.best_map_epoch}") 
             # return best_map_score, best_map_epoch, best_map_loss
 
-        if self.mode == "Pytorch"   :
+        if self.mode == "Pytorch_LN"   :
             if self.map > self.max_map:
                 self.max_map = self.map
                 self.best_map_score = round((self.map*100),2)
@@ -1885,7 +1890,7 @@ class App(customtkinter.CTk):
     
     def save_weights(self, epoch):
 
-        if self.mode == "Pytorch"      :  _data = self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
@@ -1907,7 +1912,7 @@ class App(customtkinter.CTk):
             torch.save({
                 'model': _data.modtorch_model.params
             }, save_name)
-        elif self.mode == "Pytorch":
+        elif self.mode == "Pytorch_LN":
             output_dir = "weights_2iteration"
             Path(output_dir).mkdir(parents=True, exist_ok=True)
             save_name = os.path.join(output_dir, 'yolov2_epoch_{}.pth'.format(epoch))
@@ -1933,7 +1938,7 @@ class App(customtkinter.CTk):
 
     def Check_mAP_new(self):
 
-        if self.mode == "Pytorch"      :  _data = self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
@@ -1957,7 +1962,7 @@ class App(customtkinter.CTk):
         # checkmap_new.check(custom_model = self.Shoaib.custom_model, args=self.args)
     
     def Check_mAP(self):
-        if self.mode == "Pytorch"      :  _data = self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
@@ -1994,7 +1999,7 @@ class App(customtkinter.CTk):
             output_file_1.write(f"{mAP} \n")
                 
     def Post_Epoch(self): 
-        if self.mode == "Pytorch"      :  _data =  self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data =  self.Python_bn
@@ -2006,13 +2011,13 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data =  self.FPGA
         
-        self.whole_process_end = time.time()
-        self.whole_process_time = self.whole_process_end - self.whole_process_start
+        # self.whole_process_end = time.time()
+        # self.whole_process_time = self.whole_process_end - self.whole_process_start
         self.output_text = f"Epoch: {self.epoch+1}/{self.args.max_epochs}--Loss: {_data.Loss}"
         self.Show_Text(self.output_text)
     
     def Visualize(self):
-        if self.mode == "Pytorch"      :  _data = self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
@@ -2024,7 +2029,7 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data = self.FPGA
         
-        # if self.mode == "Pytorch"   : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
+        # if self.mode == "Pytorch_LN"   : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
         # if self.mode == "Python"    : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
         # if self.mode == "Simulation": if save_debug_data: self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
         # if self.mode == "FPGA"      : if save_debug_data: self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
@@ -2071,7 +2076,7 @@ class App(customtkinter.CTk):
                 # self.Show_Text(f"Batch {self.batch} - Image {i+1} -- No Detections", end='')
 
     def Visualize_All(self):
-        if self.mode == "Pytorch"      :  _data = self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
@@ -2193,7 +2198,7 @@ class App(customtkinter.CTk):
         return delta_pred, conf_pred, class_pred   
 
     def Validate(self):
-        if self.mode == "Pytorch"      :  _data = self.Pytorch
+        if self.mode == "Pytorch_LN"      :  _data = self.Pytorch
         if self.mode == "Python"       :  _data = self.Python
         if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data = self.Python_bn
@@ -2239,7 +2244,6 @@ class App(customtkinter.CTk):
         plt.show()
 
 
-
     def load_weights_from_pth(self, _path=''):
         """
         Update the weights of a custom model using the provided gradients and optimizer.
@@ -2255,22 +2259,36 @@ class App(customtkinter.CTk):
         Returns:
             Dict[str, Tensor]: The updated state dictionary of the custom model.
         """
+        self.pretrained_checkpoint = torch.load(_path,map_location='cpu')
+        loaded_model = torch.load(_path,map_location='cpu')['model']
+        
+        if "scratch.pth" in _path:
+            self.Show_Text(f'--> Starting training from scratch.'   , clr=Fore.BLUE)
+            self.args.output_dir = self.args.output_dir + '/Scratch'
 
-        if not _path=='':
-            self.Show_Text(f'\n--> Loading weights from:\n{_path}\n', clr=Fore.MAGENTA)
+        else:   
+            self.args.output_dir = self.args.output_dir + '/Pretrained'
+            self.Show_Text(f"Pretrained Path            : {Fore.LIGHTYELLOW_EX}{_path}"   , clr=Fore.BLUE)
             
-            self.pretrained_checkpoint = torch.load(_path,map_location='cpu')
-            loaded_model = torch.load(_path,map_location='cpu')['model']
+
+            if 'epoch' in self.pretrained_checkpoint.keys(): 
+                self.args.start_epoch += self.pretrained_checkpoint['epoch']
+                self.args.max_epochs  += self.pretrained_checkpoint['epoch']
+                self.Show_Text(f"Pretrained Epochs          : {Fore.LIGHTYELLOW_EX}{self.pretrained_checkpoint['epoch']}"   , clr=Fore.BLUE)
+            else:
+                self.args.start_epoch += 50
+                self.args.max_epochs  += 50
             
-            try:
-                self.custom_model.load_state_dict(loaded_model)
-                _model_state_dict = self.custom_model.state_dict()        
-            except:
-                _model_state_dict = loaded_model       
+            # if 'map' in self.pretrained_checkpoint.keys(): 
+            #     self.Show_Text(f"      mAP    : {self.pretrained_checkpoint['map']}"  , clr=Fore.LIGHTYELLOW_EX)
             
-        else:
-            self.Show_Text(f'--> Starting training from scratch.')
+        
+        try:
+            self.custom_model.load_state_dict(loaded_model)
             _model_state_dict = self.custom_model.state_dict()        
+        except:
+            _model_state_dict = loaded_model       
+            
             
         # self.pretrained_checkpoint = torch.load(self.weight_path,map_location='cpu')
         # loaded_model = torch.load(self.weight_path,map_location='cpu')['model']
@@ -2450,6 +2468,7 @@ class App(customtkinter.CTk):
         
         Outputs = Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec
         return Outputs
+
 if __name__ == "__main__":
     app = App()
     app.mainloop()

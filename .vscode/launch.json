@@ -22,8 +22,8 @@
 			"justMyCode": false,
 			"sudo": true,
 			"args": [
-				// "--pretrained" 	,	"Dataset/Dataset/pretrained/yolov2_best_map.pth",
-				"--pretrained" 	,	"Dataset/Dataset/pretrained/scratch.pth",
+				"--pretrained" 	,	"Dataset/Dataset/pretrained/yolov2_best_map.pth",
+				// "--pretrained" 	,	"Dataset/Dataset/pretrained/scratch.pth",
 				"--dataset" 	,	"random-128",
 				// "--batch_size" 	,	"32",
 				"--nw"			,	"4"
