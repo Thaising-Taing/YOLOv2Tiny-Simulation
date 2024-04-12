@@ -792,7 +792,7 @@ def Loss_Gradient_Dec2Bfloat(Loss_Gradient, Exponent_Bit, Mantissa_Bit):
     Loss_Gradient_List.extend(Zero_List)
     return Loss_Gradient_List
 
-def  Read_WeightGradient_Bfloat2Dec(Data_List_CH0, Data_List_CH1, Exponent_Bit, Mantissa_Bit, Out_CH, In_CH, Layer8=False):
+def Read_WeightGradient_Bfloat2Dec(Data_List_CH0, Data_List_CH1, Exponent_Bit, Mantissa_Bit, Out_CH, In_CH, Layer8=False):
     # Layer 8: Out_CH=128, Out_Size=13
     # Read all the Weights from a Weight_Folder
     Input_List0 = Data_List_CH0
