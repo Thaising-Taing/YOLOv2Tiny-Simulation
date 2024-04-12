@@ -499,7 +499,7 @@ def check(weights=[], pth='', args=[], model = "PytorchSim"):
                 else:
                     im_data_variable = Variable(im_data)
 
-                out, _, _ = pytorch_model.Forward(im_data_variable)
+                out, _, _ = pytorch_model.forward_map(im_data_variable)
                 yolo_outputs = pytorch_model.forward_pred(out)
                 for i in range(im_data.size(0)):
                     img_id += 1
