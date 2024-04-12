@@ -44,6 +44,7 @@ from src.batchnorm_pytorch import *
 from src.Wathna_pytorch import *
 from src.Thaising_PyTorch import *
 from src.Thaising_PyTorch_BatchNorm import *
+from src.Gitae import *
 
 from tqdm import tqdm
 
@@ -124,7 +125,7 @@ def prepare_im_data(img):
 
 def check(weights=[], pth='', args=[], model = "PytorchSim"):
 
-    if model == "Pytorch_BN" or "Pytorch":
+    if model == "Pytorch_BN":
         print(f"\n\nModel: ", model)
         pytorch_model = Pytorch_bn("none")
         if weights==[]:      
@@ -227,8 +228,213 @@ def check(weights=[], pth='', args=[], model = "PytorchSim"):
         
         return mAP
 
+    if model == "Pytorch":
+        print(f"\n\nModel: ", model)
+        pytorch_model = Pytorch("none")
+        if weights==[]:      
+            checkpoint = torch.load(pth)
+            # checkpoint = torch.load('./Dataset/Dataset/pretrained/yolov2_epoch_548.pth') 
+            for param, val in checkpoint['model'].items():
+                for param_mod, val_mod in pytorch_model.modtorch_model.params.items():
+                    if (param == param_mod):
+                        pytorch_model.modtorch_model.params[param] = val
+        else:
+            pytorch_model.load_weights(weights)
+
+
+        if args==[]:
+            args = parse_args()
+        args.conf_thresh = 0.005
+        args.nms_thresh = 0.45
+        if args.vis:
+            args.conf_thresh = 0.5
+        # print('Called with args:')
+        # print(args)
+
+        # prepare dataset
+        args.dataset = 'voc07test'
+        args.imdbval_name = 'voc_2007_test'
+
+        val_imdb = get_imdb(args.imdbval_name)
+
+        val_dataset = RoiDataset(val_imdb, train=False)
+        val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+
+        # load model
+        # model = Yolov2()
+        # weight_loader = WeightLoader()
+        # weight_loader.load(model, 'yolo-voc.weights')
+        # print('loaded')
+
+        # model_path = os.path.join(args.output_dir, args.model_name)
+        # print('loading model from {}'.format(model_path))
+        # if torch.cuda.is_available():
+        #     checkpoint = torch.load(model_path)
+        # else:
+        #     checkpoint = torch.load(model_path, map_location='cpu')
+            
+        # # model.load_state_dict(checkpoint['model'])
+
+        # if args.use_cuda:
+        #     model.cuda()
+
+        # model.eval()
+        # print('model loaded')
+
+        dataset_size = len(val_imdb.image_index)
+
+        all_boxes = [[[] for _ in range(dataset_size)] for _ in range(val_imdb.num_classes)]
+
+        det_file = os.path.join(args.output_dir, 'detections.pkl')
+
+        img_id = -1
+        with torch.no_grad():
+            for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), desc='Checking mAP', total=len(val_dataloader)):
+                if args.use_cuda or True:
+                    im_data_variable = Variable(im_data.cuda())
+                else:
+                    im_data_variable = Variable(im_data)
+
+                out, _, _ = pytorch_model.modtorch_model.forward(im_data_variable)
+                yolo_outputs = pytorch_model.modtorch_model.forward_pred(out)
+                for i in range(im_data.size(0)):
+                    img_id += 1
+                    output = [item[i].data for item in yolo_outputs]
+                    im_info = {'width': im_infos[i][0], 'height': im_infos[i][1]}
+                    detections = yolo_eval(output, im_info, conf_threshold=args.conf_thresh,
+                                        nms_threshold=args.nms_thresh)
+                    # print('im detect [{}/{}]'.format(img_id+1, len(val_dataset)))
+                    if len(detections) > 0:
+                        for cls in range(val_imdb.num_classes):
+                            inds = torch.nonzero(detections[:, -1] == cls).view(-1)
+                            if inds.numel() > 0:
+                                cls_det = torch.zeros((inds.numel(), 5))
+                                cls_det[:, :4] = detections[inds, :4]
+                                cls_det[:, 4] = detections[inds, 4] * detections[inds, 5]
+                                all_boxes[cls][img_id] = cls_det.cpu().numpy()
+
+                    if args.vis:
+                        img = Image.open(val_imdb.image_path_at(img_id))
+                        if len(detections) == 0:
+                            continue
+                        det_boxes = detections[:, :5].cpu().numpy()
+                        det_classes = detections[:, -1].long().cpu().numpy()
+                        im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=val_imdb.classes)
+                        plt.figure()
+                        plt.imshow(im2show)
+                        plt.show()
+
+        # with open(det_file, 'wb') as f:
+        #     pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+
+        mAP = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
+        
+        return mAP
+
     elif model == "PytorchSim":
         pytorch_model = TorchSimulation("none")
+        print("Model: ", model)
+        if weights==[]:      
+            checkpoint = torch.load(pth)
+            # checkpoint = torch.load('./Dataset/Dataset/pretrained/yolov2_epoch_548.pth') 
+            for param, val in checkpoint['model'].items():
+                for param_mod, val_mod in pytorch_model.params.items():
+                    if (param == param_mod):
+                        pytorch_model.params[param] = val
+        else:
+            pytorch_model.load_weights(weights)
+
+        if args==[]:
+            args = parse_args()
+        args.conf_thresh = 0.005
+        args.nms_thresh = 0.45
+        if args.vis:
+            args.conf_thresh = 0.5
+        print('Called with args:')
+        print(args)
+
+        # prepare dataset
+        args.dataset = 'voc07test'
+        args.imdbval_name = 'voc_2007_test'
+
+        val_imdb = get_imdb(args.imdbval_name)
+
+        val_dataset = RoiDataset(val_imdb, train=False)
+        val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+
+        # load model
+        # model = Yolov2()
+        # weight_loader = WeightLoader()
+        # weight_loader.load(model, 'yolo-voc.weights')
+        # print('loaded')
+
+        # model_path = os.path.join(args.output_dir, args.model_name)
+        # print('loading model from {}'.format(model_path))
+        # if torch.cuda.is_available():
+        #     checkpoint = torch.load(model_path)
+        # else:
+        #     checkpoint = torch.load(model_path, map_location='cpu')
+            
+        # # model.load_state_dict(checkpoint['model'])
+
+        # if args.use_cuda:
+        #     model.cuda()
+
+        # model.eval()
+        print('model loaded')
+
+        dataset_size = len(val_imdb.image_index)
+
+        all_boxes = [[[] for _ in range(dataset_size)] for _ in range(val_imdb.num_classes)]
+
+        det_file = os.path.join(args.output_dir, 'detections.pkl')
+
+        img_id = -1
+        with torch.no_grad():
+            for batch, (im_data, im_infos) in tqdm(enumerate(val_dataloader), desc='Checking mAP'):
+                if args.use_cuda or True:
+                    im_data_variable = Variable(im_data.cuda())
+                else:
+                    im_data_variable = Variable(im_data)
+
+                out, _, _ = pytorch_model.Forward(im_data_variable)
+                yolo_outputs = pytorch_model.forward_pred(out)
+                for i in range(im_data.size(0)):
+                    img_id += 1
+                    output = [item[i].data for item in yolo_outputs]
+                    im_info = {'width': im_infos[i][0], 'height': im_infos[i][1]}
+                    detections = yolo_eval(output, im_info, conf_threshold=args.conf_thresh,
+                                        nms_threshold=args.nms_thresh)
+                    # print('im detect [{}/{}]'.format(img_id+1, len(val_dataset)))
+                    if len(detections) > 0:
+                        for cls in range(val_imdb.num_classes):
+                            inds = torch.nonzero(detections[:, -1] == cls).view(-1)
+                            if inds.numel() > 0:
+                                cls_det = torch.zeros((inds.numel(), 5))
+                                cls_det[:, :4] = detections[inds, :4]
+                                cls_det[:, 4] = detections[inds, 4] * detections[inds, 5]
+                                all_boxes[cls][img_id] = cls_det.cpu().numpy()
+
+                    if args.vis:
+                        img = Image.open(val_imdb.image_path_at(img_id))
+                        if len(detections) == 0:
+                            continue
+                        det_boxes = detections[:, :5].cpu().numpy()
+                        det_classes = detections[:, -1].long().cpu().numpy()
+                        im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=val_imdb.classes)
+                        plt.figure()
+                        plt.imshow(im2show)
+                        plt.show()
+
+        # with open(det_file, 'wb') as f:
+        #     pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+
+        mAP = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
+        
+        return mAP
+
+    elif model == "FPGA":
+        pytorch_model = FPGA("none")
         print("Model: ", model)
         if weights==[]:      
             checkpoint = torch.load(pth)
