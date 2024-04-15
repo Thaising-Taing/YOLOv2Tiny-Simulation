@@ -30,7 +30,7 @@ sys.path.append(os.path.join(os.getcwd(),"src/Weight_Update_Algorithm"))
 sys.path.append(os.path.join(os.getcwd(),"src/Wathna"))
 sys.path.append("/home/msis/Desktop/pcie_python/GUI")
 from Weight_Update_Algorithm.new_weight_update import new_weight_update, new_weight_update_two, sgd_momentum_update
-from Weight_Update_Algorithm.new_weight_update import initial_lr as Initial_LR_SGD
+# from Weight_Update_Algorithm.new_weight_update import initial_lr as Initial_LR_SGD
 
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
@@ -57,7 +57,7 @@ from Weight_Update_Algorithm.new_weight_update import new_weight_update
 import checkmap_new
 # from Python_CUDA32 import CUDA32
 # from Python_CUDA16 import CUDA16
-# from RFFP_CUDA import RFFP_CUDA
+from RFFP_CUDA import RFFP_CUDA
 from GiTae import FPGA
 try: from colorama import Fore, Back, Style
 except:
@@ -1156,7 +1156,7 @@ class App(customtkinter.CTk):
         
         # Loop for total number of epochs
         _full_dataset_loop = tqdm(range(self.args.start_epoch, self.args.max_epochs), total=self.args.max_epochs   ,   leave=False)
-        for self.epoch in range(self.args.max_epochs):
+        for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
                 _full_dataset_loop.set_description(   f"{Fore.GREEN+Style.BRIGHT}Epoch {self.epoch+1}/{self.args.max_epochs}")
                 if self.stop_process: break
             
@@ -1962,20 +1962,20 @@ class App(customtkinter.CTk):
         # checkmap_new.check(custom_model = self.Shoaib.custom_model, args=self.args)
     
     def Check_mAP(self):
-        if self.mode == "Pytorch_LN"      :  _data = self.Pytorch
-        if self.mode == "Python"       :  _data = self.Python
-        if self.mode == "Pytorch_BN"   :  _data = self.Pytorch_bn
-        if self.mode == "Python_BN"    :  _data = self.Python_bn
-        if self.mode == "PythonSim"    :  _data = self.PythonSimulation
-        if self.mode == "PytorchSim_LN"   :  _data = self.TorchSimulation_LN
-        if self.mode == "PytorchSim_BN"   :  _data = self.TorchSimulation_BN
-        if self.mode == "PythonCUDA"   :  _data = self.CUDA32
-        if self.mode == "PythonCUDA16" :  _data = self.CUDA16
-        if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
-        if self.mode == "FPGA"         :  _data = self.FPGA
+        if self.mode == "Pytorch_LN"        :  _data = self.Pytorch
+        if self.mode == "Python"            :  _data = self.Python
+        if self.mode == "Pytorch_BN"        :  _data = self.Pytorch_bn
+        if self.mode == "Python_BN"         :  _data = self.Python_bn
+        if self.mode == "PythonSim"         :  _data = self.PythonSimulation
+        if self.mode == "PytorchSim_LN"     :  _data = self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN"     :  _data = self.TorchSimulation_BN
+        if self.mode == "PythonCUDA"        :  _data = self.CUDA32
+        if self.mode == "PythonCUDA16"      :  _data = self.CUDA16
+        if self.mode == "RFFP_CUDA"         :  _data = self.RFFP_CUDA
+        if self.mode == "FPGA"              :  _data = self.FPGA
         
         _w = _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec
-        mAP = checkmap_new.check( weights = _w, args=self.args, model = self.mode)
+        mAP = checkmap_new.check( weights = _w, args=self.args, model = self.mode, _data=_data)
 
         # self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
         #     [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
@@ -2272,12 +2272,12 @@ class App(customtkinter.CTk):
             
 
             if 'epoch' in self.pretrained_checkpoint.keys(): 
-                self.args.start_epoch += self.pretrained_checkpoint['epoch']
-                self.args.max_epochs  += self.pretrained_checkpoint['epoch']
                 self.Show_Text(f"Pretrained Epochs          : {Fore.LIGHTYELLOW_EX}{self.pretrained_checkpoint['epoch']}"   , clr=Fore.BLUE)
-            else:
-                self.args.start_epoch += 50
-                self.args.max_epochs  += 50
+            #     self.args.start_epoch += self.pretrained_checkpoint['epoch']
+            #     self.args.max_epochs  += self.pretrained_checkpoint['epoch']
+            # else:
+            #     self.args.start_epoch += 50
+            #     self.args.max_epochs  += 50
             
             # if 'map' in self.pretrained_checkpoint.keys(): 
             #     self.Show_Text(f"      mAP    : {self.pretrained_checkpoint['map']}"  , clr=Fore.LIGHTYELLOW_EX)

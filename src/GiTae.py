@@ -57,16 +57,18 @@ class FPGA(object):
         
         
         
-        self.Mode                 = parent.Mode     
-        self.Brain_Floating_Point = parent.Brain_Floating_Point                     
-        self.Exponent_Bits        = parent.Exponent_Bits             
-        self.Mantissa_Bits        = parent.Mantissa_Bits   
-        
-        
-        self.PreProcessing = Pre_Processing(Mode =   self.self.Mode,
-                            Brain_Floating_Point =   self.self.Brain_Floating_Point,
-                            Exponent_Bits        =   self.self.Exponent_Bits,
-                            Mantissa_Bits        =   self.self.Mantissa_Bits)
+        if parent != "none":
+            
+            self.Mode                 = parent.Mode     
+            self.Brain_Floating_Point = parent.Brain_Floating_Point                     
+            self.Exponent_Bits        = parent.Exponent_Bits             
+            self.Mantissa_Bits        = parent.Mantissa_Bits   
+            
+            
+            self.PreProcessing = Pre_Processing(Mode =   self.self.Mode,
+                                Brain_Floating_Point =   self.self.Brain_Floating_Point,
+                                Exponent_Bits        =   self.self.Exponent_Bits,
+                                Mantissa_Bits        =   self.self.Mantissa_Bits)
         
     
         # Code by GiTae 
@@ -187,6 +189,58 @@ class FPGA(object):
         # self.change_color_red()
         # return Bias_Grad
         self.out = self.Output_Layer8.cuda()
+
+    def forward_map(self, data):
+        self.parent         = data
+        self.gt_boxes       = data.gt_boxes  
+        self.gt_classes     = data.gt_classes
+        self.num_boxes      = data.num_obj 
+        self.num_obj        = data.num_obj 
+        self.image          = data.im_data
+        self.im_data        = data.im_data
+
+
+        self.gt_boxes = self.gt_boxes.cuda()
+        self.gt_classes = self.gt_classes.cuda()
+        self.num_boxes = self.num_boxes.cuda()
+        self.num_obj = self.num_obj.cuda()
+        self.image = self.image.cuda()
+        self.im_data = self.im_data.cuda()
+              
+        if DEBUG: print("Start NPU")
+        
+        
+        cmd = 'rm -rf src/GiTae/interrupt*txt; touch src/GiTae/interrupt_old.txt; touch src/GiTae/interrupt.txt; python3 src/GiTae/interrupt_layer_0.py '
+        os.system(cmd)
+        if DEBUG: print(f"Got interrupt")
+        
+        
+        s = time.time()
+        self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward(self)
+        self.Output_Layer8 = self.Output_Layer8.cuda()
+        # Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
+        e = time.time()
+        if DEBUG: print("Forward Process Time : ",e-s)
+        # self.change_color_red()
+        # return Bias_Grad
+        self.out = self.Output_Layer8.cuda()
+        
+        return self.out
+
+    def forward_map_pred(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
+
+        bsize, _, h, w = out.size()
+
+        out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 25)
+
+        xy_pred = torch.sigmoid(out[:, :, 0:2])
+        conf_pred = torch.sigmoid(out[:, :, 4:5])
+        hw_pred = torch.exp(out[:, :, 2:4])
+        class_score = out[:, :, 5:]
+        class_pred = F.softmax(class_score, dim=-1)
+        delta_pred = torch.cat([xy_pred, hw_pred], dim=-1)
+
+        return delta_pred, conf_pred, class_pred
         
     def Forward_Inference(self, data):
         self.gt_boxes       = data.gt_boxes  
