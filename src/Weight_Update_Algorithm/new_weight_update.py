@@ -87,20 +87,25 @@ def new_weight_update_two(Inputs=[], gInputs=[], epochs = 0):
 	return weight, bias, gamma, beta
 
 
-#  Learning Rate
-# Initial LR = 0.01 gives NaN for LN
-# Initial LR = 0.001 --- gives best result when training from scratch
-# Initial LR = 0.0001 --- should be better for pre-trained results.
-# Initial LR = 0.00001 is probably too slow.
-
-initial_lr = 0.001 # initial learning rate
-warmup_epochs = 10
-plateau_epochs = 30
-decay_rate = 0.1
-
 def sgd_momentum_update(Inputs=[], gInputs=[], epochs = 0, optimizer_config = None):
 	weight, bias, gamma, beta = Inputs
 	gweight, gbias, ggamma, gbeta = gInputs
+
+	#  Learning Rate
+	# Initial LR = 0.01 gives NaN for LN
+	# Initial LR = 0.001 --- gives best result when training from scratch
+	# Initial LR = 0.0001 --- should be better for pre-trained results.
+	# Initial LR = 0.00001 is probably too slow.
+
+	# initial_lr = 0.0001 # initial learning rate
+	# warmup_epochs = 10
+	# plateau_epochs = 30
+	# decay_rate = 0.1
+
+	initial_lr = 0.001  # Initial learning rate
+	warmup_epochs = 5   # Number of epochs for warmup
+	plateau_epochs = 30 # Number of epochs for plateau phase
+	decay_rate = 0.98    # Decay rate
 
 	if epochs < warmup_epochs:
 		learning_rate = initial_lr * (epochs + 1) / warmup_epochs

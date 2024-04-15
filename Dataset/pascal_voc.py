@@ -108,8 +108,8 @@ class pascal_voc(imdb):
 
         gt_roidb = [self._load_pascal_annotation(index)
                     for index in self.image_index]
-        with open(cache_file, 'wb') as fid:
-            pickle.dump(gt_roidb, fid, pickle.HIGHEST_PROTOCOL)
+        # with open(cache_file, 'wb') as fid:
+        #     pickle.dump(gt_roidb, fid, pickle.HIGHEST_PROTOCOL)
         # print('wrote gt roidb to {}'.format(cache_file))
 
         return gt_roidb

@@ -299,7 +299,8 @@ def yolo_loss(output, target):
 
 def loss(out, gt_boxes=None, gt_classes=None, num_boxes=None):
     out = torch.tensor(out, requires_grad=True)
-    out = out.reshape(8, 125, 13, 13)
+    bsize, _, h, w = out.shape
+    out = out.reshape(bsize, 125, 13, 13)
     scores = out
     bsize, _, h, w = out.shape
     out = out.permute(0, 2, 3, 1).contiguous().view(bsize, 13 * 13 * 5, 5 + 20)
