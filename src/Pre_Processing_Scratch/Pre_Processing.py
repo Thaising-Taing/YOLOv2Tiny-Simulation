@@ -1264,6 +1264,10 @@ def BN(x, gamma, beta):
     momentum = 0.1
 
     output = (x - avg) * scale
+    
+    output = output.to('cuda')
+    gamma = gamma.to('cuda')
+    beta = beta.to('cuda')
 
     output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
     
