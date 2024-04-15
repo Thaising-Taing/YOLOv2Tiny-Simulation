@@ -549,8 +549,8 @@ def check(weights=[], pth='', args=[], model = "PytorchSim", _data=[]):
                         plt.imshow(im2show)
                         plt.show()
 
-        # with open(det_file, 'wb') as f:
-        #     pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+        with open(det_file, 'wb') as f:
+            pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
 
         mAP = val_imdb.evaluate_detections(all_boxes, output_dir=args.output_dir)
         
