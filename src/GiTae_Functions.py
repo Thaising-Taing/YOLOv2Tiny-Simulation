@@ -7834,6 +7834,26 @@ class YOLOv2_Tiny_FPGA(object):
         
         if DEBUG: print("Out_Image : ", OutImage_1st_Layer0[0][0][0][0:5])
         
+        
+        
+        data.Gamma_Dec[ 0] = data.Gamma_Dec[ 0].to('cuda')
+        data.Beta_Dec[  0] = data.Beta_Dec[  0].to('cuda')
+        data.Gamma_Dec[ 1] = data.Gamma_Dec[ 1].to('cuda')
+        data.Beta_Dec[  1] = data.Beta_Dec[  1].to('cuda')
+        data.Gamma_Dec[ 2] = data.Gamma_Dec[ 2].to('cuda')
+        data.Beta_Dec[  2] = data.Beta_Dec[  2].to('cuda')
+        data.Gamma_Dec[ 3] = data.Gamma_Dec[ 3].to('cuda')
+        data.Beta_Dec[  3] = data.Beta_Dec[  3].to('cuda')
+        data.Gamma_Dec[ 4] = data.Gamma_Dec[ 4].to('cuda')
+        data.Beta_Dec[  4] = data.Beta_Dec[  4].to('cuda')
+        data.Gamma_Dec[ 5] = data.Gamma_Dec[ 5].to('cuda')
+        data.Beta_Dec[  5] = data.Beta_Dec[  5].to('cuda')
+        data.Gamma_Dec[ 6] = data.Gamma_Dec[ 6].to('cuda')
+        data.Beta_Dec[  6] = data.Beta_Dec[  6].to('cuda')
+        data.Gamma_Dec[ 7] = data.Gamma_Dec[ 7].to('cuda')
+        data.Beta_Dec[  7] = data.Beta_Dec[  7].to('cuda')
+        
+        
         # Mean, Var
         s = time.time()
         Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.Forward(OutImage_1st_Layer0)    
@@ -7849,7 +7869,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # layer0 Caches: 
         layer0_cache = BN(OutImage_1st_Layer0, Gamma_Layer0, Beta_Layer0)
-
+        
         # Squeeze to remove the dimension but keeping the same data ordering
         Var_1st_Layer0 = Var_1st_Layer0.squeeze() * Gamma_Layer0
         s = time.time()
