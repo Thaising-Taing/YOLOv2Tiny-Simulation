@@ -40,7 +40,7 @@ class RangeBN(nn.Module):
         if self.bias is not None:
             self.bias.data.zero_()
 
-    def forward(self, x):
+    def Forward(self, x):
         input_ = x
         gamma_ = self.weight
         #if self.training:
@@ -102,7 +102,7 @@ class  Yolov2(nn.Module):
         self.conv9 = nn.Sequential(nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1))
 
 
-    def forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
+    def Forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
         """
         x: Variable
         gt_boxes, gt_classes, num_boxes: Tensor

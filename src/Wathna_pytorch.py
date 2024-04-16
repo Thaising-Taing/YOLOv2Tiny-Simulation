@@ -213,7 +213,7 @@ class Pytorch(object):
         self.image          = self.image.cuda()
         
         X = data.im_data.cuda()
-        self.out, self.cache, self.Out_all_layers = self.modtorch_model.forward(X)
+        self.out, self.cache, self.Out_all_layers = self.modtorch_model.Forward(X)
         if save_debug: Save_File("./Wathna_PyTorch/Output", self.out)
         
     def Calculate_Loss(self,data):

@@ -136,8 +136,8 @@ def test():
             else:
                 im_data_variable = Variable(im_data)
 
-            out, _, _ = model.forward(im_data_variable)
-            yolo_outputs = model.forward_pred(out)
+            out, _, _ = model.Forward(im_data_variable)
+            yolo_outputs = model.Forward_pred(out)
             for i in range(im_data.size(0)):
                 img_id += 1
                 output = [item[i].data for item in yolo_outputs]

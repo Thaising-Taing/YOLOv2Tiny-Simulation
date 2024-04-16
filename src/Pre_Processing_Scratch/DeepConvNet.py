@@ -109,8 +109,8 @@ class DeepConvNet(object):
 
         # With batch normalization we need to keep track of running means and
         # variances, so we need to pass a special bn_params object to each batch
-        # normalization layer. You should pass self.bn_params[0] to the forward pass
-        # of the first batch normalization layer, self.bn_params[1] to the forward
+        # normalization layer. You should pass self.bn_params[0] to the Forward pass
+        # of the first batch normalization layer, self.bn_params[1] to the Forward
         # pass of the second batch normalization layer, etc.
         self.bn_params = []
         if self.batchnorm:

@@ -149,11 +149,11 @@ class PythonSimulation(object):
 
         if self.save_debug_data1: Save_File("./Output_Sim_Python/Input_Image", im_data)
 
-        temp_Out[0], temp_cache['0'] = Python_Conv_Pool.forward(im_data, Weight_Tensor[0], conv_param, pool_param_stride2)
+        temp_Out[0], temp_cache['0'] = Python_Conv_Pool.Forward(im_data, Weight_Tensor[0], conv_param, pool_param_stride2)
         if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer0", temp_Out[0])
-        mean, var = Cal_mean_var.forward(temp_Out[0])
+        mean, var = Cal_mean_var.Forward(temp_Out[0])
         
-        Out0, cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.forward(im_data, Weight_Tensor[0], Gamma_Tensor[0],
+        Out0, cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(im_data, Weight_Tensor[0], Gamma_Tensor[0],
                                                                 Beta_Tensor[0], conv_param, running_mean[0], 
                                                                 running_var[0], mean, var, pool_param_stride2)
         if self.save_debug_data: Save_File("./Output_Sim_Python/Forward_Output_2nd_Iter_Layer0", Out0)
@@ -169,12 +169,12 @@ class PythonSimulation(object):
         if self.save_debug_data1: Save_File("./Output_Sim_Python/Weight_Conv_0", Weight_Tensor[0])
         
         # Layer1: Conv-BN-ReLU-Pool
-        temp_Out[1], temp_cache['1'] = Python_Conv.forward(Out0, Weight_Tensor[1], conv_param)
+        temp_Out[1], temp_cache['1'] = Python_Conv.Forward(Out0, Weight_Tensor[1], conv_param)
         if self.save_debug_data: Save_File("./Output_Sim_Python/Output_1st_Iter_Layer1", temp_Out[1])
         if self.save_bfloat16: Save_File("./Output_Sim_Python_Bfloat16/Output_1st_Iter_Layer1", temp_Out[1].to(torch.bfloat16))
-        mean, var = Cal_mean_var.forward(temp_Out[1])
+        mean, var = Cal_mean_var.Forward(temp_Out[1])
         
-        Out1, cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out0, Weight_Tensor[1], Gamma_Tensor[1], Beta_Tensor[1],
+        Out1, cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out0, Weight_Tensor[1], Gamma_Tensor[1], Beta_Tensor[1],
                                                                 conv_param, running_mean[1], running_var[1],
                                                                 mean, var, pool_param_stride2)
         
@@ -185,66 +185,66 @@ class PythonSimulation(object):
         if self.save_bfloat16: Save_File("./Output_Sim_Python_Bfloat16/Forward_Output_1st_Iter_Layer1", Out1.to(torch.bfloat16))
 
         # Layer2: Conv-BN-ReLU-Pool
-        temp_Out[2], temp_cache['2'] = Python_Conv.forward(Out1, Weight_Tensor[2], conv_param)
+        temp_Out[2], temp_cache['2'] = Python_Conv.Forward(Out1, Weight_Tensor[2], conv_param)
 
-        mean, var = Cal_mean_var.forward(temp_Out[2])
+        mean, var = Cal_mean_var.Forward(temp_Out[2])
 
-        Out2, cache['2'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out1, Weight_Tensor[2], Gamma_Tensor[2], Beta_Tensor[2],
+        Out2, cache['2'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out1, Weight_Tensor[2], Gamma_Tensor[2], Beta_Tensor[2],
                                                                 conv_param, running_mean[2], running_var[2],
                                                                 mean, var, pool_param_stride2)
         
         if self.save_debug_data1: Save_File("./Output_Sim_Python/Weight_Conv_2", Weight_Tensor[2])
 
         # Layer3: Conv-BN-ReLU-Pool
-        temp_Out[3], temp_cache['3'] = Python_Conv.forward(Out2, Weight_Tensor[3], conv_param)
+        temp_Out[3], temp_cache['3'] = Python_Conv.Forward(Out2, Weight_Tensor[3], conv_param)
 
-        mean, var = Cal_mean_var.forward(temp_Out[3])
+        mean, var = Cal_mean_var.Forward(temp_Out[3])
         
-        Out3, cache['3'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out2, Weight_Tensor[3], Gamma_Tensor[3], Beta_Tensor[3],
+        Out3, cache['3'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out2, Weight_Tensor[3], Gamma_Tensor[3], Beta_Tensor[3],
                                                                 conv_param, running_mean[3], running_var[3],
                                                                 mean, var, pool_param_stride2)
         
         if self.save_debug_data1: Save_File("./Output_Sim_Python/Weight_Conv_3", Weight_Tensor[3])
 
         # Layer4: Conv-BN-ReLU-Pool
-        temp_Out[4], temp_cache['4'] = Python_Conv.forward(Out3, Weight_Tensor[4], conv_param)
+        temp_Out[4], temp_cache['4'] = Python_Conv.Forward(Out3, Weight_Tensor[4], conv_param)
 
-        mean, var = Cal_mean_var.forward(temp_Out[4])
+        mean, var = Cal_mean_var.Forward(temp_Out[4])
         
-        Out4, cache['4'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], Beta_Tensor[4],
+        Out4, cache['4'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out3, Weight_Tensor[4], Gamma_Tensor[4], Beta_Tensor[4],
                                                                 conv_param, running_mean[4], running_var[4],
                                                                 mean, var, pool_param_stride2)
         
         if self.save_debug_data1: Save_File("./Output_Sim_Python/Weight_Conv_4", Weight_Tensor[4])
 
         # Layer5: Conv-BN-ReLU
-        temp_Out[5], temp_cache['5'] = Python_Conv.forward(Out4, Weight_Tensor[5], conv_param)
+        temp_Out[5], temp_cache['5'] = Python_Conv.Forward(Out4, Weight_Tensor[5], conv_param)
 
-        mean, var = Cal_mean_var.forward(temp_Out[5])
+        mean, var = Cal_mean_var.Forward(temp_Out[5])
 
-        Out5, cache['5'] = Python_Conv_BatchNorm_ReLU.forward(Out4, Weight_Tensor[5], Gamma_Tensor[5], Beta_Tensor[5],
+        Out5, cache['5'] = Python_Conv_BatchNorm_ReLU.Forward(Out4, Weight_Tensor[5], Gamma_Tensor[5], Beta_Tensor[5],
                                                             conv_param, running_mean[5], running_var[5],
                                                             mean, var)
         
         if self.save_debug_data1: Save_File("./Output_Sim_Python/Weight_Conv_5", Weight_Tensor[5])
 
         # Layer6: Conv-BN-ReLU
-        temp_Out[6], temp_cache['6'] = Python_Conv.forward(Out5, Weight_Tensor[6], conv_param)
+        temp_Out[6], temp_cache['6'] = Python_Conv.Forward(Out5, Weight_Tensor[6], conv_param)
       
-        mean, var = Cal_mean_var.forward(temp_Out[6])
+        mean, var = Cal_mean_var.Forward(temp_Out[6])
 
-        Out6, cache['6'] = Python_Conv_BatchNorm_ReLU.forward(Out5, Weight_Tensor[6], Gamma_Tensor[6],
+        Out6, cache['6'] = Python_Conv_BatchNorm_ReLU.Forward(Out5, Weight_Tensor[6], Gamma_Tensor[6],
                                                             Beta_Tensor[6], conv_param, running_mean[6], running_var[6],
                                                             mean, var)
         
         if self.save_debug_data1: Save_File("./Output_Sim_Python/Weight_Conv_6", Weight_Tensor[6])
 
         # Layer7: Conv-BN-ReLU
-        temp_Out[7], temp_cache['7'] = Python_Conv.forward(Out6, Weight_Tensor[7], conv_param)
+        temp_Out[7], temp_cache['7'] = Python_Conv.Forward(Out6, Weight_Tensor[7], conv_param)
 
-        mean, var = Cal_mean_var.forward(temp_Out[7])
+        mean, var = Cal_mean_var.Forward(temp_Out[7])
    
-        Out7, cache['7'] = Python_Conv_BatchNorm_ReLU.forward(Out6, Weight_Tensor[7], Gamma_Tensor[7], Beta_Tensor[7],
+        Out7, cache['7'] = Python_Conv_BatchNorm_ReLU.Forward(Out6, Weight_Tensor[7], Gamma_Tensor[7], Beta_Tensor[7],
                                                             conv_param, running_mean[7], running_var[7],
                                                             mean, var)
         
@@ -269,7 +269,7 @@ class PythonSimulation(object):
 
         # Layer8: ConvWB
         conv_param['pad'] = 0
-        Out8, cache['8'] = Python_ConvB.forward(Out7, Weight_Tensor[8], bias, conv_param)
+        Out8, cache['8'] = Python_ConvB.Forward(Out7, Weight_Tensor[8], bias, conv_param)
         Output_Image = Out8
         self.Output_Image, self.cache = Output_Image, cache 
         if self.save_txt: save_file("Weight_Layer8", Weight_Tensor[8], module="Conv", layer_no=8, save_txt=True, phase="Backward")

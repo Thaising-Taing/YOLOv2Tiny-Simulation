@@ -142,8 +142,8 @@ class DeepConvNet(object):
 
     # With batch normalization we need to keep track of running means and
     # variances, so we need to pass a special bn_params object to each batch
-    # normalization layer. You should pass self.bn_params[0] to the forward pass
-    # of the first batch normalization layer, self.bn_params[1] to the forward
+    # normalization layer. You should pass self.bn_params[0] to the Forward pass
+    # of the first batch normalization layer, self.bn_params[1] to the Forward
     # pass of the second batch normalization layer, etc.
     self.bn_params = []
     if self.batchnorm:
@@ -213,8 +213,8 @@ class DeepConvNet(object):
       self.save_txt=False
       self.save_hex=False
     
-    if self.forward_prop:
-      out, cache, FOut = self.forward(X)
+    if self.Forward_prop:
+      out, cache, FOut = self.Forward(X)
       if self.save_pickle:
         Path("Temp_Files/Python").mkdir(parents=True, exist_ok=True)
         with open('Temp_Files/Python/Forward_Out_last_layer.pickle','wb') as handle:
@@ -273,8 +273,8 @@ class DeepConvNet(object):
   
   
   
-  def forward(self, X):
-    print(f'\nThis is python-based forward propagation code\n')
+  def Forward(self, X):
+    print(f'\nThis is python-based Forward propagation code\n')
     y = 1
     X = X.to(self.dtype)
     mode = 'test' if y is None else 'train'
@@ -286,21 +286,21 @@ class DeepConvNet(object):
         bn_params['mode'] = mode
 
     scores = None
-    # pass conv_param to the forward pass for the convolutional layer
+    # pass conv_param to the Forward pass for the convolutional layer
     # Padding and stride chosen to preserve the input spatial size
     filter_size = 3
     conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
 
-    # pass pool_param to the forward pass for the max-pooling layer
+    # pass pool_param to the Forward pass for the max-pooling layer
     pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
     scores = None
-    # pass conv_param to the forward pass for the convolutional layer
+    # pass conv_param to the Forward pass for the convolutional layer
     # Padding and stride chosen to preserve the input spatial size
     filter_size = 3
     conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
 
-    # pass pool_param to the forward pass for the max-pooling layer
+    # pass pool_param to the Forward pass for the max-pooling layer
     pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
     scores = None
@@ -310,9 +310,9 @@ class DeepConvNet(object):
     Out={}
     self.phase='Forward'
     
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
     #   X = convert_to_16(self, X)
-    Out[0], cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.forward(X                      , 
+    Out[0], cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(X                      , 
                                                                 self.params['W0']       , 
                                                                 self.params['gamma0']   , 
                                                                 self.params['beta0']    , 
@@ -326,9 +326,9 @@ class DeepConvNet(object):
                                                                 args = self  ,
                                                                 )
     
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
       # Out[0] = convert_to_16(self, Out[0])
-    Out[1], cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[0]                 , 
+    Out[1], cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out[0]                 , 
                                                                 self.params['W1']       , 
                                                                 self.params['gamma1']   , 
                                                                 self.params['beta1']    , 
@@ -342,9 +342,9 @@ class DeepConvNet(object):
                                                                 args = self  ,
                                                                 )
 
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
       # Out[1] = convert_to_16(self, Out[1])
-    Out[2], cache['2'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[1]                 , 
+    Out[2], cache['2'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out[1]                 , 
                                                                 self.params['W2']       , 
                                                                 self.params['gamma2']   , 
                                                                 self.params['beta2']    , 
@@ -358,9 +358,9 @@ class DeepConvNet(object):
                                                                 args = self  ,
                                                                 )
     
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
     #   Out[2] = convert_to_16(self, Out[2])
-    Out[3], cache['3'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[2]                 , 
+    Out[3], cache['3'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out[2]                 , 
                                                                 self.params['W3']       , 
                                                                 self.params['gamma3']   , 
                                                                 self.params['beta3']    , 
@@ -374,9 +374,9 @@ class DeepConvNet(object):
                                                                 args = self  ,
                                                                 )
     
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
     #   Out[3] = convert_to_16(self, Out[3])
-    Out[4], cache['4'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[3]                 , 
+    Out[4], cache['4'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out[3]                 , 
                                                                 self.params['W4']       , 
                                                                 self.params['gamma4']   , 
                                                                 self.params['beta4']    , 
@@ -390,9 +390,9 @@ class DeepConvNet(object):
                                                                 args = self  ,
                                                                 )
     
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
     #   Out[4] = convert_to_16(self, Out[4])
-    Out[5], cache['5'] = Python_Conv_BatchNorm_ReLU.forward     (Out[4]                 , 
+    Out[5], cache['5'] = Python_Conv_BatchNorm_ReLU.Forward     (Out[4]                 , 
                                                                 self.params['W5']       , 
                                                                 self.params['gamma5']   , 
                                                                 self.params['beta5']    , 
@@ -410,7 +410,7 @@ class DeepConvNet(object):
     # Out[60]            = F.pad                                  (Out[5] , (0, 1, 0, 1))
     # save_file('Output', Out[60], module='Pad', layer_no=6, save_hex=self.save_hex, save_txt=self.save_txt, phase=self.phase)
     
-    # Out[61],cache['60']= Python_MaxPool.forward                 (Out[60]                , 
+    # Out[61],cache['60']= Python_MaxPool.Forward                 (Out[60]                , 
     #                                                             slowpool_param          ,
     #                                                             layer_no= 6            , 
     #                                                             save_txt= self.save_txt , 
@@ -418,11 +418,11 @@ class DeepConvNet(object):
     #                                                             phase   = self.phase    ,
     #                                                             )
     
-    # Out[6], cache['6'] = Python_Conv_BatchNorm_ReLU.forward     (Out[61]                , 
+    # Out[6], cache['6'] = Python_Conv_BatchNorm_ReLU.Forward     (Out[61]                , 
     
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
     #   Out[5] = convert_to_16(self, Out[5])
-    Out[6], cache['6'] = Python_Conv_BatchNorm_ReLU.forward     (Out[5]                , 
+    Out[6], cache['6'] = Python_Conv_BatchNorm_ReLU.Forward     (Out[5]                , 
                                                                 self.params['W6']       , 
                                                                 self.params['gamma6']   , 
                                                                 self.params['beta6']    , 
@@ -435,9 +435,9 @@ class DeepConvNet(object):
                                                                 args = self  ,
                                                                 )
     
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
     #   Out[6] = convert_to_16(self, Out[6])
-    Out[7], cache['7'] = Python_Conv_BatchNorm_ReLU.forward     (Out[6]                 , 
+    Out[7], cache['7'] = Python_Conv_BatchNorm_ReLU.Forward     (Out[6]                 , 
                                                                 self.params['W7']       , 
                                                                 self.params['gamma7']   , 
                                                                 self.params['beta7']    , 
@@ -450,10 +450,10 @@ class DeepConvNet(object):
                                                                 args = self  ,
                                                                 )
     
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
     #   Out[7] = convert_to_16(self, Out[7])
     conv_param['pad']  = 0
-    Out[8], cache['8'] = Python_ConvB.forward                   (Out[7]                 , 
+    Out[8], cache['8'] = Python_ConvB.Forward                   (Out[7]                 , 
                                                                 self.params['W8']       , 
                                                                 self.params['b8']       , 
                                                                 conv_param              ,
@@ -464,7 +464,7 @@ class DeepConvNet(object):
                                                                 args = self  ,
                                                                 )
     
-    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_forward: 
+    # if self.convert_to_fp16 and self.convert_layer_IpOp and self.convert_Forward: 
     #   Out[8] = convert_to_16(self, Out[8])
     out = Out[8]
     
@@ -729,7 +729,7 @@ class last_layer(nn.Module):
 
     self.conv9 = nn.Conv2d(1024, 125, kernel_size=1, stride=1, padding=0, bias=True)
 
-  def forward(self, x):
+  def Forward(self, x):
     
     return self.conv9(x)
 
@@ -1810,7 +1810,7 @@ class Yolov2(nn.Module):
     self.conv9 = nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1)
 
 
-  def forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
+  def Forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
     """
     x: Variable
     gt_boxes, gt_classes, num_boxes: Tensor
@@ -1872,9 +1872,9 @@ class Yolov2(nn.Module):
 class Python_Conv(object):
 
   @staticmethod
-  def forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+  def Forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
     """
-    A naive implementation of the forward pass for a convolutional layer.
+    A naive implementation of the Forward pass for a convolutional layer.
     The input consists of N data points, each with C channels, height H and
     width W. We convolve each input with F different filters, where each filter
     spans all C channels and has height HH and width WW.
@@ -1935,7 +1935,7 @@ class Python_Conv(object):
 
     Inputs:
     - dout: Upstream derivatives.
-    - cache: A tuple of (x, w, b, conv_param) as in conv_forward_naive
+    - cache: A tuple of (x, w, b, conv_param) as in conv_Forward_naive
 
     Returns a tuple of:
     - dx: Gradient with respect to x
@@ -1981,9 +1981,9 @@ class Python_Conv(object):
 class Python_ConvB(object):
 
   @staticmethod
-  def forward(x, w, b, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+  def Forward(x, w, b, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
     """
-    A naive implementation of the forward pass for a convolutional layer.
+    A naive implementation of the Forward pass for a convolutional layer.
     The input consists of N data points, each with C channels, height H and
     width W. We convolve each input with F different filters, where each filter
     spans all C channels and has height HH and width WW.
@@ -2042,7 +2042,7 @@ class Python_ConvB(object):
 
     Inputs:
     - dout: Upstream derivatives.
-    - cache: A tuple of (x, w, b, conv_param) as in conv_forward_naive
+    - cache: A tuple of (x, w, b, conv_param) as in conv_Forward_naive
 
     Returns a tuple of:
     - dx: Gradient with respect to x
@@ -2080,9 +2080,9 @@ class Python_ConvB(object):
 class Python_MaxPool(object):
 
   @staticmethod
-  def forward(x, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+  def Forward(x, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
     """
-    A naive implementation of the forward pass for a max-pooling layer.
+    A naive implementation of the Forward pass for a max-pooling layer.
 
     Inputs:
     - x: Input data, of shape (N, C, H, W)
@@ -2130,7 +2130,7 @@ class Python_MaxPool(object):
     A naive implementation of the backward pass for a max-pooling layer.
     Inputs:
     - dout: Upstream derivatives
-    - cache: A tuple of (x, pool_param) as in the forward pass.
+    - cache: A tuple of (x, pool_param) as in the Forward pass.
     Returns:
     - dx: Gradient with respect to x
     """
@@ -2169,7 +2169,7 @@ class Python_MaxPool(object):
 class Python_BatchNorm(object):
 
   @staticmethod
-  def forward(x, gamma, beta, bn_params, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+  def Forward(x, gamma, beta, bn_params, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
     """
     Forward pass for batch normalization.
 
@@ -2268,7 +2268,7 @@ class Python_BatchNorm(object):
       out = normolized * gamma + beta
 
     else:
-      raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
+      raise ValueError('Invalid Forward batchnorm mode "%s"' % mode)
 
     # if args.convert_to_fp16 and args.convert_module_IpOp:
     #   out = convert_to_16(args, out)
@@ -2292,7 +2292,7 @@ class Python_BatchNorm(object):
 
     Inputs:
     - dout: Upstream derivatives, of shape (N, D)
-    - cache: Variable of intermediates from batchnorm_forward.
+    - cache: Variable of intermediates from batchnorm_Forward.
 
     Returns a tuple of:
     - dx: Gradient with respect to inputs x, of shape (N, D)
@@ -2399,9 +2399,9 @@ class Python_BatchNorm(object):
 class Python_SpatialBatchNorm(object):
 
   @staticmethod
-  def forward(x, gamma, beta, bn_params, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+  def Forward(x, gamma, beta, bn_params, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
     """
-    Computes the forward pass for spatial batch normalization.
+    Computes the Forward pass for spatial batch normalization.
 
     Inputs:
     - x: Input data of shape (N, C, H, W)
@@ -2425,7 +2425,7 @@ class Python_SpatialBatchNorm(object):
 
     N,C,H,W = x.shape
     pre_m = x.permute(1,0,2,3).reshape(C,-1).T
-    pre_m_normolized, cache= Python_BatchNorm.forward(pre_m, gamma, beta, bn_params, args=args)
+    pre_m_normolized, cache= Python_BatchNorm.Forward(pre_m, gamma, beta, bn_params, args=args)
     out = pre_m_normolized.T.reshape(C, N, H, W).permute(1,0,2,3)
 
 
@@ -2437,7 +2437,7 @@ class Python_SpatialBatchNorm(object):
     Computes the backward pass for spatial batch normalization.
     Inputs:
     - dout: Upstream derivatives, of shape (N, C, H, W)
-    - cache: Values from the forward pass
+    - cache: Values from the Forward pass
     Returns a tuple of:
     - dx: Gradient with respect to inputs, of shape (N, C, H, W)
     - dgamma: Gradient with respect to scale parameter, of shape (C,)
@@ -2455,7 +2455,7 @@ class Python_SpatialBatchNorm(object):
 class Python_Pad2d(object):
     
     @staticmethod
-    def forward(x, pad_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+    def Forward(x, pad_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
         
         # if args.convert_to_fp16 and args.convert_module_IpOp:
         #   x = convert_to_16(args, x)
@@ -2507,7 +2507,7 @@ class Python_Pad2d(object):
 class Python_ReLU(object):
 
     @staticmethod
-    def forward(x, alpha=0.1, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+    def Forward(x, alpha=0.1, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
         # if args.convert_to_fp16 and args.convert_module_IpOp:
         #   x = convert_to_16(args, x)
         
@@ -2549,7 +2549,7 @@ class Python_ReLU(object):
 class Python_Conv_ReLU(object):
 
   @staticmethod
-  def forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+  def Forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
     """
     A convenience layer that performs a convolution followed by a Python_ReLU.
     Inputs:
@@ -2559,7 +2559,7 @@ class Python_Conv_ReLU(object):
     - out: Output from the Python_ReLU
     - cache: Object to give to the backward pass
     """
-    a, conv_cache   = Python_Conv.forward(
+    a, conv_cache   = Python_Conv.Forward(
                                             x, 
                                             w, 
                                             conv_param, 
@@ -2568,7 +2568,7 @@ class Python_Conv_ReLU(object):
                                             save_hex=save_hex, 
                                             phase=phase,
                                             args = args,)
-    out, relu_cache = Python_ReLU.forward(
+    out, relu_cache = Python_ReLU.Forward(
                                             a, 
                                             layer_no=layer_no, 
                                             save_txt=save_txt, 
@@ -2610,7 +2610,7 @@ class Python_Conv_ReLU(object):
 class Python_Conv_ReLU_Pool(object):
 
   @staticmethod
-  def forward(x, w, conv_param, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+  def Forward(x, w, conv_param, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
     """
     A convenience layer that performs a convolution, a Python_ReLU, and a pool.
     Inputs:
@@ -2621,7 +2621,7 @@ class Python_Conv_ReLU_Pool(object):
     - out: Output from the pooling layer
     - cache: Object to give to the backward pass
     """
-    a, conv_cache   = Python_Conv.forward(
+    a, conv_cache   = Python_Conv.Forward(
                                             x, 
                                             w, 
                                             conv_param, 
@@ -2632,7 +2632,7 @@ class Python_Conv_ReLU_Pool(object):
                                             args = args,
                                             )
 
-    s, relu_cache   = Python_ReLU.forward(
+    s, relu_cache   = Python_ReLU.Forward(
                                             a, 
                                             layer_no=layer_no, 
                                             save_txt=save_txt, 
@@ -2641,7 +2641,7 @@ class Python_Conv_ReLU_Pool(object):
                                             args = args,
                                             )
 
-    out, pool_cache = Python_MaxPool.forward(
+    out, pool_cache = Python_MaxPool.Forward(
                                             s, 
                                             pool_param, 
                                             layer_no=layer_no, 
@@ -2697,8 +2697,8 @@ class Python_Conv_ReLU_Pool(object):
 class Python_Conv_BatchNorm_ReLU(object):
 
   @staticmethod
-  def forward(x, w, gamma, beta, conv_param, bn_params, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
-    a, conv_cache   = Python_Conv.forward(
+  def Forward(x, w, gamma, beta, conv_param, bn_params, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+    a, conv_cache   = Python_Conv.Forward(
                                             x, 
                                             w, 
                                             conv_param, 
@@ -2708,7 +2708,7 @@ class Python_Conv_BatchNorm_ReLU(object):
                                             phase=phase,
                                             args = args,)
 
-    an, bn_cache    = Python_SpatialBatchNorm.forward(
+    an, bn_cache    = Python_SpatialBatchNorm.Forward(
                                             a, 
                                             gamma, 
                                             beta, 
@@ -2719,7 +2719,7 @@ class Python_Conv_BatchNorm_ReLU(object):
                                             phase=phase,
                                             args = args,)
 
-    out, relu_cache = Python_ReLU.forward(
+    out, relu_cache = Python_ReLU.Forward(
                                             an, 
                                             layer_no=layer_no, 
                                             save_txt=save_txt, 
@@ -2771,9 +2771,9 @@ class Python_Conv_BatchNorm_ReLU(object):
 class Python_Conv_BatchNorm_ReLU_Pool(object):
 
   @staticmethod
-  def forward(x, w, gamma, beta, conv_param, bn_params, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
+  def Forward(x, w, gamma, beta, conv_param, bn_params, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[], args=None):
     # Load in FP16 --> FP 32
-    a,    conv_cache  = Python_Conv.forward(
+    a,    conv_cache  = Python_Conv.Forward(
                                             x, 
                                             w, 
                                             conv_param, 
@@ -2786,7 +2786,7 @@ class Python_Conv_BatchNorm_ReLU_Pool(object):
     # Convert 32-> 16 --> Save in FP16
     
     # Load in FP16 --> FP 32
-    an,   bn_cache    = Python_SpatialBatchNorm.forward(
+    an,   bn_cache    = Python_SpatialBatchNorm.Forward(
                                             a, 
                                             gamma, 
                                             beta, 
@@ -2798,7 +2798,7 @@ class Python_Conv_BatchNorm_ReLU_Pool(object):
                                             args = args,
                                             )
 
-    s,    relu_cache  = Python_ReLU.forward(
+    s,    relu_cache  = Python_ReLU.Forward(
                                             an, 
                                             layer_no=layer_no, 
                                             save_txt=save_txt, 
@@ -2807,7 +2807,7 @@ class Python_Conv_BatchNorm_ReLU_Pool(object):
                                             args = args,
                                             )
 
-    out,  pool_cache  = Python_MaxPool.forward(
+    out,  pool_cache  = Python_MaxPool.Forward(
                                             s, 
                                             pool_param, 
                                             layer_no=layer_no, 

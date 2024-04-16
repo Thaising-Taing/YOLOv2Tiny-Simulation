@@ -647,7 +647,7 @@ def origin_idx_calculator(idx, B, H, W, num_chunks):
 class Cal_mean_var(object):
 
     @staticmethod
-    def forward(x):
+    def Forward(x):
     
         out, cache = None, None
         
@@ -687,7 +687,7 @@ class Cal_mean_var(object):
 class Cal_mean_var(object):
     import math
     @staticmethod
-    def forward(x):
+    def Forward(x):
         out, cache = None, None
         eps = 1e-5
         num_chunks = 8

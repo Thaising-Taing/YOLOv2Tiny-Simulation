@@ -452,7 +452,7 @@ class App(customtkinter.CTk):
         self.bar = self.d.bar[0]
         #self.textbox.insert("0.0", "CTkTextbox\n\n" )
 
-        #microcode = Microcode("mic_2iteration_forward_hex_add_0x.txt") 
+        #microcode = Microcode("mic_2iteration_Forward_hex_add_0x.txt") 
         microcode = Microcode("MICROCODE.txt")
 
         for i in range (0, len(microcode)):
@@ -1325,7 +1325,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)    
+        Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.Forward(OutImage_1st_Layer0)    
 
         Beta_Layer0 = self.Beta_Dec[0]
         Gamma_Layer0 = self.Gamma_Dec[0]
@@ -1646,7 +1646,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
+        Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.Forward(OutImage_1st_Layer1)
         
         Beta_Layer1 = self.Beta_Dec[1]
         Gamma_Layer1 = self.Gamma_Dec[1]
@@ -1925,7 +1925,7 @@ class YOLOv2_Tiny_FPGA(object):
         mv_start = time.time()
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
+        Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.Forward(OutImage_1st_Layer2)
 
         Beta_Layer2 = self.Beta_Dec[2]
         Gamma_Layer2 = self.Gamma_Dec[2]
@@ -2206,7 +2206,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
+        Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.Forward(OutImage_1st_Layer3)
 
 
         Beta_Layer3 = self.Beta_Dec[3]
@@ -2482,7 +2482,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.forward(OutImage_1st_Layer4)
+        Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.Forward(OutImage_1st_Layer4)
 
         Beta_Layer4 = self.Beta_Dec[4]
         Gamma_Layer4 = self.Gamma_Dec[4]
@@ -2759,7 +2759,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.forward(OutImage_1st_Layer5)
+        Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.Forward(OutImage_1st_Layer5)
 
         Beta_Layer5 = self.Beta_Dec[5]
         Gamma_Layer5 = self.Gamma_Dec[5]
@@ -3034,7 +3034,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
+        Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.Forward(OutImage_1st_Layer6)
         
         Beta_Layer6 = self.Beta_Dec[6]
         Gamma_Layer6 = self.Gamma_Dec[6]
@@ -3308,7 +3308,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.forward(OutImage_1st_Layer7)
+        Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.Forward(OutImage_1st_Layer7)
 
         Beta_Layer7 = self.Beta_Dec[7]
         Gamma_Layer7 = self.Gamma_Dec[7]

@@ -5,7 +5,7 @@ import os
 libconv = ctypes.CDLL('./Practice_cuda.so')
 # os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
-def forward(x, w, conv_param, device):
+def Forward(x, w, conv_param, device):
     x = x.to(device)
     w = w.to(device)
 
@@ -76,4 +76,4 @@ if __name__ == "__main__":
     
     device = "cpu"
     conv_param = {'stride': 1, 'pad': 1}
-    Conv_Result, cache = forward(Image, Weight, conv_param,  device)
+    Conv_Result, cache = Forward(Image, Weight, conv_param,  device)
