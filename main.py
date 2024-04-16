@@ -32,6 +32,7 @@ sys.path.append("/home/msis/Desktop/pcie_python/GUI")
 from Weight_Update_Algorithm.new_weight_update import new_weight_update, new_weight_update_two, sgd_momentum_update
 # from Weight_Update_Algorithm.new_weight_update import initial_lr as Initial_LR_SGD
 
+import numpy as np
 from Pre_Processing_Scratch.Pre_Processing import *
 from Pre_Processing_Scratch.Pre_Processing_Function import *
 import time
@@ -126,7 +127,7 @@ class App(customtkinter.CTk):
         self.YOLOv2_Hardware_Forward     = True
         self.YOLOv2_Hardware_Backward    = True
 
-        self.phase_forward = 'Forward'
+        self.phase_Forward = 'Forward'
         self.phase_backward = 'Backward'
         
         self.bestmAP=0
@@ -558,10 +559,12 @@ class App(customtkinter.CTk):
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
         self._Val.configure(state="normal")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -587,10 +590,12 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
+        self._Val.configure(state="normal")
         self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
@@ -599,8 +604,6 @@ class App(customtkinter.CTk):
         self.Show_Text(f"Pytorch BN mode selected.")
         self.update()
 
-        
-        
     def PythonMode_click(self):
         self.mode =  'Python'
         self.PyTorchMode.configure(state="disabled")
@@ -620,10 +623,12 @@ class App(customtkinter.CTk):
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
         self._Val.configure(state="normal")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -649,10 +654,12 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
+        self._Val.configure(state="normal")
         self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
@@ -681,11 +688,13 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self._Val.configure(state="normal")
+        self._Val.configure(state="disabled")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        # self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -712,10 +721,12 @@ class App(customtkinter.CTk):
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
         self._Val.configure(state="normal")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
        
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -742,10 +753,12 @@ class App(customtkinter.CTk):
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
         self._Val.configure(state="normal")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
        
         self.cover.lower()
         self.right_frame_1.lower(self.cover)
@@ -773,11 +786,13 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self._Val.configure(state="normal")
+        self._Val.configure(state="disabled")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        # self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
@@ -803,11 +818,13 @@ class App(customtkinter.CTk):
         
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
-        self._Val.configure(state="normal")
+        self._Val.configure(state="disabled")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
-        self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        # self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
@@ -834,10 +851,12 @@ class App(customtkinter.CTk):
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
         self._Val.configure(state="normal")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
@@ -867,13 +886,20 @@ class App(customtkinter.CTk):
         self.Load_Data.configure(state="normal")
         self.Load_Microcode_Train.configure(state="normal")
         self.Load_Microcode_Infer.configure(state="normal")
+        
         self.Train.configure(state="normal")
         self.Infer.configure(state="normal")
         self._Val.configure(state="normal")
+        self.Stop.configure(state="normal")
         
         self.Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self.Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         self._Val.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Stop.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Load_PCIe.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Load_Data.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Load_Microcode_Train.configure(fg_color=['#3B8ED0', '#1F6AA5'])
+        self.Load_Microcode_Infer.configure(fg_color=['#3B8ED0', '#1F6AA5'])
         
         self.cover.lower()
         self.right_frame_1.lift(self.cover)
@@ -890,7 +916,6 @@ class App(customtkinter.CTk):
         self.PythonSim.configure(state="enabled")
         self.PythonCUDA.configure(state="enabled")
         self.PythonCUDA16.configure(state="enabled")
-        self.Pytorch_bn.configure(state="enabled")
         self.Python_bn.configure(state="enabled")
         self.RFFP_CUDA.configure(state="enabled")
         self.FPGA_Python.configure(state="enabled")
@@ -1269,13 +1294,8 @@ class App(customtkinter.CTk):
         self.Pre_Process()
         self.Create_Output_Dir()
         self.Load_Weights()
-        self.Load_Dataset()
 
-        for self.epoch in range(self.args.start_epoch, self.args.max_epochs):
-            self.whole_process_start = time.time()
-            # self.Adjust_Learning_Rate()
-            print(f"Validation weights.")
-            self.Check_mAP()
+        self.Check_mAP()
         self.Show_Text(f"Validation is finished")
         
         if False:
@@ -1428,17 +1448,19 @@ class App(customtkinter.CTk):
         self.count = dict()
         self.count['detections'], self.count['no_detections'] = 0, 0
 
-        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn       = Pytorch_bn(self)
-        if self.mode == "Python_BN"    :  self.Python_bn        = Python_bn(self)
-        if self.mode == "Pytorch_LN"      :  self.Pytorch          = Pytorch(self)
-        if self.mode == "Python"       :  self.Python           = Python(self)
-        if self.mode == "PythonSim"    :  self.PythonSimulation = PythonSimulation(self)
-        if self.mode == "PytorchSim_LN":  self.TorchSimulation_LN  = TorchSimulation_LN(self)
-        if self.mode == "PytorchSim_BN":  self.TorchSimulation_BN  = TorchSimulation_BN(self)
-        if self.mode == "PythonCUDA"   :  self.CUDA32           = CUDA32(self)
-        if self.mode == "PythonCUDA16" :  self.CUDA16           = CUDA16(self)
-        if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA        = RFFP_CUDA(self)
-        if self.mode == "FPGA"         :  self.FPGA             = FPGA(self)
+        if self.mode == "Pytorch_BN"   :  self.Pytorch_bn           = Pytorch_bn(self)
+        if self.mode == "Python_BN"    :  self.Python_bn            = Python_bn(self)
+        if self.mode == "Pytorch_LN"   :  self.Pytorch              = Pytorch(self)
+        if self.mode == "Python"       :  self.Python               = Python(self)
+        if self.mode == "FPGA"         :  self.FPGA                 = FPGA(self)
+        
+        if self.mode == "PytorchSim_LN":  self.TorchSimulation_LN   = TorchSimulation_LN(self)
+        if self.mode == "PytorchSim_BN":  self.TorchSimulation_BN   = TorchSimulation_BN(self)
+        if self.mode == "RFFP_CUDA"    :  self.RFFP_CUDA            = RFFP_CUDA(self)
+        
+        if self.mode == "PythonSim"    :  self.PythonSimulation     = PythonSimulation(self)
+        if self.mode == "PythonCUDA"   :  self.CUDA32               = CUDA32(self)
+        if self.mode == "PythonCUDA16" :  self.CUDA16               = CUDA16(self)
 
     def Create_Output_Dir(self):
         if   self.mode == "Pytorch_BN"        :  self.args.output_dir = self.args.output_dir + '/' + self.mode
@@ -1525,7 +1547,7 @@ class App(customtkinter.CTk):
             pipe = pipes.InMemoryCacheHolder(self.train_dataset, size=32000).sharding_filter() # 8GB
             self.train_dataloader = DataLoader(     pipe, 
                                                     batch_size=self.args.batch_size, 
-                                                    shuffle=True, 
+                                                    shuffle=False,
                                                     num_workers=self.args.num_workers, 
                                                     collate_fn=detection_collate, 
                                                     drop_last=True,
@@ -1536,7 +1558,7 @@ class App(customtkinter.CTk):
         else:
             self.train_dataloader = DataLoader(     self.train_dataset, 
                                                     batch_size=self.args.batch_size, 
-                                                    shuffle=True, 
+                                                    shuffle=False,
                                                     num_workers=self.args.num_workers, 
                                                     collate_fn=detection_collate, 
                                                     drop_last=True,
@@ -1579,7 +1601,7 @@ class App(customtkinter.CTk):
         self.train_dataset_full             = self.get_dataset(self.imdb_train_name_full)
         self.train_dataloader_full          = DataLoader(   self.train_dataset_full, 
                                                             batch_size=self.args.batch_size, 
-                                                            shuffle=True, 
+                                                            shuffle=False,
                                                             num_workers=self.args.num_workers, 
                                                             collate_fn=detection_collate, 
                                                             drop_last=True,
@@ -1660,18 +1682,23 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"         :  self.FPGA.Calculate_Loss(self)
 
         
-        if self.mode == "Pytorch_LN"      :  _data =  self.Pytorch
+        if self.mode == "Pytorch_LN"   :  _data =  self.Pytorch
         if self.mode == "Python"       :  _data =  self.Python
         if self.mode == "Pytorch_BN"   :  _data =  self.Pytorch_bn
         if self.mode == "Python_BN"    :  _data =  self.Python_bn
         if self.mode == "PythonSim"    :  _data =  self.PythonSimulation
-        if self.mode == "PytorchSim_LN"   :  _data =  self.TorchSimulation_LN
-        if self.mode == "PytorchSim_BN"   :  _data =  self.TorchSimulation_BN
+        if self.mode == "PytorchSim_LN":  _data =  self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN":  _data =  self.TorchSimulation_BN
         if self.mode == "PythonCUDA"   :  _data =  self.CUDA32
         if self.mode == "PythonCUDA16" :  _data =  self.CUDA16
         if self.mode == "RFFP_CUDA"    :  _data =  self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data =  self.FPGA
         self.Loss_Val = _data.loss
+        
+        if np.isnan(self.Loss_Val.detach().cpu().numpy()):
+            print("Not a number")
+            import pdb
+            pdb.set_trace()
 
     def Before_Backward(self):
         if self.mode == "Pytorch_LN"      :  pass
@@ -1975,7 +2002,7 @@ class App(customtkinter.CTk):
         if self.mode == "FPGA"              :  _data = self.FPGA
         
         _w = _data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec
-        mAP = checkmap_new.check( weights = _w, args=self.args, model = self.mode, _data=_data)
+        mAP = checkmap_new.check( weights = _w, args=self.args, mode = self.mode, _data=_data)
 
         # self.map = self.Shoaib.cal_mAP(Inputs_with_running = \
         #     [_data.Weight, _data.Bias, _data.Gamma, _data.Beta, _data.Running_Mean_Dec, _data.Running_Var_Dec])
@@ -2029,10 +2056,10 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data = self.FPGA
         
-        # if self.mode == "Pytorch_LN"   : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Pytorch.pickle"     )
-        # if self.mode == "Python"    : if save_debug_data: self.Save_File(_data.out, "output_of_forward_Python.pickle"      )
-        # if self.mode == "Simulation": if save_debug_data: self.Save_File(_data.out, "output_of_forward_Simulation.pickle"  )
-        # if self.mode == "FPGA"      : if save_debug_data: self.Save_File(_data.out, "output_of_forward_FPGA.pickle"        )
+        # if self.mode == "Pytorch_LN"   : if save_debug_data: self.Save_File(_data.out, "output_of_Forward_Pytorch.pickle"     )
+        # if self.mode == "Python"    : if save_debug_data: self.Save_File(_data.out, "output_of_Forward_Python.pickle"      )
+        # if self.mode == "Simulation": if save_debug_data: self.Save_File(_data.out, "output_of_Forward_Simulation.pickle"  )
+        # if self.mode == "FPGA"      : if save_debug_data: self.Save_File(_data.out, "output_of_Forward_FPGA.pickle"        )
         
         
         out_batch = _data.out
@@ -2088,11 +2115,11 @@ class App(customtkinter.CTk):
         if self.mode == "RFFP_CUDA"    :  _data = self.RFFP_CUDA
         if self.mode == "FPGA"         :  _data = self.FPGA
         
-        out_batch_torch  = self.Load_File("output_of_forward_Torch.pickle")
+        out_batch_torch  = self.Load_File("output_of_Forward_Torch.pickle")
         
-        out_batch_sim    = self.Load_File("output_of_forward_sim.pickle")
+        out_batch_sim    = self.Load_File("output_of_Forward_sim.pickle")
         
-        out_batch_fpga   = self.Load_File("output_of_forward_FPGA.pickle")
+        out_batch_fpga   = self.Load_File("output_of_Forward_FPGA.pickle")
         
         
         for i, (img,outTorch, outSim, outFPGA) in enumerate(zip(_data.image, out_batch_torch, out_batch_sim, out_batch_fpga)):

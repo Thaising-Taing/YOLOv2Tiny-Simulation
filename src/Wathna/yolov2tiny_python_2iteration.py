@@ -80,7 +80,7 @@ else:
 
 if __name__ == '__main__':
 # Control Forward and Backward Prop
-	python_model.forward_prop 		  = True 	# Perform forward propagation or load saved file.
+	python_model.Forward_prop 		  = True 	# Perform Forward propagation or load saved file.
 	python_model.cal_loss 			  = True 	# Perform loss calculation or load save file
 	python_model.backward_prop 		  = True 	# Perform backward propagation or load saved file
    
@@ -96,7 +96,7 @@ if __name__ == '__main__':
 #  FP 32 to FP 16  
 	# python_model.convert_to_fp16 	  = True 	# True to convert from FP32 to FP16
   
-	# python_model.convert_forward   	  = True 	# Convert the Forward Propagation
+	# python_model.convert_Forward   	  = True 	# Convert the Forward Propagation
 	# python_model.convert_loss_grad 	  = True 	# Convert the loss gradients
 	# python_model.convert_backward  	  = True 	# Convert the backward propagation
  

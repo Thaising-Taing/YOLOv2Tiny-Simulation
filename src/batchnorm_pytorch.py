@@ -213,10 +213,10 @@ class Pytorch_bn(object):
         self.image          = data.im_data
         
         X = data.im_data.to(self._device)
-        self.out, self.cache, self.Out_all_layers = self.modtorch_model.forward(X)
+        self.out, self.cache, self.Out_all_layers = self.modtorch_model.Forward(X)
         # Save_File("./Wathna_PyTorch/Output", self.out)
 
-    def forward_pred(self, out):
+    def Forward_pred(self, out):
         """
         Evaluate loss and gradient for the deep convolutional network.
         Input / output: Same API as ThreeLayerConvNet.

@@ -451,7 +451,7 @@ class App(customtkinter.CTk):
         self.bar = self.d.bar[0]
         #self.textbox.insert("0.0", "CTkTextbox\n\n" )
 
-        #microcode = Microcode("mic_2iteration_forward_hex_add_0x.txt") 
+        #microcode = Microcode("mic_2iteration_Forward_hex_add_0x.txt") 
         microcode = Microcode("mic_2_iteration_whole.txt")
 
         for i in range (0, len(microcode)):
@@ -1201,7 +1201,7 @@ def Forward(epoch):
 
     # Mean, Var
     print("Calculate Mean & Var")
-    Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)    
+    Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.Forward(OutImage_1st_Layer0)    
 
     Gamma_Layer0 = torch.tensor([float(value) for value in Gamma_Dec_List[0]], dtype=torch.float32).reshape(16,)
 
@@ -1524,7 +1524,7 @@ def Forward(epoch):
 
     # Mean, Var
     print("Calculate Mean & Var")
-    Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
+    Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.Forward(OutImage_1st_Layer1)
 
     # gamma_dec_list1 = []
     # beta_dec_list1 = []
@@ -1835,7 +1835,7 @@ def Forward(epoch):
     mv_start = time.time()
     # Mean, Var
     print("Calculate Mean & Var")
-    Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
+    Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.Forward(OutImage_1st_Layer2)
 
     # gamma_dec_list2 = []
     # beta_dec_list2 = []
@@ -2140,7 +2140,7 @@ def Forward(epoch):
 
     # Mean, Var
     print("Calculate Mean & Var")
-    Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
+    Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.Forward(OutImage_1st_Layer3)
 
     # gamma_dec_list3 = []
     # beta_dec_list3 = []
@@ -2440,7 +2440,7 @@ def Forward(epoch):
 
     # Mean, Var
     print("Calculate Mean & Var")
-    Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.forward(OutImage_1st_Layer4)
+    Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.Forward(OutImage_1st_Layer4)
 
     # gamma_dec_list4 = []
     # beta_dec_list4 = []
@@ -2740,7 +2740,7 @@ def Forward(epoch):
 
     # Mean, Var
     print("Calculate Mean & Var")
-    Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.forward(OutImage_1st_Layer5)
+    Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.Forward(OutImage_1st_Layer5)
 
     # gamma_dec_list5 = []
     # beta_dec_list5 = []
@@ -3038,7 +3038,7 @@ def Forward(epoch):
 
     # Mean, Var
     print("Calculate Mean & Var")
-    Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
+    Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.Forward(OutImage_1st_Layer6)
 
     # gamma_dec_list6 = []
     # beta_dec_list6 = []
@@ -3336,7 +3336,7 @@ def Forward(epoch):
 
     # Mean, Var
     print("Calculate Mean & Var")
-    Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.forward(OutImage_1st_Layer7)
+    Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.Forward(OutImage_1st_Layer7)
 
     # gamma_dec_list7 = []
     # beta_dec_list7 = []

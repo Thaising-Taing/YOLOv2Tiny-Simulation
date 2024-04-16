@@ -182,7 +182,7 @@ if YOLOv2_Hardware_Forward:
     OutImage_1st_Layer0 = torch.tensor([float(value) for value in OutImages_1st_Layer0], dtype=torch.float32).reshape(8, 16, 208, 208)
     
     # Calculate Mean/Var 
-    Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)
+    Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.Forward(OutImage_1st_Layer0)
     Mean_1st_Layer0, Var_1st_Layer0 = Mean_Var_Dec2Bfloat(Mean_1st_Layer0, Var_1st_Layer0, Exponent_Bits, Mantissa_Bits)
     Weight_2nd_Layer0 = New_Weight_Hardware_ReOrdering_Layer0(16, 16, Weight_List[0], Mean_1st_Layer0, Var_1st_Layer0, Beta_List[0], Iteration="2")
     print("Weight_2nd_Layer0_CH0: " + str(len(Weight_2nd_Layer0[0])))
@@ -231,7 +231,7 @@ if YOLOv2_Hardware_Forward:
     OutImage_1st_Layer1 = torch.tensor([float(value) for value in OutImages_1st_Layer1], dtype=torch.float32).reshape(8, 32, 104, 104)
     
     # Calculate Mean/Var: 
-    Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
+    Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.Forward(OutImage_1st_Layer1)
     Mean_1st_Layer1, Var_1st_Layer1 = Mean_Var_Dec2Bfloat(Mean_1st_Layer1, Var_1st_Layer1, Exponent_Bits, Mantissa_Bits)
     Weight_2nd_Layer1 = New_Weight_Hardware_ReOrdering_OtherLayer(32, 16, Weight_List[1], Mean_1st_Layer1, Var_1st_Layer1, Beta_List[1], Iteration="2")
     print("Weight_2nd_Layer1_CH0: " + str(len(Weight_2nd_Layer1[0])))
@@ -283,7 +283,7 @@ if YOLOv2_Hardware_Forward:
                             OutImage5_1st_Layer2 + OutImage6_1st_Layer2 + OutImage7_1st_Layer2 + OutImage8_1st_Layer2    
     OutImage_1st_Layer2 = torch.tensor([float(value) for value in OutImages_1st_Layer2], dtype=torch.float32).reshape(8, 64, 52, 52)
     # Calculate Mean/Var 
-    Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
+    Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.Forward(OutImage_1st_Layer2)
     Mean_1st_Layer2, Var_1st_Layer2 = Mean_Var_Dec2Bfloat(Mean_1st_Layer2, Var_1st_Layer2, Exponent_Bits, Mantissa_Bits)
     Weight_2nd_Layer2 = New_Weight_Hardware_ReOrdering_OtherLayer(64, 32, Weight_List[2], Mean_1st_Layer2, Var_1st_Layer2, Beta_List[2], Iteration="2")
     print("Weight_2nd_Layer2_CH0: " + str(len(Weight_2nd_Layer2[0])))
@@ -335,7 +335,7 @@ if YOLOv2_Hardware_Forward:
                             OutImage5_1st_Layer3 + OutImage6_1st_Layer3 + OutImage7_1st_Layer3 + OutImage8_1st_Layer3    
     OutImage_1st_Layer3 = torch.tensor([float(value) for value in OutImages_1st_Layer3], dtype=torch.float32).reshape(8, 128, 26, 26)
     # Calculate Mean/Var 
-    Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
+    Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.Forward(OutImage_1st_Layer3)
     Mean_1st_Layer3, Var_1st_Layer3 = Mean_Var_Dec2Bfloat(Mean_1st_Layer3, Var_1st_Layer3, Exponent_Bits, Mantissa_Bits)
     Weight_2nd_Layer3 = New_Weight_Hardware_ReOrdering_OtherLayer(128, 64, Weight_List[3], Mean_1st_Layer3, Var_1st_Layer3, Beta_List[3], Iteration="2")
     print("Weight_2nd_Layer3_CH0: " + str(len(Weight_2nd_Layer3[0])))
@@ -388,7 +388,7 @@ if YOLOv2_Hardware_Forward:
     OutImage_1st_Layer4 = torch.tensor([float(value) for value in OutImages_1st_Layer4], dtype=torch.float32).reshape(8, 256, 13, 13)
     
     # Calculate Mean/Var 
-    Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.forward(OutImage_1st_Layer4)
+    Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.Forward(OutImage_1st_Layer4)
     Mean_1st_Layer4, Var_1st_Layer4 = Mean_Var_Dec2Bfloat(Mean_1st_Layer4, Var_1st_Layer4, Exponent_Bits, Mantissa_Bits)
     Weight_2nd_Layer4 = New_Weight_Hardware_ReOrdering_OtherLayer(256, 128, Weight_List[4], Mean_1st_Layer4, Var_1st_Layer4, Beta_List[4], Iteration="2")
     print("Weight_2nd_Layer4_CH0: " + str(len(Weight_2nd_Layer4[0])))
@@ -441,7 +441,7 @@ if YOLOv2_Hardware_Forward:
     OutImage_1st_Layer5 = torch.tensor([float(value) for value in OutImages_1st_Layer5], dtype=torch.float32).reshape(8, 512, 13, 13)
     
     # Calculate Mean/Var 
-    Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.forward(OutImage_1st_Layer5)
+    Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.Forward(OutImage_1st_Layer5)
     Mean_1st_Layer5, Var_1st_Layer5 = Mean_Var_Dec2Bfloat(Mean_1st_Layer5, Var_1st_Layer5, Exponent_Bits, Mantissa_Bits)
     Weight_2nd_Layer5 = New_Weight_Hardware_ReOrdering_OtherLayer(512, 256, Weight_List[5], Mean_1st_Layer5, Var_1st_Layer5, Beta_List[5], Iteration="2")
     print("Weight_2nd_Layer5_CH0: " + str(len(Weight_2nd_Layer5[0])))
@@ -494,7 +494,7 @@ if YOLOv2_Hardware_Forward:
     OutImage_1st_Layer6 = torch.tensor([float(value) for value in OutImages_1st_Layer6], dtype=torch.float32).reshape(8, 1024, 13, 13)
     
     # Calculate Mean/Var 
-    Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
+    Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.Forward(OutImage_1st_Layer6)
     Mean_1st_Layer6, Var_1st_Layer6 = Mean_Var_Dec2Bfloat(Mean_1st_Layer6, Var_1st_Layer6, Exponent_Bits, Mantissa_Bits)
     Weight_2nd_Layer6 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 512, Weight_List[6], Mean_1st_Layer6, Var_1st_Layer6, Beta_List[6], Iteration="2")
     print("Weight_2nd_Layer6_CH0: " + str(len(Weight_2nd_Layer6[0])))
@@ -547,7 +547,7 @@ if YOLOv2_Hardware_Forward:
     OutImage_1st_Layer7 = torch.tensor([float(value) for value in OutImages_1st_Layer7], dtype=torch.float32).reshape(8, 1024, 13, 13)
     
     # Calculate Mean/Var 
-    Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.forward(OutImage_1st_Layer7)
+    Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.Forward(OutImage_1st_Layer7)
     Mean_1st_Layer7, Var_1st_Layer7 = Mean_Var_Dec2Bfloat(Mean_1st_Layer7, Var_1st_Layer7, Exponent_Bits, Mantissa_Bits)
     Weight_2nd_Layer7 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 1024, Weight_List[7], Mean_1st_Layer7, Var_1st_Layer7, Beta_List[7], Iteration="2")
     print("Weight_2nd_Layer7_CH0: " + str(len(Weight_2nd_Layer7[0])))

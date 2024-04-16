@@ -177,7 +177,7 @@ extern "C" {
 
 
 ///\\\ ******* For MAX Pooling ********** \\\///
-__global__ void max_pooling_forward_kernel(float *x, float *out, int *positions,
+__global__ void max_pooling_Forward_kernel(float *x, float *out, int *positions,
                                            int N, int C, int H, int W,
                                            int H_out, int W_out,
                                            int pool_height, int pool_width, int stride) {
@@ -214,7 +214,7 @@ __global__ void max_pooling_forward_kernel(float *x, float *out, int *positions,
 }
 
 extern "C" {
-    void max_pooling_forward(int N, int C, int H, int W, 
+    void max_pooling_Forward(int N, int C, int H, int W, 
                             float* x_ptr, float* out_ptr, int* pos_ptr, 
                             int pool_height, int pool_width, int stride) {
         int H_out = (H - pool_height) / stride + 1;
@@ -225,8 +225,8 @@ extern "C" {
         dim3 blockDim(256);  // Adjust block dimensions as needed
         dim3 gridDim((totalOutputElements + blockDim.x - 1) / blockDim.x);
 
-        // Launch CUDA kernel for max pooling forward
-        max_pooling_forward_kernel<<<gridDim, blockDim>>>(x_ptr, out_ptr, pos_ptr, N, C, H, W, H_out, W_out, pool_height, pool_width, stride);
+        // Launch CUDA kernel for max pooling Forward
+        max_pooling_Forward_kernel<<<gridDim, blockDim>>>(x_ptr, out_ptr, pos_ptr, N, C, H, W, H_out, W_out, pool_height, pool_width, stride);
     }
 }
 

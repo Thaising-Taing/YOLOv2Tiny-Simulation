@@ -871,7 +871,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)    
+        Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.Forward(OutImage_1st_Layer0)    
         e = time.time()
         if DEBUG: print("Calculate Mean & Var :",e-s)
 
@@ -1292,7 +1292,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
+        Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.Forward(OutImage_1st_Layer1)
         e = time.time()
         if DEBUG: print("Cacluate Mean & Var :",e-s)
         
@@ -1570,7 +1570,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImage_1st_Layer2 = torch.tensor([float(value) for value in OutImages_1st_Layer2], dtype=torch.float32).cuda().reshape(8, 64, 104, 104).cuda()
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
+        Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.Forward(OutImage_1st_Layer2)
         e = time.time()
         if DEBUG: print("Calcuulate Mean & Var :",e-s)
 
@@ -1855,7 +1855,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImage_1st_Layer3 = torch.tensor([float(value) for value in OutImages_1st_Layer3], dtype=torch.float32).cuda().reshape(8, 128, 52, 52).cuda()
 
         # Mean, Var
-        Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
+        Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.Forward(OutImage_1st_Layer3)
 
 
         Beta_Layer3 = data.Beta_Dec[3]
@@ -2139,7 +2139,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.forward(OutImage_1st_Layer4)
+        Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.Forward(OutImage_1st_Layer4)
         e = time.time()
         if DEBUG: print("Calculate Mean & Var : ",e-s)
 
@@ -2424,7 +2424,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.forward(OutImage_1st_Layer5)
+        Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.Forward(OutImage_1st_Layer5)
         e = time.time()
         if DEBUG: print("Calculate Mean & Var : ",e-s)
 
@@ -2709,7 +2709,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImage_1st_Layer6 = torch.tensor([float(value) for value in OutImages_1st_Layer6], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13).cuda()
 
         # Mean, Var
-        Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
+        Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.Forward(OutImage_1st_Layer6)
         
         Beta_Layer6 = data.Beta_Dec[6]
         Gamma_Layer6 = data.Gamma_Dec[6]
@@ -2992,7 +2992,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.forward(OutImage_1st_Layer7)
+        Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.Forward(OutImage_1st_Layer7)
         e = time.time()
         if DEBUG: print("Calculate Mean & Var Time : ",e-s)
 
@@ -7856,7 +7856,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)    
+        Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.Forward(OutImage_1st_Layer0)    
         e = time.time()
         if DEBUG: print("Calculate Mean & Var :",e-s)
 
@@ -8272,7 +8272,7 @@ class YOLOv2_Tiny_FPGA(object):
         
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
+        Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.Forward(OutImage_1st_Layer1)
         e = time.time()
         if DEBUG: print("Cacluate Mean & Var :",e-s)
         
@@ -8547,7 +8547,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImage_1st_Layer2 = torch.tensor([float(value) for value in OutImages_1st_Layer2], dtype=torch.float32).cuda().reshape(8, 64, 104, 104)
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
+        Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.Forward(OutImage_1st_Layer2)
         e = time.time()
         if DEBUG: print("Calcuulate Mean & Var :",e-s)
 
@@ -8832,7 +8832,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImage_1st_Layer3 = torch.tensor([float(value) for value in OutImages_1st_Layer3], dtype=torch.float32).cuda().reshape(8, 128, 52, 52)
 
         # Mean, Var
-        Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
+        Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.Forward(OutImage_1st_Layer3)
 
 
         Beta_Layer3 = data.Beta_Dec[3]
@@ -9116,7 +9116,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.forward(OutImage_1st_Layer4)
+        Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.Forward(OutImage_1st_Layer4)
         e = time.time()
         if DEBUG: print("Calculate Mean & Var : ",e-s)
 
@@ -9401,7 +9401,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.forward(OutImage_1st_Layer5)
+        Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.Forward(OutImage_1st_Layer5)
         e = time.time()
         if DEBUG: print("Calculate Mean & Var : ",e-s)
 
@@ -9686,7 +9686,7 @@ class YOLOv2_Tiny_FPGA(object):
         OutImage_1st_Layer6 = torch.tensor([float(value) for value in OutImages_1st_Layer6], dtype=torch.float32).cuda().reshape(8, 1024, 13, 13)
 
         # Mean, Var
-        Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
+        Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.Forward(OutImage_1st_Layer6)
         
         Beta_Layer6 = data.Beta_Dec[6]
         Gamma_Layer6 = data.Gamma_Dec[6]
@@ -9969,7 +9969,7 @@ class YOLOv2_Tiny_FPGA(object):
 
         # Mean, Var
         s = time.time()
-        Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.forward(OutImage_1st_Layer7)
+        Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.Forward(OutImage_1st_Layer7)
         e = time.time()
         if DEBUG: print("Calculate Mean & Var Time : ",e-s)
 

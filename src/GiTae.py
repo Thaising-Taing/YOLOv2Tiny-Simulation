@@ -183,51 +183,51 @@ class FPGA(object):
         s = time.time()
         self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward(self)
         self.Output_Layer8 = self.Output_Layer8.cuda()
-        # Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
+        # Save_File(self.Output_Layer8, "result/output_of_Forward_FPGA")
         e = time.time()
         if DEBUG: print("Forward Process Time : ",e-s)
         # self.change_color_red()
         # return Bias_Grad
         self.out = self.Output_Layer8.cuda()
 
-    def forward_map(self, data):
-        self.parent         = data
-        self.gt_boxes       = data.gt_boxes  
-        self.gt_classes     = data.gt_classes
-        self.num_boxes      = data.num_obj 
-        self.num_obj        = data.num_obj 
-        self.image          = data.im_data
-        self.im_data        = data.im_data
+    # def Forward_map(self, data):
+    #     self.parent         = data
+    #     self.gt_boxes       = data.gt_boxes  
+    #     self.gt_classes     = data.gt_classes
+    #     self.num_boxes      = data.num_obj 
+    #     self.num_obj        = data.num_obj 
+    #     self.image          = data.im_data
+    #     self.im_data        = data.im_data
 
 
-        self.gt_boxes = self.gt_boxes.cuda()
-        self.gt_classes = self.gt_classes.cuda()
-        self.num_boxes = self.num_boxes.cuda()
-        self.num_obj = self.num_obj.cuda()
-        self.image = self.image.cuda()
-        self.im_data = self.im_data.cuda()
+    #     self.gt_boxes = self.gt_boxes.cuda()
+    #     self.gt_classes = self.gt_classes.cuda()
+    #     self.num_boxes = self.num_boxes.cuda()
+    #     self.num_obj = self.num_obj.cuda()
+    #     self.image = self.image.cuda()
+    #     self.im_data = self.im_data.cuda()
               
-        if DEBUG: print("Start NPU")
+    #     if DEBUG: print("Start NPU")
         
         
-        cmd = 'rm -rf src/GiTae/interrupt*txt; touch src/GiTae/interrupt_old.txt; touch src/GiTae/interrupt.txt; python3 src/GiTae/interrupt_layer_0.py '
-        os.system(cmd)
-        if DEBUG: print(f"Got interrupt")
+    #     cmd = 'rm -rf src/GiTae/interrupt*txt; touch src/GiTae/interrupt_old.txt; touch src/GiTae/interrupt.txt; python3 src/GiTae/interrupt_layer_0.py '
+    #     os.system(cmd)
+    #     if DEBUG: print(f"Got interrupt")
         
         
-        s = time.time()
-        self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward(self)
-        self.Output_Layer8 = self.Output_Layer8.cuda()
-        # Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
-        e = time.time()
-        if DEBUG: print("Forward Process Time : ",e-s)
-        # self.change_color_red()
-        # return Bias_Grad
-        self.out = self.Output_Layer8.cuda()
+    #     s = time.time()
+    #     self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward(self)
+    #     self.Output_Layer8 = self.Output_Layer8.cuda()
+    #     # Save_File(self.Output_Layer8, "result/output_of_Forward_FPGA")
+    #     e = time.time()
+    #     if DEBUG: print("Forward Process Time : ",e-s)
+    #     # self.change_color_red()
+    #     # return Bias_Grad
+    #     self.out = self.Output_Layer8.cuda()
         
-        return self.out
+    #     return self.out
 
-    def forward_map_pred(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
+    def Forward_map_pred(self, out, gt_boxes=None, gt_classes=None, num_boxes=None):
 
         bsize, _, h, w = out.size()
 
@@ -268,12 +268,14 @@ class FPGA(object):
         s = time.time()
         # self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward_Inference(data)
         self.Output_Layer8 = self.YOLOv2TinyFPGA.Forward_Infer(self)
-        Save_File(self.Output_Layer8, "result/output_of_forward_FPGA")
+        Save_File(self.Output_Layer8, "result/output_of_Forward_FPGA")
         e = time.time()
         if DEBUG: print("Forward Process Time : ",e-s)
         # self.change_color_red()
         # return Bias_Grad
         self.out = self.Output_Layer8
+        
+        return self.out.cuda()
         
     def Calculate_Loss(self,data):
         self.gt_boxes    = self.gt_boxes.cuda()

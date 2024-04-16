@@ -348,7 +348,7 @@ if _Load_Weights:
 
             self.conv9 = nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1)
 
-        def forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
+        def Forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
             """
 			x: Variable
 			gt_boxes, gt_classes, num_boxes: Tensor
@@ -464,7 +464,7 @@ if _Get_Next_Data:
 
 
 if __name__ == '__main__':
-    # pytorch_model.forward_prop          = True  # Perform forward propagation or load saved file.
+    # pytorch_model.Forward_prop          = True  # Perform Forward propagation or load saved file.
     # pytorch_model.cal_loss              = True  # Perform loss calculation or load save file
     # pytorch_model.backward_prop         = True  # Perform backward propagation or load saved file
 
@@ -526,7 +526,7 @@ if __name__ == '__main__':
             gt_boxes = gt_boxes.cuda()
             gt_classes = gt_classes.cuda()
             num_obj = num_obj.cuda()
-            out, cache, FOut = pytorch_model.forward(im_data)
+            out, cache, FOut = pytorch_model.Forward(im_data)
             loss, loss_grad = pytorch_model.loss(out, gt_boxes=gt_boxes, gt_classes=gt_classes, num_boxes=num_obj)
             lDout, grads = pytorch_model.backward(loss_grad, cache)
             # for k, v in grads.items():

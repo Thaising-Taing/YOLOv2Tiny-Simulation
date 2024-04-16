@@ -13,7 +13,7 @@ warnings.simplefilter("ignore", UserWarning)
 class Python_Conv(object):
 
     @staticmethod
-    def forward(x, w, conv_param):
+    def Forward(x, w, conv_param):
 
         out = None
 
@@ -70,7 +70,7 @@ class Python_Conv(object):
 class Python_ConvB(object):
 
     @staticmethod
-    def forward(x, w, b, conv_param):
+    def Forward(x, w, b, conv_param):
 
         out = None
 
@@ -126,7 +126,7 @@ class Python_ConvB(object):
 class Python_MaxPool(object):
 
     @staticmethod
-    def forward(x, pool_param):
+    def Forward(x, pool_param):
         out = None
         stride = pool_param['stride']
         pool_width = pool_param['pool_width']
@@ -224,7 +224,7 @@ class Python_MaxPool(object):
 class Python_BatchNorm(object):
 
     @staticmethod
-    def forward(x, gamma, beta, running_mean, running_var, Mode):
+    def Forward(x, gamma, beta, running_mean, running_var, Mode):
 
         # mode = 'train'
         bn_params = {'running_mean': running_mean, 'running_var': running_var}
@@ -276,7 +276,7 @@ class Python_BatchNorm(object):
             out = normolized * gamma + beta
 
         else:
-            raise ValueError('Invalid forward batchnorm mode "%s"' % Mode)
+            raise ValueError('Invalid Forward batchnorm mode "%s"' % Mode)
 
         # Store the updated running means back into bn_params
         bn_params['running_mean'] = running_mean.detach()
@@ -346,7 +346,7 @@ class Python_BatchNorm(object):
 class Python_ReLU(object):
 
     @staticmethod
-    def forward(x, alpha=0.1):
+    def Forward(x, alpha=0.1):
 
         out = None
         out = x.clone()
@@ -369,9 +369,9 @@ class Python_ReLU(object):
 class Python_Conv_ReLU(object):
 
     @staticmethod
-    def forward(x, w, conv_param):
-        a, conv_cache = Python_Conv.forward(x,w,conv_param)
-        out, relu_cache = Python_ReLU.forward(a)
+    def Forward(x, w, conv_param):
+        a, conv_cache = Python_Conv.Forward(x,w,conv_param)
+        out, relu_cache = Python_ReLU.Forward(a)
         cache = (conv_cache, relu_cache)
         return out, cache
 
@@ -386,10 +386,10 @@ class Python_Conv_ReLU(object):
 class Python_Conv_ReLU_Pool(object):
 
     @staticmethod
-    def forward(x, w, conv_param, pool_param):
-        a, conv_cache = Python_Conv.forward(x, w, conv_param)
-        s, relu_cache = Python_ReLU.forward(a)
-        out, pool_cache = Python_MaxPool.forward(s, pool_param)
+    def Forward(x, w, conv_param, pool_param):
+        a, conv_cache = Python_Conv.Forward(x, w, conv_param)
+        s, relu_cache = Python_ReLU.Forward(a)
+        out, pool_cache = Python_MaxPool.Forward(s, pool_param)
         cache = (conv_cache, relu_cache, pool_cache)
         return out, cache
 
@@ -405,9 +405,9 @@ class Python_Conv_ReLU_Pool(object):
 class Python_Conv_Pool(object):
 
     @staticmethod
-    def forward(x, w, conv_param, pool_param):
-        a, conv_cache = Python_Conv.forward(x, w, conv_param)
-        out, pool_cache = Python_MaxPool.forward(a, pool_param)
+    def Forward(x, w, conv_param, pool_param):
+        a, conv_cache = Python_Conv.Forward(x, w, conv_param)
+        out, pool_cache = Python_MaxPool.Forward(a, pool_param)
         cache = (conv_cache, pool_cache)
         return out, cache
 
@@ -422,10 +422,10 @@ class Python_Conv_Pool(object):
 class Python_Conv_BatchNorm_ReLU(object):
 
     @staticmethod
-    def forward(x, w, gamma, beta, conv_param, running_mean, running_var, mean, var):
-        a, conv_cache = Python_Conv.forward(x, w, conv_param)
-        an, bn_cache = Python_SpatialBatchNorm.forward(a, gamma, beta, running_mean, running_var, mean, var)
-        out, relu_cache = Python_ReLU.forward(an)
+    def Forward(x, w, gamma, beta, conv_param, running_mean, running_var, mean, var):
+        a, conv_cache = Python_Conv.Forward(x, w, conv_param)
+        an, bn_cache = Python_SpatialBatchNorm.Forward(a, gamma, beta, running_mean, running_var, mean, var)
+        out, relu_cache = Python_ReLU.Forward(an)
 
         cache = (conv_cache, bn_cache, relu_cache)
         return out, cache
@@ -442,11 +442,11 @@ class Python_Conv_BatchNorm_ReLU(object):
 class Python_Conv_BatchNorm_ReLU_Pool(object):
 
     @staticmethod
-    def forward(x, w, gamma, beta, conv_param, running_mean, running_var, mean, var, pool_param):
-        a, conv_cache = Python_Conv.forward(x, w, conv_param,)
-        an, bn_cache = Python_SpatialBatchNorm.forward(a, gamma, beta, running_mean, running_var, mean, var)
-        s, relu_cache = Python_ReLU.forward(an)
-        out, pool_cache = Python_MaxPool.forward(s, pool_param)
+    def Forward(x, w, gamma, beta, conv_param, running_mean, running_var, mean, var, pool_param):
+        a, conv_cache = Python_Conv.Forward(x, w, conv_param,)
+        an, bn_cache = Python_SpatialBatchNorm.Forward(a, gamma, beta, running_mean, running_var, mean, var)
+        s, relu_cache = Python_ReLU.Forward(an)
+        out, pool_cache = Python_MaxPool.Forward(s, pool_param)
         cache = (conv_cache, bn_cache, relu_cache, pool_cache)
         return out, cache
 
@@ -477,7 +477,7 @@ def origin_idx_calculator(idx, B, H, W, num_chunks):
 class Cal_mean_var(object):
 
     @staticmethod
-    def forward(x):
+    def Forward(x):
     
         out, cache = None, None
         
@@ -504,7 +504,7 @@ class Cal_mean_var(object):
 class Python_SpatialBatchNorm(object):
 
     @staticmethod
-    def forward(x, gamma, beta, running_mean, running_var, mean, var):
+    def Forward(x, gamma, beta, running_mean, running_var, mean, var):
         out, cache = None, None
         eps = 1e-5
         D = gamma.shape[0]

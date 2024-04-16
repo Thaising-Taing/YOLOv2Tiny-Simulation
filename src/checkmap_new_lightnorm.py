@@ -126,7 +126,7 @@ def check(weights=[], pth='', args=[], model = "Pytorch_BN"):
     elif model == "Pytorch":
         pytorch_model = Pytorch("none")
     elif model == "PytorchSim":
-        
+        pass
 
     if weights==[]:      
         checkpoint = torch.load(pth)
@@ -195,8 +195,8 @@ def check(weights=[], pth='', args=[], model = "Pytorch_BN"):
             else:
                 im_data_variable = Variable(im_data)
 
-            out, _, _ = pytorch_model.modtorch_model.forward(im_data_variable)
-            yolo_outputs = pytorch_model.modtorch_model.forward_pred(out)
+            out, _, _ = pytorch_model.modtorch_model.Forward(im_data_variable)
+            yolo_outputs = pytorch_model.modtorch_model.Forward_pred(out)
             for i in range(im_data.size(0)):
                 img_id += 1
                 output = [item[i].data for item in yolo_outputs]

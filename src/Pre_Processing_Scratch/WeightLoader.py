@@ -550,7 +550,7 @@ if _Load_Weights:
 
             self.conv9 = nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1)
 
-        def forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
+        def Forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
 
             x = self.maxpool(self.lrelu(self.bn1(self.conv1(x))))
             x = self.maxpool(self.lrelu(self.bn2(self.conv2(x))))

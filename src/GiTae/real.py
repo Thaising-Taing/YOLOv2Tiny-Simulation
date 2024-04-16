@@ -372,7 +372,7 @@ class App(customtkinter.CTk):
         self.bar = self.d.bar[0]
         #self.textbox.insert("0.0", "CTkTextbox\n\n" )
 
-        microcode = Microcode("mic_2iteration_forward_hex_add_0x.txt")
+        microcode = Microcode("mic_2iteration_Forward_hex_add_0x.txt")
 
         for i in range (0, len(microcode)):
             self.bar.write(0x4, microcode[i]) # wr mic
@@ -732,7 +732,7 @@ class App(customtkinter.CTk):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.forward(OutImage_1st_Layer0)
+        Mean_1st_Layer0, Var_1st_Layer0 = Cal_mean_var.Forward(OutImage_1st_Layer0)
         Mean_1st_Layer0, Var_1st_Layer0 = Mean_Var_Dec2Bfloat(Mean_1st_Layer0, Var_1st_Layer0, Exponent_Bits, Mantissa_Bits)
         Weight_2nd_Layer0 = New_Weight_Hardware_ReOrdering_Layer0(16, 16, Weight_List[0], Mean_1st_Layer0, Var_1st_Layer0, Beta_List[0], Iteration="2")
         '''
@@ -1067,7 +1067,7 @@ class App(customtkinter.CTk):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.forward(OutImage_1st_Layer1)
+        Mean_1st_Layer1, Var_1st_Layer1 = Cal_mean_var.Forward(OutImage_1st_Layer1)
         Mean_1st_Layer1, Var_1st_Layer1 = Mean_Var_Dec2Bfloat(Mean_1st_Layer1, Var_1st_Layer1, Exponent_Bits, Mantissa_Bits)
         Weight_2nd_Layer1 = New_Weight_Hardware_ReOrdering_OtherLayer(32, 16, Weight_List[1], Mean_1st_Layer1, Var_1st_Layer1, Beta_List[1], Iteration="2")
         
@@ -1373,7 +1373,7 @@ class App(customtkinter.CTk):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.forward(OutImage_1st_Layer2)
+        Mean_1st_Layer2, Var_1st_Layer2 = Cal_mean_var.Forward(OutImage_1st_Layer2)
         Mean_1st_Layer2, Var_1st_Layer2 = Mean_Var_Dec2Bfloat(Mean_1st_Layer2, Var_1st_Layer2, Exponent_Bits, Mantissa_Bits)
         Weight_2nd_Layer2 = New_Weight_Hardware_ReOrdering_OtherLayer(64, 32, Weight_List[2], Mean_1st_Layer2, Var_1st_Layer2, Beta_List[2], Iteration="2")
         
@@ -1678,7 +1678,7 @@ class App(customtkinter.CTk):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.forward(OutImage_1st_Layer3)
+        Mean_1st_Layer3, Var_1st_Layer3 = Cal_mean_var.Forward(OutImage_1st_Layer3)
         Mean_1st_Layer3, Var_1st_Layer3 = Mean_Var_Dec2Bfloat(Mean_1st_Layer3, Var_1st_Layer3, Exponent_Bits, Mantissa_Bits)
         Weight_2nd_Layer3 = New_Weight_Hardware_ReOrdering_OtherLayer(128, 64, Weight_List[3], Mean_1st_Layer3, Var_1st_Layer3, Beta_List[3], Iteration="2")
         
@@ -1980,7 +1980,7 @@ class App(customtkinter.CTk):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.forward(OutImage_1st_Layer4)
+        Mean_1st_Layer4, Var_1st_Layer4 = Cal_mean_var.Forward(OutImage_1st_Layer4)
         Mean_1st_Layer4, Var_1st_Layer4 = Mean_Var_Dec2Bfloat(Mean_1st_Layer4, Var_1st_Layer4, Exponent_Bits, Mantissa_Bits)
         Weight_2nd_Layer4 = New_Weight_Hardware_ReOrdering_OtherLayer(256, 128, Weight_List[4], Mean_1st_Layer4, Var_1st_Layer4, Beta_List[4], Iteration="2")
         
@@ -2283,7 +2283,7 @@ class App(customtkinter.CTk):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.forward(OutImage_1st_Layer5)
+        Mean_1st_Layer5, Var_1st_Layer5 = Cal_mean_var.Forward(OutImage_1st_Layer5)
         Mean_1st_Layer5, Var_1st_Layer5 = Mean_Var_Dec2Bfloat(Mean_1st_Layer5, Var_1st_Layer5, Exponent_Bits, Mantissa_Bits)
         Weight_2nd_Layer5 = New_Weight_Hardware_ReOrdering_OtherLayer(512, 256, Weight_List[5], Mean_1st_Layer5, Var_1st_Layer5, Beta_List[5], Iteration="2")
         
@@ -2586,7 +2586,7 @@ class App(customtkinter.CTk):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.forward(OutImage_1st_Layer6)
+        Mean_1st_Layer6, Var_1st_Layer6 = Cal_mean_var.Forward(OutImage_1st_Layer6)
         Mean_1st_Layer6, Var_1st_Layer6 = Mean_Var_Dec2Bfloat(Mean_1st_Layer6, Var_1st_Layer6, Exponent_Bits, Mantissa_Bits)
         Weight_2nd_Layer6 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 512, Weight_List[6], Mean_1st_Layer6, Var_1st_Layer6, Beta_List[6], Iteration="2")
         
@@ -2888,7 +2888,7 @@ class App(customtkinter.CTk):
 
         # Mean, Var
         print("Calculate Mean & Var")
-        Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.forward(OutImage_1st_Layer7)
+        Mean_1st_Layer7, Var_1st_Layer7 = Cal_mean_var.Forward(OutImage_1st_Layer7)
         Mean_1st_Layer7, Var_1st_Layer7 = Mean_Var_Dec2Bfloat(Mean_1st_Layer7, Var_1st_Layer7, Exponent_Bits, Mantissa_Bits)
         Weight_2nd_Layer7 = New_Weight_Hardware_ReOrdering_OtherLayer(1024, 1024, Weight_List[7], Mean_1st_Layer7, Var_1st_Layer7, Beta_List[7], Iteration="2")
         

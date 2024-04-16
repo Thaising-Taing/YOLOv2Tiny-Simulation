@@ -98,7 +98,7 @@ d = Device("0000:08:00.0")
 bar = d.bar[0]
 #self.textbox.insert("0.0", "CTkTextbox\n\n" )
 
-#microcode = Microcode("mic_2iteration_forward_hex_add_0x.txt") 
+#microcode = Microcode("mic_2iteration_Forward_hex_add_0x.txt") 
 microcode = Microcode("src/GiTae/MICROCODE.txt")
 
 for i in range (0, len(microcode)):

@@ -211,7 +211,7 @@ class RangeBN(nn.Module):
         if self.bias is not None:
             self.bias.data.zero_()
 
-    def forward(self, x, calculated_mean, calculated_var):
+    def Forward(self, x, calculated_mean, calculated_var):
         input_ = x
         gamma_ = self.weight
         #if self.training:
@@ -256,7 +256,7 @@ def origin_idx_calculator(idx, B, H, W, num_chunks):
 class Cal_mean_var(object):
 
     @staticmethod
-    def forward(x):
+    def Forward(x):
     
         out, cache = None, None
         
@@ -320,51 +320,51 @@ class  Yolov2(nn.Module):
 
         self.conv9 = nn.Sequential(nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1))
 
-    def forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
+    def Forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
         """
         x: Variable
         gt_boxes, gt_classes, num_boxes: Tensor
         """
         temp_x = self.maxpool(self.conv1(x))
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        cal_mean, cal_var = Cal_mean_var.Forward(temp_x)
         
         
         x = self.maxpool(self.lrelu(self.bn1(self.conv1(x), cal_mean, cal_var)))
         
         temp_x = self.conv2(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        cal_mean, cal_var = Cal_mean_var.Forward(temp_x)
         
         x = self.maxpool(self.lrelu(self.bn2(self.conv2(x), cal_mean, cal_var)))
         
         temp_x = self.conv3(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        cal_mean, cal_var = Cal_mean_var.Forward(temp_x)
 
         x = self.maxpool(self.lrelu(self.bn3(self.conv3(x), cal_mean, cal_var)))
         
         temp_x = self.conv4(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        cal_mean, cal_var = Cal_mean_var.Forward(temp_x)
 
         x = self.maxpool(self.lrelu(self.bn4(self.conv4(x), cal_mean, cal_var)))
         
         temp_x = self.conv5(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        cal_mean, cal_var = Cal_mean_var.Forward(temp_x)
 
        
         x = self.maxpool(self.lrelu(self.bn5(self.conv5(x), cal_mean, cal_var)))
         
         temp_x = self.conv6(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        cal_mean, cal_var = Cal_mean_var.Forward(temp_x)
         
         x = self.lrelu(self.bn6(self.conv6(x), cal_mean, cal_var))
         
         temp_x = self.conv7(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        cal_mean, cal_var = Cal_mean_var.Forward(temp_x)
         
  
         x = self.lrelu(self.bn7(self.conv7(x), cal_mean, cal_var))
         
         temp_x = self.conv8(x)
-        cal_mean, cal_var = Cal_mean_var.forward(temp_x)
+        cal_mean, cal_var = Cal_mean_var.Forward(temp_x)
  
         x = self.lrelu(self.bn8(self.conv8(x), cal_mean, cal_var))
 

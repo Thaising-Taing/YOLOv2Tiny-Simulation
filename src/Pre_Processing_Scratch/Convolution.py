@@ -32,7 +32,7 @@ libconv = ctypes.CDLL('E:/RESEARCH/Convolution_OPT/x64/Debug/CONVOLUTION_OPT.dll
 # ]
 class Python_Conv(object):
     @staticmethod
-    def forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def Forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
         out = None
         pad = conv_param['pad']
         stride = conv_param['stride']
@@ -79,7 +79,7 @@ class Python_Conv(object):
     
     
     @staticmethod
-    def forward_fast(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def Forward_fast(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
         pad = conv_param['pad']
         stride = conv_param['stride']
         N, A, H, W = x.shape  
@@ -267,7 +267,7 @@ class Python_Conv(object):
         return dx, dw
     
     @njit(parallel=True)
-    def forward_numba_optimized(x, w, conv_param):
+    def Forward_numba_optimized(x, w, conv_param):
         pad = conv_param['pad']
         stride = conv_param['stride']
         N, C, H, W = x.shape
@@ -295,7 +295,7 @@ class Python_Conv(object):
 class Torch_FastConv(object):
 
     @staticmethod
-    def forward(x, w, conv_param):
+    def Forward(x, w, conv_param):
         N, C, H, W = x.shape
         F, _, HH, WW = w.shape
         stride, pad = conv_param['stride'], conv_param['pad']
@@ -389,7 +389,7 @@ if __name__ == "__main__":
     conv_param = {'stride': 1, 'pad': 1}
     device = "cpu"
     # device = 'cuda:0'
-    # Conv_Result, cache = Python_Conv.forward(Image, Weight, conv_param, device)  
+    # Conv_Result, cache = Python_Conv.Forward(Image, Weight, conv_param, device)  
     # processing_end_time = time.time()
     # processing_time = processing_end_time - processing_start_time 
     # # print(f"\n\nProcessing Time: {processing_time}")

@@ -132,8 +132,8 @@ class DeepConvNetTorch(object):
 
         # With batch normalization we need to keep track of running means and
         # variances, so we need to pass a special bn_param object to each batch
-        # normalization layer. You should pass self.bn_params[0] to the forward pass
-        # of the first batch normalization layer, self.bn_params[1] to the forward
+        # normalization layer. You should pass self.bn_params[0] to the Forward pass
+        # of the first batch normalization layer, self.bn_params[1] to the Forward
         # pass of the second batch normalization layer, etc.
         self.bn_params = []
         if self.batchnorm:
@@ -195,12 +195,12 @@ class DeepConvNetTorch(object):
 
 
     def train(self, X, gt_boxes=None, gt_classes=None, num_boxes=None):
-        forward_prop = True
+        Forward_prop = True
         cal_loss = True
         backward_prop = True
         
-        if forward_prop:
-            out,   cache = self.forward(X)
+        if Forward_prop:
+            out,   cache = self.Forward(X)
             with open('Temp_Files/Pytorch_Forward_Out.pickle','wb') as handle:
                 pickle.dump(out,handle, protocol=pickle.HIGHEST_PROTOCOL)
             with open('Temp_Files/Pytorch_Forward_Cache.pickle','wb') as handle:
@@ -239,7 +239,7 @@ class DeepConvNetTorch(object):
 
         return out, cache, loss, loss_grad, lDout, grads
     
-    def forward(self, X, gt_boxes=None, gt_classes=None, num_boxes=None):
+    def Forward(self, X, gt_boxes=None, gt_classes=None, num_boxes=None):
         """
         Evaluate loss and gradient for the deep convolutional network.
         Input / output: Same API as ThreeLayerConvNet.
@@ -255,12 +255,12 @@ class DeepConvNetTorch(object):
                 bn_param['mode'] = mode
 
         scores = None
-        # pass conv_param to the forward pass for the convolutional layer
+        # pass conv_param to the Forward pass for the convolutional layer
         # Torch_Padding and stride chosen to preserve the input spatial size
         filter_size = 3
         conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
 
-        # pass pool_param to the forward pass for the max-pooling layer
+        # pass pool_param to the Forward pass for the max-pooling layer
         pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
         scores = None
@@ -268,24 +268,24 @@ class DeepConvNetTorch(object):
         cache = {}
         out = X
         
-        out,cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(out, self.params['W0'], self.params['gamma0'], self.params['beta0'], conv_param, self.bn_params[0],pool_param)
-        out,cache['1'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(out, self.params['W1'], self.params['gamma1'], self.params['beta1'], conv_param, self.bn_params[1],pool_param)
-        out,cache['2'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(out, self.params['W2'], self.params['gamma2'], self.params['beta2'], conv_param, self.bn_params[2],pool_param)
-        out,cache['3'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(out, self.params['W3'], self.params['gamma3'], self.params['beta3'], conv_param, self.bn_params[3],pool_param)
-        out,cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.forward(out, self.params['W4'], self.params['gamma4'], self.params['beta4'], conv_param, self.bn_params[4],pool_param)
-        out,cache['5'] = Torch_Conv_BatchNorm_ReLU.forward     (out, self.params['W5'], self.params['gamma5'], self.params['beta5'], conv_param, self.bn_params[5]) 
+        out,cache['0'] = Torch_Conv_BatchNorm_ReLU_Pool.Forward(out, self.params['W0'], self.params['gamma0'], self.params['beta0'], conv_param, self.bn_params[0],pool_param)
+        out,cache['1'] = Torch_Conv_BatchNorm_ReLU_Pool.Forward(out, self.params['W1'], self.params['gamma1'], self.params['beta1'], conv_param, self.bn_params[1],pool_param)
+        out,cache['2'] = Torch_Conv_BatchNorm_ReLU_Pool.Forward(out, self.params['W2'], self.params['gamma2'], self.params['beta2'], conv_param, self.bn_params[2],pool_param)
+        out,cache['3'] = Torch_Conv_BatchNorm_ReLU_Pool.Forward(out, self.params['W3'], self.params['gamma3'], self.params['beta3'], conv_param, self.bn_params[3],pool_param)
+        out,cache['4'] = Torch_Conv_BatchNorm_ReLU_Pool.Forward(out, self.params['W4'], self.params['gamma4'], self.params['beta4'], conv_param, self.bn_params[4],pool_param)
+        out,cache['5'] = Torch_Conv_BatchNorm_ReLU.Forward     (out, self.params['W5'], self.params['gamma5'], self.params['beta5'], conv_param, self.bn_params[5]) 
 
         # out            = F.pad                                 (out, (0, 1, 0, 1))
-        # out,cache['60']= Torch_FastMaxPool.forward             (out, slowpool_param)
+        # out,cache['60']= Torch_FastMaxPool.Forward             (out, slowpool_param)
 
-        out,cache['6'] = Torch_Conv_BatchNorm_ReLU.forward     (out, self.params['W6'], self.params['gamma6'], self.params['beta6'], conv_param, self.bn_params[6]) 
-        out,cache['7'] = Torch_Conv_BatchNorm_ReLU.forward     (out, self.params['W7'], self.params['gamma7'], self.params['beta7'], conv_param, self.bn_params[7]) 
+        out,cache['6'] = Torch_Conv_BatchNorm_ReLU.Forward     (out, self.params['W6'], self.params['gamma6'], self.params['beta6'], conv_param, self.bn_params[6]) 
+        out,cache['7'] = Torch_Conv_BatchNorm_ReLU.Forward     (out, self.params['W7'], self.params['gamma7'], self.params['beta7'], conv_param, self.bn_params[7]) 
         conv_param['pad'] = 0
-        out,cache['8'] = Torch_FastConvWB.forward              (out, self.params['W8'], self.params['b8'], conv_param)
+        out,cache['8'] = Torch_FastConvWB.Forward              (out, self.params['W8'], self.params['b8'], conv_param)
         
         return out, cache, out
 
-    def forward_pred(self, out):
+    def Forward_pred(self, out):
             """
             Evaluate loss and gradient for the deep convolutional network.
             Input / output: Same API as ThreeLayerConvNet.
@@ -377,7 +377,7 @@ class last_layer(nn.Module):
 
         self.conv9 = nn.Conv2d(1024, 125, kernel_size=1, stride=1, padding=0, bias=True)
 
-    def forward(self, x):
+    def Forward(self, x):
         
         return self.conv9(x)
 
@@ -871,9 +871,9 @@ def generate_all_anchors(anchors, H, W):
 class Torch_Conv(object):
 
     @staticmethod
-    def forward(x, w, b, conv_param):
+    def Forward(x, w, b, conv_param):
         """
-        A naive implementation of the forward pass for a convolutional layer.
+        A naive implementation of the Forward pass for a convolutional layer.
         The input consists of N data points, each with C channels, height H and
         width W. We convolve each input with F different filters, where each filter
         spans all C channels and has height HH and width WW.
@@ -925,7 +925,7 @@ class Torch_Conv(object):
 
         Inputs:
         - dout: Upstream derivatives.
-        - cache: A tuple of (x, w, b, conv_param) as in conv_forward_naive
+        - cache: A tuple of (x, w, b, conv_param) as in conv_Forward_naive
 
         Returns a tuple of:
         - dx: Gradient with respect to x
@@ -956,9 +956,9 @@ class Torch_Conv(object):
 class Torch_ConvB(object):
 
     @staticmethod
-    def forward(x, w, b, conv_param):
+    def Forward(x, w, b, conv_param):
         """
-        A naive implementation of the forward pass for a convolutional layer.
+        A naive implementation of the Forward pass for a convolutional layer.
         The input consists of N data points, each with C channels, height H and
         width W. We convolve each input with F different filters, where each filter
         spans all C channels and has height HH and width WW.
@@ -1010,7 +1010,7 @@ class Torch_ConvB(object):
 
         Inputs:
         - dout: Upstream derivatives.
-        - cache: A tuple of (x, w, b, conv_param) as in conv_forward_naive
+        - cache: A tuple of (x, w, b, conv_param) as in conv_Forward_naive
 
         Returns a tuple of:
         - dx: Gradient with respect to x
@@ -1042,9 +1042,9 @@ class Torch_ConvB(object):
 class Torch_MaxPool(object):
 
     @staticmethod
-    def forward(x, pool_param):
+    def Forward(x, pool_param):
         """
-        A naive implementation of the forward pass for a max-pooling layer.
+        A naive implementation of the Forward pass for a max-pooling layer.
 
         Inputs:
         - x: Input data, of shape (N, C, H, W)
@@ -1084,7 +1084,7 @@ class Torch_MaxPool(object):
         A naive implementation of the backward pass for a max-pooling layer.
         Inputs:
         - dout: Upstream derivatives
-        - cache: A tuple of (x, pool_param) as in the forward pass.
+        - cache: A tuple of (x, pool_param) as in the Forward pass.
         Returns:
         - dx: Gradient with respect to x
         """
@@ -1115,7 +1115,7 @@ class Torch_MaxPool(object):
 class Torch_BatchNorm(object):
 
     @staticmethod
-    def forward(x, gamma, beta, bn_param):
+    def Forward(x, gamma, beta, bn_param):
         """
         Forward pass for batch normalization.
 
@@ -1164,7 +1164,7 @@ class Torch_BatchNorm(object):
         out, cache = None, None
         if mode == 'train':
             #######################################################################
-            # TO DO: Implement the training-time forward pass for batch norm.      #
+            # TO DO: Implement the training-time Forward pass for batch norm.      #
             # Use minibatch statistics to compute the mean and variance, use      #
             # these statistics to normalize the incoming data, and scale and      #
             # shift the normalized data using gamma and beta.                     #
@@ -1221,7 +1221,7 @@ class Torch_BatchNorm(object):
             #######################################################################
         elif mode == 'test':
             #######################################################################
-            # TO DO: Implement the test-time forward pass for batch normalization. #
+            # TO DO: Implement the test-time Forward pass for batch normalization. #
             # Use the running mean and variance to normalize the incoming data,   #
             # then scale and shift the normalized data using gamma and beta.      #
             # Store the result in the out variable.                               #
@@ -1233,7 +1233,7 @@ class Torch_BatchNorm(object):
             #                           END OF YOUR CODE                          #
             #######################################################################
         else:
-            raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
+            raise ValueError('Invalid Forward batchnorm mode "%s"' % mode)
 
         # Store the updated running means back into bn_param
         bn_param['running_mean'] = running_mean.detach()
@@ -1252,7 +1252,7 @@ class Torch_BatchNorm(object):
 
         Inputs:
         - dout: Upstream derivatives, of shape (N, D)
-        - cache: Variable of intermediates from batchnorm_forward.
+        - cache: Variable of intermediates from batchnorm_Forward.
 
         Returns a tuple of:
         - dx: Gradient with respect to inputs x, of shape (N, D)
@@ -1350,9 +1350,9 @@ class Torch_BatchNorm(object):
 class Torch_SpatialBatchNorm(object):
 
     @staticmethod
-    def forward(x, gamma, beta, bn_param):
+    def Forward(x, gamma, beta, bn_param):
         """
-        Computes the forward pass for spatial batch normalization.
+        Computes the Forward pass for spatial batch normalization.
 
         Inputs:
         - x: Input data of shape (N, C, H, W)
@@ -1375,7 +1375,7 @@ class Torch_SpatialBatchNorm(object):
         out, cache = None, None
 
         ###########################################################################
-        # TO DO: Implement the forward pass for spatial batch normalization.       #
+        # TO DO: Implement the Forward pass for spatial batch normalization.       #
         #                                                                         #
         # HINT: You can implement spatial batch normalization by calling the      #
         # vanilla version of batch normalization you implemented above.           #
@@ -1384,7 +1384,7 @@ class Torch_SpatialBatchNorm(object):
         # Replace "pass" statement with your code
         N,C,H,W = x.shape
         pre_m = x.permute(1,0,2,3).reshape(C,-1).T
-        pre_m_normolized, cache= Torch_BatchNorm.forward(pre_m, gamma, beta, bn_param)
+        pre_m_normolized, cache= Torch_BatchNorm.Forward(pre_m, gamma, beta, bn_param)
         out = pre_m_normolized.T.reshape(C, N, H, W).permute(1,0,2,3)
         ###########################################################################
         #                             END OF YOUR CODE                            #
@@ -1398,7 +1398,7 @@ class Torch_SpatialBatchNorm(object):
         Computes the backward pass for spatial batch normalization.
         Inputs:
         - dout: Upstream derivatives, of shape (N, C, H, W)
-        - cache: Values from the forward pass
+        - cache: Values from the Forward pass
         Returns a tuple of:
         - dx: Gradient with respect to inputs, of shape (N, C, H, W)
         - dgamma: Gradient with respect to scale parameter, of shape (C,)
@@ -1427,7 +1427,7 @@ class Torch_SpatialBatchNorm(object):
 class Torch_FastConv(object):
 
     @staticmethod
-    def forward(x, w, conv_param):
+    def Forward(x, w, conv_param):
         N, C, H, W = x.shape
         F, _, HH, WW = w.shape
         stride, pad = conv_param['stride'], conv_param['pad']
@@ -1456,7 +1456,7 @@ class Torch_FastConv(object):
 class Torch_FastConvWB(object):
 
     @staticmethod
-    def forward(x, w, b, conv_param):
+    def Forward(x, w, b, conv_param):
         N, C, H, W = x.shape
         F, _, HH, WW = w.shape
         stride, pad = conv_param['stride'], conv_param['pad']
@@ -1485,7 +1485,7 @@ class Torch_FastConvWB(object):
 class Torch_FastMaxPool(object):
 
     @staticmethod
-    def forward(x, pool_param):
+    def Forward(x, pool_param):
         N, C, H, W = x.shape
         pool_height, pool_width = pool_param['pool_height'], pool_param['pool_width']
         stride = pool_param['stride']
@@ -1509,7 +1509,7 @@ class Torch_FastMaxPool(object):
 class Torch_Padd(object):
 
     @staticmethod
-    def forward(x, pad_param):
+    def Forward(x, pad_param):
         layer = torch.nn.ReflectionPad2d(pad_param)
         tx = x.detach()
         tx.requires_grad = True
@@ -1528,7 +1528,7 @@ class Torch_Padd(object):
 class Torch_Conv_ReLU(object):
 
     @staticmethod
-    def forward(x, w, conv_param):
+    def Forward(x, w, conv_param):
         """
         A convenience layer that performs a convolution followed by a Torch_ReLU.
         Inputs:
@@ -1538,8 +1538,8 @@ class Torch_Conv_ReLU(object):
         - out: Output from the Torch_ReLU
         - cache: Object to give to the backward pass
         """
-        a, conv_cache = Torch_FastConv.forward(x, w, conv_param)
-        out, relu_cache = Torch_ReLU.forward(a)
+        a, conv_cache = Torch_FastConv.Forward(x, w, conv_param)
+        out, relu_cache = Torch_ReLU.Forward(a)
         cache = (conv_cache, relu_cache)
         return out, cache
 
@@ -1556,7 +1556,7 @@ class Torch_Conv_ReLU(object):
 class Torch_Conv_ReLU_Pool(object):
 
     @staticmethod
-    def forward(x, w, conv_param, pool_param):
+    def Forward(x, w, conv_param, pool_param):
         """
         A convenience layer that performs a convolution, a Torch_ReLU, and a pool.
         Inputs:
@@ -1567,9 +1567,9 @@ class Torch_Conv_ReLU_Pool(object):
         - out: Output from the pooling layer
         - cache: Object to give to the backward pass
         """
-        a, conv_cache = Torch_FastConv.forward(x, w, conv_param)
-        s, relu_cache = Torch_ReLU.forward(a)
-        out, pool_cache = Torch_FastMaxPool.forward(s, pool_param)
+        a, conv_cache = Torch_FastConv.Forward(x, w, conv_param)
+        s, relu_cache = Torch_ReLU.Forward(a)
+        out, pool_cache = Torch_FastMaxPool.Forward(s, pool_param)
         cache = (conv_cache, relu_cache, pool_cache)
         return out, cache
 
@@ -1587,10 +1587,10 @@ class Torch_Conv_ReLU_Pool(object):
 class Torch_Conv_BatchNorm_ReLU(object):
 
     @staticmethod
-    def forward(x, w, gamma, beta, conv_param, bn_param):
-        a, conv_cache = Torch_FastConv.forward(x, w, conv_param)
-        an, bn_cache = Torch_SpatialBatchNorm.forward(a, gamma, beta, bn_param)
-        out, relu_cache = Torch_ReLU.forward(an)
+    def Forward(x, w, gamma, beta, conv_param, bn_param):
+        a, conv_cache = Torch_FastConv.Forward(x, w, conv_param)
+        an, bn_cache = Torch_SpatialBatchNorm.Forward(a, gamma, beta, bn_param)
+        out, relu_cache = Torch_ReLU.Forward(an)
         cache = (conv_cache, bn_cache, relu_cache)
         return out, cache
 
@@ -1605,11 +1605,11 @@ class Torch_Conv_BatchNorm_ReLU(object):
 class Torch_Conv_BatchNorm_ReLU_Pool(object):
 
     @staticmethod
-    def forward(x, w, gamma, beta, conv_param, bn_param, pool_param):
-        a, conv_cache = Torch_FastConv.forward(x, w, conv_param)
-        an, bn_cache = Torch_SpatialBatchNorm.forward(a, gamma, beta, bn_param)
-        s, relu_cache = Torch_ReLU.forward(an)
-        out, pool_cache = Torch_FastMaxPool.forward(s, pool_param)
+    def Forward(x, w, gamma, beta, conv_param, bn_param, pool_param):
+        a, conv_cache = Torch_FastConv.Forward(x, w, conv_param)
+        an, bn_cache = Torch_SpatialBatchNorm.Forward(a, gamma, beta, bn_param)
+        s, relu_cache = Torch_ReLU.Forward(an)
+        out, pool_cache = Torch_FastMaxPool.Forward(s, pool_param)
         cache = (conv_cache, bn_cache, relu_cache, pool_cache)
         return out, cache
 
@@ -1625,7 +1625,7 @@ class Torch_Conv_BatchNorm_ReLU_Pool(object):
 class Torch_ReLU(object):
 
         @staticmethod
-        def forward(x, alpha=0.1):
+        def Forward(x, alpha=0.1):
 
                 out = None
                 out = x.clone()
@@ -1650,7 +1650,7 @@ class Torch_ReLU(object):
 class Torch_FastMaxPool(object):
 
     @staticmethod
-    def forward(x, pool_param):
+    def Forward(x, pool_param):
         N, C, H, W = x.shape
         pool_height, pool_width = pool_param['pool_height'], pool_param['pool_width']
         stride = pool_param['stride']
@@ -1674,7 +1674,7 @@ class Torch_FastMaxPool(object):
 class Torch_Pad2d(object):
 
     @staticmethod
-    def forward(x, pad_param):
+    def Forward(x, pad_param):
         N, C, H, W = x.shape
         layer = torch.nn.ReflecionPad2d(pad_param)
         tx = x.detach()
@@ -1695,7 +1695,7 @@ class Torch_Pad2d(object):
 class Torch_Pad2d(object):
 
     @staticmethod
-    def forward(x, pad_param):
+    def Forward(x, pad_param):
         N, C, H, W = x.shape
         layer = nn.ZeroPad2d(pad_param)
         tx = x.detach()

@@ -172,7 +172,7 @@ class Python(object):
         self.image          = data.im_data
         
         X = data.im_data
-        self.out, self.cache, self.Out_all_layers = self.python_model.forward(X)
+        self.out, self.cache, self.Out_all_layers = self.python_model.Forward(X)
         
         
     def Calculate_Loss(self,data):

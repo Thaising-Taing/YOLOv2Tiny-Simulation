@@ -51,10 +51,10 @@ class Solver(object):
       - y: Array of labels, of shape (N,) giving labels for X where y[i] is the
       label for X[i].
       Returns:
-      If y is None, run a test-time forward pass and return:
+      If y is None, run a test-time Forward pass and return:
       - scores: Array of shape (N, C) giving classification scores for X where
       scores[i, c] gives the score of class c for X[i].
-      If y is not None, run a training time forward and backward pass and
+      If y is not None, run a training time Forward and backward pass and
       return a tuple of:
       - loss: Scalar giving the loss
       - grads: Dictionary with the same keys as self.params mapping parameter
