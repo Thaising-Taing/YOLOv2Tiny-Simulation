@@ -1360,10 +1360,10 @@ class App(customtkinter.CTk):
         
     # Training Helper Functions
     def Save_File(self, _path, data):
-        _dir = _path.split('/')[1:-1]
-        if len(_dir)>1: _dir = os.path.join(_dir)
-        else: _dir = _dir[0]
-        if not os.path.isdir(_dir): os.mkdir(_dir)
+        # _dir = _path.split('/')[1:-1]
+        # if len(_dir)>1: _dir = os.path.join(_dir)
+        # else: _dir = _dir[0]
+        # if not os.path.isdir(_dir): os.mkdir(_dir)
         with open(_path, 'wb') as handle:
             pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
@@ -1508,6 +1508,19 @@ class App(customtkinter.CTk):
         self.loaded_weights = self.load_weights_from_pth(_path = self.args.pretrained)
         # Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec 
 
+
+        
+        # self.Save_File('./weights.pkl'          , self.loaded_weights[0])
+        # self.Save_File('./Bias.pkl'             , self.loaded_weights[1])
+        # self.Save_File('./Gamma_WeightBN.pkl'   , self.loaded_weights[2])
+        # self.Save_File('./BetaBN.pkl'           , self.loaded_weights[3])
+        # self.Save_File('./Running_Mean_Dec.pkl' , self.loaded_weights[4])
+        # self.Save_File('./Running_Var_Dec.pkl'  , self.loaded_weights[5])
+        
+        # import pdb
+        # pdb.set_trace()
+        
+        
         if self.mode == "Pytorch_BN"  :  self.Pytorch_bn.load_weights(self.loaded_weights)
         if self.mode == "Python_BN"   :  self.Python_bn.load_weights(self.loaded_weights)
         if self.mode == "Pytorch_LN"     :  self.Pytorch.load_weights(self.loaded_weights)
@@ -2494,6 +2507,7 @@ class App(customtkinter.CTk):
 
         
         Outputs = Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec
+
         return Outputs
 
 if __name__ == "__main__":

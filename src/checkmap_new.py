@@ -160,8 +160,8 @@ def check(weights=[], pth='', args=[], mode = "PytorchSim", _data=[]):
     # prepare dataset
     args.dataset = 'voc07test'
     args.imdbval_name = 'voc_2007_test'
-    args.dataset = 'random-64'
-    args.imdbval_name = 'voc_2007_trainval-random-64'
+    # args.dataset = 'random-64'
+    # args.imdbval_name = 'voc_2007_trainval-random-64'
     val_imdb = get_imdb(args.imdbval_name)
     val_dataset = RoiDataset(val_imdb, train=False)
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
