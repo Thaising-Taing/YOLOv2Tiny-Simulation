@@ -91,10 +91,14 @@ def sgd_momentum_update(Inputs=[], gInputs=[], epochs = 0, optimizer_config = No
 	weight, bias, gamma, beta = Inputs
 	gweight, gbias, ggamma, gbeta = gInputs
 
-	gweight = torch.clamp(gweight, -1, 1)
+	for i in range(8):
+		gweight[i] = torch.clamp(gweight[i], -1, 1)
+		gbias[i] = torch.clamp(gbias[i], -1, 1)
+		ggamma[i] = torch.clamp(ggamma[i], -1, 1)
+		gbeta[i] = torch.clamp(gbeta[i], -1, 1)
+
+	gweight[8] = torch.clamp(gweight[8], -1, 1)
 	gbias = torch.clamp(gbias, -1, 1)
-	ggamma = torch.clamp(ggamma, -1, 1)
-	gbeta = torch.clamp(gbeta, -1, 1)
 
 	#  Learning Rate
 	# Initial LR = 0.01 gives NaN for LN
@@ -118,6 +122,8 @@ def sgd_momentum_update(Inputs=[], gInputs=[], epochs = 0, optimizer_config = No
 		learning_rate = initial_lr
 	else:
 		learning_rate = initial_lr * (decay_rate ** (epochs - plateau_epochs))
+
+	i = 0
 
 	for i in range(8):
 		weight[i] = weight[i].cuda()
