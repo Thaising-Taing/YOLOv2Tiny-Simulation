@@ -91,6 +91,11 @@ def sgd_momentum_update(Inputs=[], gInputs=[], epochs = 0, optimizer_config = No
 	weight, bias, gamma, beta = Inputs
 	gweight, gbias, ggamma, gbeta = gInputs
 
+	gweight = torch.clamp(gweight, -1, 1)
+	gbias = torch.clamp(gbias, -1, 1)
+	ggamma = torch.clamp(ggamma, -1, 1)
+	gbeta = torch.clamp(gbeta, -1, 1)
+
 	#  Learning Rate
 	# Initial LR = 0.01 gives NaN for LN
 	# Initial LR = 0.001 --- gives best result when training from scratch
