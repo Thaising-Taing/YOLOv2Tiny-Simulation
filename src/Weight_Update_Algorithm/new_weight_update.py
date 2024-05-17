@@ -111,7 +111,7 @@ def sgd_momentum_update(Inputs=[], gInputs=[], epochs = 0, optimizer_config = No
 	# plateau_epochs = 30
 	# decay_rate = 0.1
 
-	initial_lr = 0.001  # Initial learning rate
+	initial_lr = 0.0001  # Initial learning rate
 	warmup_epochs = 5   # Number of epochs for warmup
 	plateau_epochs = 30 # Number of epochs for plateau phase
 	decay_rate = 0.98    # Decay rate
