@@ -265,8 +265,8 @@ class DeepConvNet(object):
 
         # With batch normalization we need to keep track of running means and
         # variances, so we need to pass a special bn_params object to each batch
-        # normalization layer. You should pass self.bn_params[0] to the Forward pass
-        # of the first batch normalization layer, self.bn_params[1] to the Forward
+        # normalization layer. You should pass self.bn_params[0] to the forward pass
+        # of the first batch normalization layer, self.bn_params[1] to the forward
         # pass of the second batch normalization layer, etc.
         self.bn_params = []
         if self.batchnorm:
@@ -330,8 +330,8 @@ class DeepConvNet(object):
             self.save_txt = self.save_in_dec_format
             self.save_hex = self.save_in_hex_format
 
-        if self.Forward_prop:
-            out, cache, FOut = self.Forward(X)
+        if self.forward_prop:
+            out, cache, FOut = self.forward(X)
             if self.save_pickle:
                 Path("Temp_Files/Python").mkdir(parents=True, exist_ok=True)
                 with open('Temp_Files/Python/Forward_Out_last_layer.pickle', 'wb') as handle:
@@ -384,8 +384,8 @@ class DeepConvNet(object):
 
         return out, cache, loss, loss_grad, lDout, grads
 
-    def Forward(self, X):
-        # print(f'\nThis is python-based Forward propagation code\n')
+    def forward(self, X):
+        # print(f'\nThis is python-based forward propagation code\n')
         y = 1
         X = X.to(self.dtype)
         mode = 'test' if y is None else 'train'
@@ -397,21 +397,21 @@ class DeepConvNet(object):
                 bn_params['mode'] = mode
 
         scores = None
-        # pass conv_param to the Forward pass for the convolutional layer
+        # pass conv_param to the forward pass for the convolutional layer
         # Padding and stride chosen to preserve the input spatial size
         filter_size = 3
         conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
 
-        # pass pool_param to the Forward pass for the max-pooling layer
+        # pass pool_param to the forward pass for the max-pooling layer
         pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
         scores = None
-        # pass conv_param to the Forward pass for the convolutional layer
+        # pass conv_param to the forward pass for the convolutional layer
         # Padding and stride chosen to preserve the input spatial size
         filter_size = 3
         conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
 
-        # pass pool_param to the Forward pass for the max-pooling layer
+        # pass pool_param to the forward pass for the max-pooling layer
         pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
 
         scores = None
@@ -424,7 +424,7 @@ class DeepConvNet(object):
         temp_cache = {}
         
         #0
-        temp_Out[0], temp_cache['0'] = Python_Conv_Pool.Forward(X,
+        temp_Out[0], temp_cache['0'] = Python_Conv_Pool.forward(X,
                                                     self.params['W0'],
                                                     conv_param,
                                                     pool_param,
@@ -434,9 +434,9 @@ class DeepConvNet(object):
                                                     phase=self.phase,
                                                     )
         
-        mean, var = Cal_mean_var.Forward(temp_Out[0], layer_no=0, save_txt=False, save_hex=False, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[0], layer_no=0, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[0], cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(X,
+        Out[0], cache['0'] = Python_Conv_BatchNorm_ReLU_Pool.forward(X,
                                                     self.params['W0'],
                                                     self.params['gamma0'],
                                                     self.params['beta0'],
@@ -451,14 +451,14 @@ class DeepConvNet(object):
                                                     phase=self.phase,
                                                     )
         #1 
-        temp_Out[1], temp_cache['1'] = Python_Conv.Forward(Out[0],
+        temp_Out[1], temp_cache['1'] = Python_Conv.forward(Out[0],
                                                     self.params['W1'],
                                                     conv_param
                                                     )
         
-        mean, var = Cal_mean_var.Forward(temp_Out[1], layer_no=1, save_txt=False, save_hex=False, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[1], layer_no=1, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[1], cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out[0],
+        Out[1], cache['1'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[0],
                                                     self.params['W1'],
                                                     self.params['gamma1'],
                                                     self.params['beta1'],
@@ -473,14 +473,14 @@ class DeepConvNet(object):
                                                     phase=self.phase,
                                                     )
         #2
-        temp_Out[2], temp_cache['2'] = Python_Conv.Forward(Out[1],
+        temp_Out[2], temp_cache['2'] = Python_Conv.forward(Out[1],
                                                     self.params['W2'],
                                                     conv_param
                                                     )
         
-        mean, var = Cal_mean_var.Forward(temp_Out[2], layer_no=2, save_txt=False, save_hex=False, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[2], layer_no=2, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[2], cache['2'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out[1],
+        Out[2], cache['2'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[1],
                                                     self.params['W2'],
                                                     self.params['gamma2'],
                                                     self.params['beta2'],
@@ -495,14 +495,14 @@ class DeepConvNet(object):
                                                     phase=self.phase,
                                                     )
         #3   
-        temp_Out[3], temp_cache['3'] = Python_Conv.Forward(Out[2],
+        temp_Out[3], temp_cache['3'] = Python_Conv.forward(Out[2],
                                                     self.params['W3'],
                                                     conv_param
                                                     )
         
-        mean, var = Cal_mean_var.Forward(temp_Out[3], layer_no=3, save_txt=False, save_hex=False, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[3], layer_no=3, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[3], cache['3'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out[2],
+        Out[3], cache['3'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[2],
                                                     self.params['W3'],
                                                     self.params['gamma3'],
                                                     self.params['beta3'],
@@ -518,14 +518,14 @@ class DeepConvNet(object):
                                                     )
 
         #4
-        temp_Out[4], temp_cache['4'] = Python_Conv.Forward(Out[3],
+        temp_Out[4], temp_cache['4'] = Python_Conv.forward(Out[3],
                                                     self.params['W4'],
                                                     conv_param
                                                     )
         
-        mean, var = Cal_mean_var.Forward(temp_Out[4], layer_no=4, save_txt=False, save_hex=False, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[4], layer_no=4, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[4], cache['4'] = Python_Conv_BatchNorm_ReLU_Pool.Forward(Out[3],
+        Out[4], cache['4'] = Python_Conv_BatchNorm_ReLU_Pool.forward(Out[3],
                                                     self.params['W4'],
                                                     self.params['gamma4'],
                                                     self.params['beta4'],
@@ -541,15 +541,15 @@ class DeepConvNet(object):
                                                     )
         
         #5
-        temp_Out[5], temp_cache['5'] = Python_Conv.Forward(Out[4],
+        temp_Out[5], temp_cache['5'] = Python_Conv.forward(Out[4],
                                                     self.params['W5'],
                                                     conv_param
                                                     )
         
-        mean, var = Cal_mean_var.Forward(temp_Out[5], layer_no=5, save_txt=False, save_hex=False, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[5], layer_no=5, save_txt=False, save_hex=False, phase=self.phase)
 
 
-        Out[5], cache['5'] = Python_Conv_BatchNorm_ReLU.Forward(Out[4],
+        Out[5], cache['5'] = Python_Conv_BatchNorm_ReLU.forward(Out[4],
                                                     self.params['W5'],
                                                     self.params['gamma5'],
                                                     self.params['beta5'],
@@ -563,15 +563,15 @@ class DeepConvNet(object):
                                                     phase=self.phase,
                                                     )
         #6
-        temp_Out[6], temp_cache['6'] = Python_Conv.Forward(Out[5],
+        temp_Out[6], temp_cache['6'] = Python_Conv.forward(Out[5],
                                                     self.params['W6'],
                                                     conv_param
                                                     )
         
-        mean, var = Cal_mean_var.Forward(temp_Out[6], layer_no=6, save_txt=False, save_hex=False, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[6], layer_no=6, save_txt=False, save_hex=False, phase=self.phase)
 
 
-        Out[6], cache['6'] = Python_Conv_BatchNorm_ReLU.Forward(Out[5],
+        Out[6], cache['6'] = Python_Conv_BatchNorm_ReLU.forward(Out[5],
                                                     self.params['W6'],
                                                     self.params['gamma6'],
                                                     self.params['beta6'],
@@ -586,15 +586,15 @@ class DeepConvNet(object):
                                                     )
 
         #7
-        temp_Out[7], temp_cache['7'] = Python_Conv.Forward(Out[6],
+        temp_Out[7], temp_cache['7'] = Python_Conv.forward(Out[6],
                                                     self.params['W7'],
                                                     conv_param
                                                     )
         
-        mean, var = Cal_mean_var.Forward(temp_Out[7], layer_no=7, save_txt=False, save_hex=False, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[7], layer_no=7, save_txt=False, save_hex=False, phase=self.phase)
 
 
-        Out[7], cache['7'] = Python_Conv_BatchNorm_ReLU.Forward(Out[6],
+        Out[7], cache['7'] = Python_Conv_BatchNorm_ReLU.forward(Out[6],
                                                     self.params['W7'],
                                                     self.params['gamma7'],
                                                     self.params['beta7'],
@@ -610,14 +610,14 @@ class DeepConvNet(object):
         
         #8
         conv_param['pad'] = 0
-        temp_Out[8], temp_cache['8'] = Python_ConvB.Forward(Out[7],
+        temp_Out[8], temp_cache['8'] = Python_ConvB.forward(Out[7],
                                                             self.params['W8'],
                                                             self.params['b8'],
                                                             conv_param)
 
-        mean, var = Cal_mean_var.Forward(temp_Out[8], layer_no=8, save_txt=False, save_hex=False, phase=self.phase)
+        mean, var = Cal_mean_var.forward(temp_Out[8], layer_no=8, save_txt=False, save_hex=False, phase=self.phase)
 
-        Out[8], cache['8'] = Python_ConvB.Forward(Out[7],
+        Out[8], cache['8'] = Python_ConvB.forward(Out[7],
                                                 self.params["W8"],
                                                 self.params["b8"],
                                                 conv_param
@@ -812,7 +812,7 @@ class last_layer(nn.Module):
 
         self.conv9 = nn.Conv2d(1024, 125, kernel_size=1, stride=1, padding=0, bias=True)
 
-    def Forward(self, x):
+    def forward(self, x):
         return self.conv9(x)
 
 
@@ -1650,7 +1650,7 @@ class Yolov2(nn.Module):
 
         self.conv9 = nn.Conv2d(1024, (5 + self.num_classes) * self.num_anchors, kernel_size=1)
 
-    def Forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
+    def forward(self, x, gt_boxes=None, gt_classes=None, num_boxes=None, training=False):
         """
     x: Variable
     gt_boxes, gt_classes, num_boxes: Tensor
@@ -1770,7 +1770,7 @@ def Truncating_Rounding(Truncated_Hexadecimal):
 class Python_Conv(object):
 
     @staticmethod
-    def Forward(x, w, conv_param):
+    def forward(x, w, conv_param):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         x = x.to(device)
         w = w.to(device)
@@ -1780,6 +1780,7 @@ class Python_Conv(object):
         N, C, H, W = x.shape
         F, C, HH, WW = w.shape
         exp_bits = 8
+         
         pad = conv_param['pad']
         H_out = int(1 + (H + 2 * pad - HH) / stride)
         W_out = int(1 + (W + 2 * pad - WW) / stride)
@@ -1854,10 +1855,10 @@ class Python_Conv(object):
 class Python_ConvB(object):
 
     @staticmethod
-    def Forward(x, w, b, conv_param):
+    def forward(x, w, b, conv_param):
         pad = conv_param['pad']
         stride = conv_param['stride']
-        exp_bits = 8
+        exp_bits = 6
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         x = x.to(device)
         w = w.to(device)
@@ -1909,7 +1910,7 @@ class Python_ConvB(object):
         x_ptr = x.flatten().contiguous().data_ptr()
         dw_ptr_bias = dw_bias.flatten().contiguous().data_ptr()
         dx_ptr_bias = dx_bias.flatten().contiguous().data_ptr()
-        exp_bits = 8
+        exp_bits = 6
         
         libconv.conv2d_backward_db(
             N, F, H_dout, W_dout, 
@@ -1948,7 +1949,7 @@ class Python_ConvB(object):
 class Python_MaxPool(object):
 
     @staticmethod
-    def Forward(x, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def forward(x, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
         # Extract pooling parameters
         stride = pool_param['stride']
         pool_width = pool_param['pool_width']
@@ -1974,7 +1975,7 @@ class Python_MaxPool(object):
         pos_ptr = positions_gpu.flatten().data_ptr()
         _curr_time = time.time()
         # Launch the kernel
-        libpool.max_pooling_Forward(N, C, H, W, 
+        libpool.max_pooling_forward(N, C, H, W, 
                                     ctypes.cast(x_ptr, ctypes.POINTER(ctypes.c_float)), 
                                     ctypes.cast(out_ptr, ctypes.POINTER(ctypes.c_float)), 
                                     ctypes.cast(pos_ptr, ctypes.POINTER(ctypes.c_float)), 
@@ -2018,7 +2019,7 @@ class Python_MaxPool(object):
 class Python_BatchNorm(object):
 
     @staticmethod
-    def Forward(x, gamma, beta, bn_params, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def forward(x, gamma, beta, bn_params, layer_no=[], save_txt=False, save_hex=False, phase=[]):
 
 
         mode = bn_params['mode']
@@ -2072,7 +2073,7 @@ class Python_BatchNorm(object):
             out = normolized * gamma + beta
 
         else:
-            raise ValueError('Invalid Forward batchnorm mode "%s"' % mode)
+            raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
 
         # Store the updated running means back into bn_params
         bn_params['running_mean'] = running_mean.detach()
@@ -2155,7 +2156,7 @@ class Python_BatchNorm(object):
 class Python_ReLU(object):
 
     @staticmethod
-    def Forward(x, alpha=0.1, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def forward(x, alpha=0.1, layer_no=[], save_txt=False, save_hex=False, phase=[]):
         out = None
         out = x.clone()
         out[out < 0] = out[out < 0] * alpha
@@ -2182,13 +2183,13 @@ class Python_ReLU(object):
 class Python_Conv_ReLU(object):
 
     @staticmethod
-    def Forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def forward(x, w, conv_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
 
-        a, conv_cache = Python_Conv.Forward(
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
             conv_param)
-        out, relu_cache = Python_ReLU.Forward(
+        out, relu_cache = Python_ReLU.forward(
             a,
             layer_no=layer_no,
             save_txt=save_txt,
@@ -2223,7 +2224,7 @@ class Python_Conv_ReLU(object):
 class Python_Conv_Pool(object):
 
     @staticmethod
-    def Forward(x, w, conv_param, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def forward(x, w, conv_param, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
         """
     A convenience layer that performs a convolution, a Python_ReLU, and a pool.
     Inputs:
@@ -2234,13 +2235,13 @@ class Python_Conv_Pool(object):
     - out: Output from the pooling layer
     - cache: Object to give to the backward pass
     """
-        a, conv_cache = Python_Conv.Forward(
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
             conv_param
         )
 
-        out, pool_cache = Python_MaxPool.Forward(
+        out, pool_cache = Python_MaxPool.forward(
             a,
             pool_param,
             layer_no=layer_no,
@@ -2279,15 +2280,15 @@ class Python_Conv_Pool(object):
 class Python_Conv_ReLU_Pool(object):
 
     @staticmethod
-    def Forward(x, w, conv_param, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def forward(x, w, conv_param, pool_param, layer_no=[], save_txt=False, save_hex=False, phase=[]):
 
-        a, conv_cache = Python_Conv.Forward(
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
             conv_param
         )
 
-        s, relu_cache = Python_ReLU.Forward(
+        s, relu_cache = Python_ReLU.forward(
             a,
             layer_no=layer_no,
             save_txt=save_txt,
@@ -2295,7 +2296,7 @@ class Python_Conv_ReLU_Pool(object):
             phase=phase
         )
 
-        out, pool_cache = Python_MaxPool.Forward(
+        out, pool_cache = Python_MaxPool.forward(
             s,
             pool_param,
             layer_no=layer_no,
@@ -2342,13 +2343,13 @@ class Python_Conv_ReLU_Pool(object):
 class Python_Conv_BatchNorm_ReLU(object):
 
     @staticmethod
-    def Forward(x, w, gamma, beta, conv_param, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        a, conv_cache = Python_Conv.Forward(
+    def forward(x, w, gamma, beta, conv_param, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
             conv_param)
 
-        an, bn_cache = Python_SpatialBatchNorm.Forward(
+        an, bn_cache = Python_SpatialBatchNorm.forward(
             a,
             gamma,
             beta,
@@ -2360,7 +2361,7 @@ class Python_Conv_BatchNorm_ReLU(object):
             save_hex=save_hex,
             phase=phase)
 
-        out, relu_cache = Python_ReLU.Forward(
+        out, relu_cache = Python_ReLU.forward(
             an,
             layer_no=layer_no,
             save_txt=save_txt,
@@ -2405,15 +2406,15 @@ class Python_Conv_BatchNorm_ReLU(object):
 class Python_Conv_BatchNorm_ReLU_Pool(object):
 
     @staticmethod
-    def Forward(x, w, gamma, beta, conv_param, bn_params, mean, var, pool_param, layer_no=[], save_txt=False, save_hex=False,
+    def forward(x, w, gamma, beta, conv_param, bn_params, mean, var, pool_param, layer_no=[], save_txt=False, save_hex=False,
                 phase=[]):
-        a, conv_cache = Python_Conv.Forward(
+        a, conv_cache = Python_Conv.forward(
             x,
             w,
             conv_param
         )
 
-        an, bn_cache = Python_SpatialBatchNorm.Forward(
+        an, bn_cache = Python_SpatialBatchNorm.forward(
             a,
             gamma,
             beta,
@@ -2426,7 +2427,7 @@ class Python_Conv_BatchNorm_ReLU_Pool(object):
             phase=phase
         )
 
-        s, relu_cache = Python_ReLU.Forward(
+        s, relu_cache = Python_ReLU.forward(
             an,
             layer_no=layer_no,
             save_txt=save_txt,
@@ -2434,7 +2435,7 @@ class Python_Conv_BatchNorm_ReLU_Pool(object):
             phase=phase
         )
 
-        out, pool_cache = Python_MaxPool.Forward(
+        out, pool_cache = Python_MaxPool.forward(
             s,
             pool_param,
             layer_no=layer_no,
@@ -2503,7 +2504,7 @@ def origin_idx_calculator(idx, B, H, W, num_chunks):
 class Cal_mean_var(object):
 
     @staticmethod
-    def Forward(x, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def forward(x, layer_no=[], save_txt=False, save_hex=False, phase=[]):
         out, cache = None, None
         eps = 1e-5
         num_chunks = 8
@@ -2539,7 +2540,7 @@ class Cal_mean_var(object):
 class Python_SpatialBatchNorm(object):
 
     @staticmethod
-    def Forward(x, gamma, beta, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):  
+    def forward(x, gamma, beta, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):  
         out, cache = None, None
         gamma = gamma.to(x.device)
         beta = beta.to(x.device)

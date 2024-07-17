@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from my_config import config as cfg
+from config import config as cfg
 from pathlib import Path
 from torch.autograd import Variable
 import numpy as np
@@ -2412,107 +2412,325 @@ class Cal_mean_var(object):
         # print(x.shape)
     
         out, cache = None, None
-        
-        eps = 1e-5
-        num_chunks = 8
-        B, C, H, W = x.shape
-        y = x.transpose(0, 1).contiguous()  # C x B x H x W
-        y = y.view(C, num_chunks, B * H * W // num_chunks)
-        avg_max = y.max(-1)[0].mean(-1)  # C
-        avg_min = y.min(-1)[0].mean(-1)  # C
-        avg = y.view(C, -1).mean(-1)  # C
-        max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
-        min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
-        scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
-        scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
+        N,C,H,W = x.shape
+        x = x.permute(1,0,2,3).reshape(C,-1).T
 
-        avg = avg.view(1, -1, 1, 1)
-        scale = scale.view(1, -1, 1, 1)
+        mu = 1./N * torch.sum(x, axis = 0)
+
+        #step2: subtract mean vector of every trainings example
+        xmu = x - mu
+        
+        #step3: following the lower branch - calculation denominator
+        sq = xmu ** 2
+        
+        #step4: calculate variance
+        var = 1./N * torch.sum(sq, axis = 0)
+
+        # eps = 1e-5
+        # num_chunks = 8
+        # B, C, H, W = x.shape
+        # y = x.transpose(0, 1).contiguous()  # C x B x H x W
+        # y = y.view(C, num_chunks, B * H * W // num_chunks)
+        # avg_max = y.max(-1)[0].mean(-1)  # C
+        # avg_min = y.min(-1)[0].mean(-1)  # C
+        # avg = y.view(C, -1).mean(-1)  # C
+        # max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
+        # min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
+        # scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
+        # scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
+
+        # avg = avg.view(1, -1, 1, 1)
+        # scale = scale.view(1, -1, 1, 1)
                 
-        cache = x
-        return avg, scale
+        # cache = x
+        return mu, var
     
+    
+class Torch_BatchNorm(object):
+
     @staticmethod
-    def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+    def Forward(x, gamma, beta, bn_param, mean, var):
+        """
+        Forward pass for batch normalization.
+
+        During training the sample mean and (uncorrected) sample variance are
+        computed from minibatch statistics and used to normalize the incoming data.
+        During training we also keep an exponentially decaying running mean of the
+        mean and variance of each feature, and these averages are used to normalize
+        data at test-time.
+
+        At each timestep we update the running averages for mean and variance using
+        an exponential decay based on the momentum parameter:
+
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var
+
+        Note that the batch normalization paper suggests a different test-time
+        behavior: they compute sample mean and variance for each feature using a
+        large number of training images rather than using a running average. For
+        this implementation we have chosen to use running averages instead since
+        they do not require an additional estimation step; the PyTorch
+        implementation of batch normalization also uses running averages.
+
+        Input:
+        - x: Data of shape (N, D)
+        - gamma: Scale parameter of shape (D,)
+        - beta: Shift paremeter of shape (D,)
+        - bn_param: Dictionary with the following keys:
+            - mode: 'train' or 'test'; required
+            - eps: Constant for numeric stability
+            - momentum: Constant for running mean / variance.
+            - running_mean: Array of shape (D,) giving running mean of features
+            - running_var Array of shape (D,) giving running variance of features
+
+        Returns a tuple of:
+        - out: of shape (N, D)
+        - cache: A tuple of values needed in the backward pass
+        """
+        mode = bn_param['mode']
+        eps = bn_param.get('eps', 1e-5)
+        momentum = bn_param.get('momentum', 0.9)
+
+        N, D = x.shape
+        running_mean = bn_param.get('running_mean', torch.zeros(D, dtype=x.dtype, device=x.device))
+        running_var = bn_param.get('running_var', torch.zeros(D, dtype=x.dtype, device=x.device))
+
+        out, cache = None, None
+        if mode == 'train':
+            #######################################################################
+            # TO DO: Implement the training-time Forward pass for batch norm.      #
+            # Use minibatch statistics to compute the mean and variance, use      #
+            # these statistics to normalize the incoming data, and scale and      #
+            # shift the normalized data using gamma and beta.                     #
+            #                                                                     #
+            # You should store the output in the variable out. Any intermediates  #
+            # that you need for the backward pass should be stored in the cache   #
+            # variable.                                                           #
+            #                                                                     #
+            # You should also use your computed sample mean and variance together #
+            # with the momentum variable to update the running mean and running   #
+            # variance, storing your result in the running_mean and running_var   #
+            # variables.                                                          #
+            #                                                                     #
+            # Note that though you should be keeping track of the running         #
+            # variance, you should normalize the data based on the standard       #
+            # deviation (square root of variance) instead!                        # 
+            # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
+            # might prove to be helpful.                                          #
+            #######################################################################
+            # Replace "pass" statement with your code
+            #step1: calculate mean
+            mu = 1./N * torch.sum(x, axis = 0)
+            running_mean = running_mean.cuda()
+            running_var = running_var.cuda()
+            running_mean = momentum * running_mean + (1 - momentum) * mu
+
+            #step2: subtract mean vector of every trainings example
+            xmu = x - mean
+            
+            #step3: following the lower branch - calculation denominator
+            sq = xmu ** 2
+            
+            #step4: calculate variance
+            var_old = 1./N * torch.sum(sq, axis = 0)
+            running_var = momentum * running_var + (1 - momentum) * var
+            #step5: add eps for numerical stability, then sqrt
+            sqrtvar = torch.sqrt(var + eps)
+
+            #step6: invert sqrtwar
+            ivar = 1./sqrtvar
         
-        x = cache
-        B, C, H, W = x.shape
-        dL_davg = (dout).sum(dim=(0, 2, 3), keepdim=True)
-        avg_pc = dL_davg / (B * H * W)
+            #step7: execute normalization
+            xhat = xmu * ivar
+
+            #step8: Nor the two transformation steps
+            #print(gamma)
+
+            gammax = gamma * xhat
+
+            #step9
+            out = gammax + beta
+
+            cache = (xhat,gamma,xmu,ivar,sqrtvar,var,eps)
+            #######################################################################
+            #                           END OF YOUR CODE                          #
+            #######################################################################
+        elif mode == 'test':
+            #######################################################################
+            # TO DO: Implement the test-time Forward pass for batch normalization. #
+            # Use the running mean and variance to normalize the incoming data,   #
+            # then scale and shift the normalized data using gamma and beta.      #
+            # Store the result in the out variable.                               #
+            #######################################################################
+            # Replace "pass" statement with your code
+            normolized = ((x - running_mean)/(running_var+ eps)**(1/2))
+            out = normolized * gamma + beta
+            #######################################################################
+            #                           END OF YOUR CODE                          #
+            #######################################################################
+        else:
+            raise ValueError('Invalid Forward batchnorm mode "%s"' % mode)
+
+        # Store the updated running means back into bn_param
+        bn_param['running_mean'] = running_mean.detach()
+        bn_param['running_var'] = running_var.detach()
+
+        return out, cache
+
+    @staticmethod
+    def backward(dout, cache):
+        """
+        Backward pass for batch normalization.
+
+        For this implementation, you should write out a computation graph for
+        batch normalization on paper and propagate gradients backward through
+        intermediate nodes.
+
+        Inputs:
+        - dout: Upstream derivatives, of shape (N, D)
+        - cache: Variable of intermediates from batchnorm_Forward.
+
+        Returns a tuple of:
+        - dx: Gradient with respect to inputs x, of shape (N, D)
+        - dgamma: Gradient with respect to scale parameter gamma, of shape (D,)
+        - dbeta: Gradient with respect to shift parameter beta, of shape (D,)
+        """
+        dx, dgamma, dbeta = None, None, None
+        ###########################################################################
+        # TO DO: Implement the backward pass for batch normalization. Store the    #
+        # results in the dx, dgamma, and dbeta variables.                         #
+        # Referencing the original paper (https://arxiv.org/abs/1502.03167)       #
+        # might prove to be helpful.                                              #
+        # Don't forget to implement train and test mode separately.               #
+        ###########################################################################
+        # Replace "pass" statement with your code
+        xhat,gamma,xmu,ivar,sqrtvar,var,eps = cache
         
+        N,D = dout.shape
+
+        #step9
+        dbeta = torch.sum(dout, axis=0)
+        dgammax = dout #not necessary, but more understandable
+
+        #step8
+        dgamma = torch.sum(dgammax*xhat, axis=0)
+        dxhat = dgammax * gamma
+
+        #step7
+        divar = torch.sum(dxhat*xmu, axis=0)
+        dxmu1 = dxhat * ivar
+
+        #step6
+        dsqrtvar = -1. /(sqrtvar**2) * divar
+
+        #step5
+        dvar = 0.5 * 1. /torch.sqrt(var+eps) * dsqrtvar
+
+        #step4
+        dsq = 1. /N * torch.ones((N,D),device = dout.device) * dvar
+
+        #step3
+        dxmu2 = 2 * xmu * dsq
+
+        #step2
+        dx1 = (dxmu1 + dxmu2)
+        dmu = -1 * torch.sum(dxmu1+dxmu2, axis=0)
+
+        #step1
+        dx2 = 1. /N * torch.ones((N,D),device = dout.device) * dmu
+
+        #step0
+        dx = dx1 + dx2
+        ###########################################################################
+        #                             END OF YOUR CODE                            #
+        ###########################################################################
+
+        return dx, dgamma, dbeta
+
+    @staticmethod
+    def backward_alt(dout, cache):
+        """
+        Alternative backward pass for batch normalization.
+        For this implementation you should work out the derivatives for the batch
+        normalizaton backward pass on paper and simplify as much as possible. You
+        should be able to derive a simple expression for the backward pass. 
+        See the jupyter notebook for more hints.
         
-        return avg_pc
+        Note: This implementation should expect to receive the same cache variable
+        as batchnorm_backward, but might not use all of the values in the cache.
+
+        Inputs / outputs: Same as batchnorm_backward
+        """
+        dx, dgamma, dbeta = None, None, None
+        ###########################################################################
+        # TO DO: Implement the backward pass for batch normalization. Store the    #
+        # results in the dx, dgamma, and dbeta variables.                         #
+        #                                                                         #
+        # After computing the gradient with respect to the centered inputs, you   #
+        # should be able to compute gradients with respect to the inputs in a     #
+        # single statement; our implementation fits on a single 80-character line.#
+        ###########################################################################
+        # Replace "pass" statement with your code
+        xhat,gamma,xmu,ivar,sqrtvar,var,eps = cache
+        N,D = dout.shape
+        # get the dimensions of the input/output
+        dbeta = torch.sum(dout, dim=0)
+        dgamma = torch.sum(xhat * dout, dim=0)
+        dx = (gamma*ivar/N) * (N*dout - xhat*dgamma - dbeta)
+        ###########################################################################
+        #                             END OF YOUR CODE                            #
+        ###########################################################################
+
+        return dx, dgamma, dbeta
+
 
 class Torch_SpatialBatchNorm(object):
 
     @staticmethod
-    def Forward(x, gamma, beta, bn_params, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):  
+    def Forward(x, gamma, beta, bn_param, mean, var, layer_no=[], save_txt=False, save_hex=False, phase=[]):
+
         out, cache = None, None
-        eps = 1e-5
-        D = gamma.shape[0]
-        num_chunks = 8
-        running_mean = bn_params["running_mean"]
-        running_var = bn_params["running_var"]
-        B, C, H, W = x.shape
-        y = x.transpose(0, 1).contiguous()  # C x B x H x W
-        y = y.view(C, num_chunks, B * H * W // num_chunks)
-        avg_max = y.max(-1)[0].mean(-1)  # C
-        avg_min = y.min(-1)[0].mean(-1)  # C
-        avg = y.view(C, -1).mean(-1)  # C
-        max_index = origin_idx_calculator(y.max(-1)[1], B, H, W, num_chunks)
-        min_index = origin_idx_calculator(y.min(-1)[1], B, H, W, num_chunks)
-        scale_fix = 1 / ((2 * math.log(y.size(-1))) ** 0.5)
-        scale = 1 / ((avg_max - avg_min) * scale_fix + eps)  
-        avg = avg.view(1, -1, 1, 1)
-        scale = scale.view(1, -1, 1, 1)
-        momentum = 0.1
-        output = (x - mean) * var
 
-        avg = avg.to(running_mean.device)
-        scale = scale.to(running_mean.device)
-        
-        # print(output.shape, gamma.shape, beta.shape)
-        output = output * gamma.view(1, -1, 1, 1) + beta.view(1, -1, 1, 1)
-        
-        running_mean = running_mean * momentum + (1 - momentum) * avg
-        running_var = running_var * momentum + (1 - momentum) * scale
-        
-        cache = (x, gamma, beta, output, var, scale, mean, avg_max, avg_min, eps, num_chunks, max_index, min_index)
-        return output, cache
-    
+        ###########################################################################
+        # TO DO: Implement the Forward pass for spatial batch normalization.       #
+        #                                                                         #
+        # HINT: You can implement spatial batch normalization by calling the      #
+        # vanilla version of batch normalization you implemented above.           #
+        # Your implementation should be very short; ours is less than five lines. #
+        ###########################################################################
+        # Replace "pass" statement with your code
+        N,C,H,W = x.shape
+        pre_m = x.permute(1,0,2,3).reshape(C,-1).T
+        pre_m_normolized, cache= Torch_BatchNorm.Forward(pre_m, gamma, beta, bn_param, mean, var)
+        out = pre_m_normolized.T.reshape(C, N, H, W).permute(1,0,2,3)
+        ###########################################################################
+        #                             END OF YOUR CODE                            #
+        ###########################################################################
+
+        return out, cache
+
     @staticmethod
-    def backward(grad_output, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
-        X, gamma, beta, output, scale, scale_fix, avg, avg_max, avg_min, eps, num_chunks, max_index, min_index = cache
-        B, C, H, W = X.shape
-        dL_dxi_hat = grad_output * gamma.view(1, -1, 1, 1)
-        
-        # Compute dL_dvar
-        dL_dvar = (dL_dxi_hat * (X - avg) * -0.5 * torch.sqrt(scale) * torch.sqrt(scale) * torch.sqrt(scale)).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
-        
-        # Compute dL_dxmax_mean and dL_dxmin_mean
-        dL_dxmax_mean = (dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
-        dL_dxmin_mean = (-1 * dL_dvar / scale_fix).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
-        
-        # Compute dL_dxmax and dL_dxmin
-        dL_dxmax = (dL_dxmax_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
-        dL_dxmin = (dL_dxmin_mean / num_chunks).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
-        
-        # Compute dL_dgamma and dL_dbeta
-        dL_dgamma = (grad_output * output).sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device) # TO DO - Is it really required to keep dim
-        dL_dbeta = grad_output.sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
-        dL_davg = grad_output.sum(dim=(0, 2, 3), keepdim=True).to(scale_fix.device)
+    def backward(dout, cache, layer_no=[], save_txt=False, save_hex=False, phase=[]):
 
-        # Average per channel
-        avg_pc = (dL_dxi_hat * -1.0).sum(dim=(0, 2, 3), keepdim=True) / (B * H * W)
-        dL_dxi_ = avg_pc + dL_dxi_hat
-        
-        # Backward coefficient
-        backward_const = scale
-        
-        # Final output calculation
-        dL_dxi = dL_dxi_.to(scale_fix.device) * backward_const.to(scale_fix.device)
+        dx, dgamma, dbeta = None, None, None
 
-        return dL_dxi.to(scale_fix.device), dL_dgamma.to(scale_fix.device), dL_dbeta.to(scale_fix.device)
+        ###########################################################################
+        # TO DO: Implement the backward pass for spatial batch normalization.      #
+        #                                                                         #
+        # HINT: You can implement spatial batch normalization by calling the      #
+        # vanilla version of batch normalization you implemented above.           #
+        # Your implementation should be very short; ours is less than five lines. #
+        ###########################################################################
+        # Replace "pass" statement with your code
+        N,C,H,W = dout.shape
+        pre_m = dout.permute(1,0,2,3).reshape(C,-1).T
+        dx, dgamma, dbeta = Torch_BatchNorm.backward_alt(pre_m, cache)
+        dx =dx.T.reshape(C, N, H, W).permute(1,0,2,3)
+        ###########################################################################
+        #                             END OF YOUR CODE                            #
+        ###########################################################################
+
+        return dx, dgamma, dbeta
             
 # class Torch_SpatialBatchNorm(object):
 
@@ -2717,3 +2935,15 @@ class Torch_FastMaxPool(object):
     except RuntimeError:
       dx = torch.zeros_like(tx)
     return dx
+
+
+pytorch_model = DeepConvNetTorch(input_dims=(3, 416, 416),
+                                 num_filters=[16, 32, 64, 128, 256, 512, 1024, 1024],
+                                 max_pools=[0, 1, 2, 3, 4],
+                                 weight_scale='kaiming',
+                                 batchnorm=True,
+                                 dtype=torch.float32, device='cuda')
+
+k = torch.randn(1, 3, 416, 416)
+output = pytorch_model.Forward(k)
+print(output[0].shape)
