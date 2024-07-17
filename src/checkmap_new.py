@@ -185,7 +185,7 @@ def check(weights=[], pth='', args=[], mode = "PytorchSim", _data=[]):
     elif mode == "PytorchSim_BN" or mode == "PytorchSim_LN" : model = model
     elif mode == "FPGA"                                     : model.Forward = model.Forward_Inference
     elif mode == "RFFP_CUDA"                                : model = model.python_model
-            
+    elif mode == "PythonCUDA16" or mode == "PythonCUDA"     : model = model.python_model       
     if weights==[]:      
         checkpoint = torch.load(pth)
         # checkpoint = torch.load('./Dataset/Dataset/pretrained/yolov2_epoch_548.pth') 

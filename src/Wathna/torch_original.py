@@ -1116,43 +1116,6 @@ class Torch_BatchNorm(object):
 
     @staticmethod
     def Forward(x, gamma, beta, bn_param):
-        """
-        Forward pass for batch normalization.
-
-        During training the sample mean and (uncorrected) sample variance are
-        computed from minibatch statistics and used to normalize the incoming data.
-        During training we also keep an exponentially decaying running mean of the
-        mean and variance of each feature, and these averages are used to normalize
-        data at test-time.
-
-        At each timestep we update the running averages for mean and variance using
-        an exponential decay based on the momentum parameter:
-
-        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
-        running_var = momentum * running_var + (1 - momentum) * sample_var
-
-        Note that the batch normalization paper suggests a different test-time
-        behavior: they compute sample mean and variance for each feature using a
-        large number of training images rather than using a running average. For
-        this implementation we have chosen to use running averages instead since
-        they do not require an additional estimation step; the PyTorch
-        implementation of batch normalization also uses running averages.
-
-        Input:
-        - x: Data of shape (N, D)
-        - gamma: Scale parameter of shape (D,)
-        - beta: Shift paremeter of shape (D,)
-        - bn_param: Dictionary with the following keys:
-            - mode: 'train' or 'test'; required
-            - eps: Constant for numeric stability
-            - momentum: Constant for running mean / variance.
-            - running_mean: Array of shape (D,) giving running mean of features
-            - running_var Array of shape (D,) giving running variance of features
-
-        Returns a tuple of:
-        - out: of shape (N, D)
-        - cache: A tuple of values needed in the backward pass
-        """
         mode = bn_param['mode']
         eps = bn_param.get('eps', 1e-5)
         momentum = bn_param.get('momentum', 0.9)
@@ -1163,28 +1126,6 @@ class Torch_BatchNorm(object):
 
         out, cache = None, None
         if mode == 'train':
-            #######################################################################
-            # TO DO: Implement the training-time Forward pass for batch norm.      #
-            # Use minibatch statistics to compute the mean and variance, use      #
-            # these statistics to normalize the incoming data, and scale and      #
-            # shift the normalized data using gamma and beta.                     #
-            #                                                                     #
-            # You should store the output in the variable out. Any intermediates  #
-            # that you need for the backward pass should be stored in the cache   #
-            # variable.                                                           #
-            #                                                                     #
-            # You should also use your computed sample mean and variance together #
-            # with the momentum variable to update the running mean and running   #
-            # variance, storing your result in the running_mean and running_var   #
-            # variables.                                                          #
-            #                                                                     #
-            # Note that though you should be keeping track of the running         #
-            # variance, you should normalize the data based on the standard       #
-            # deviation (square root of variance) instead!                        # 
-            # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
-            # might prove to be helpful.                                          #
-            #######################################################################
-            # Replace "pass" statement with your code
             #step1: calculate mean
             mu = 1./N * torch.sum(x, axis = 0)
             running_mean = momentum * running_mean + (1 - momentum) * mu
@@ -1220,18 +1161,9 @@ class Torch_BatchNorm(object):
             #                           END OF YOUR CODE                          #
             #######################################################################
         elif mode == 'test':
-            #######################################################################
-            # TO DO: Implement the test-time Forward pass for batch normalization. #
-            # Use the running mean and variance to normalize the incoming data,   #
-            # then scale and shift the normalized data using gamma and beta.      #
-            # Store the result in the out variable.                               #
-            #######################################################################
-            # Replace "pass" statement with your code
             normolized = ((x - running_mean)/(running_var+ eps)**(1/2))
             out = normolized * gamma + beta
-            #######################################################################
-            #                           END OF YOUR CODE                          #
-            #######################################################################
+
         else:
             raise ValueError('Invalid Forward batchnorm mode "%s"' % mode)
 

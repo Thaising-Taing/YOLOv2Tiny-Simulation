@@ -37,8 +37,12 @@ class CUDA16(object):
                                         max_pools=[0, 1, 2, 3, 4],
                                         weight_scale='kaiming',
                                         batchnorm=True,
-                                        dtype=torch.float32, device='cpu')
-
+                                        dtype=torch.float32, device='cuda')
+        self.optimizer_config = {}
+        optim_config = {'learning_rate': 0.01, 'momentum': 0.9}
+        for p, _ in self.python_model.params.items():
+            d = {k: v for k, v in optim_config.items()}
+            self.optimizer_config[p] = d
 
     def get_grads(self):
         self.gWeight, self.gBias, self.gGamma, self.gBeta, self.gRunning_Mean_Dec, self.gRunning_Var_Dec = \

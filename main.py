@@ -56,8 +56,8 @@ from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
 from Weight_Update_Algorithm.new_weight_update import new_weight_update
 import checkmap_new
-# from Python_CUDA32 import CUDA32
-# from Python_CUDA16 import CUDA16
+from Python_CUDA32 import CUDA32
+from Python_CUDA16 import CUDA16
 from RFFP_CUDA import RFFP_CUDA
 from GiTae import FPGA
 try: from colorama import Fore, Back, Style
@@ -146,7 +146,9 @@ class App(customtkinter.CTk):
         
         try: original_image = Image.open("1.png")
         except: original_image = Image.open("src/GiTae/1.png")
-        resized_image = original_image.resize((177, 96), Image.ANTIALIAS)  # Adjust the size as needed
+        # resized_image = original_image.resize((177, 96), Image.ANTIALIAS)  # Adjust the size as needed
+        resized_image = original_image.resize((177, 96), Image.LANCZOS)
+
         self.image = ImageTk.PhotoImage(resized_image)
 
         background_color = (255, 255, 255)  # White background color
@@ -1175,7 +1177,7 @@ class App(customtkinter.CTk):
         self.Show_Text(f'Number of training images  : {Fore.LIGHTYELLOW_EX}{len(self.train_dataset._image_paths)}'   , clr=Fore.BLUE)
         self.Show_Text(f'Batch size                 : {Fore.LIGHTYELLOW_EX}{self.args.batch_size}'                  , clr=Fore.BLUE)
         print()
-        
+        # self.Check_mAP()
         # self.Show_Text(f'Number of original images: {Fore.LIGHTYELLOW_EX}{len(self.train_dataset_full._image_paths)}'               , clr=Fore.BLUE)
         print()
         
@@ -1408,7 +1410,7 @@ class App(customtkinter.CTk):
                             help='list servers, storage, or both (default: %(default)s)')
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="", type=str)
-                            default="Dataset/Dataset/pretrained/scratch.pth", type=str)
+                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
                             # default="./weights/yolov2_epoch_2.pth", type=str)
                             # default="Dataset/Dataset/pretrained/yolov2_epoch_80.pth", type=str)
                             # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
@@ -1596,7 +1598,8 @@ class App(customtkinter.CTk):
         
 
         # ------------ Test Images
-        self.imdb_test_name                 = 'voc_2007_test-car'
+        # self.imdb_test_name                 = 'voc_2007_test-car'
+        self.imdb_test_name                 = 'voc_2007_test'
         self.test_dataset                   = self.get_dataset(self.imdb_test_name)
         self.test_dataloader                = DataLoader(  self.test_dataset, 
                                                             batch_size=self.args.batch_size, 
@@ -2099,7 +2102,7 @@ class App(customtkinter.CTk):
                 temp_image_path = 'Output/temp.jpg'
                 plt.imsave(temp_image_path, _img)
                 img = Image.open(temp_image_path)
-                im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=self.classes)
+                # im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=self.classes)
                         
                 self.count['detections']+=1
                 self.Show_Text(f"{len(detections)} Detections", end='')
@@ -2107,8 +2110,8 @@ class App(customtkinter.CTk):
                 # plt.figure('Input Image')
                 # plt.imshow(_img)
                 plt.figure(f'Output Image')
-                plt.imshow(im2show)
-                plt.show(block=True)
+                # plt.imshow(im2show)
+                # plt.show(block=True)
                 
             else:
                 self.count['no_detections']+=1
