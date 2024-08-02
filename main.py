@@ -14,6 +14,7 @@ import shutil
 import matplotlib
 import matplotlib.pyplot as plt
 import subprocess
+import numpy as np
 import tqdm
 import warnings
 from datetime import datetime
@@ -56,8 +57,8 @@ from batchnorm_python import Python_bn
 from batchnorm_pytorch import Pytorch_bn
 from Weight_Update_Algorithm.new_weight_update import new_weight_update
 import checkmap_new
-from Python_CUDA32 import CUDA32
-from Python_CUDA16 import CUDA16
+# from Python_CUDA32 import CUDA32
+# from Python_CUDA16 import CUDA16
 from RFFP_CUDA import RFFP_CUDA
 from GiTae import FPGA
 try: from colorama import Fore, Back, Style
@@ -73,6 +74,8 @@ warnings.filterwarnings("ignore")
 # os.system('clear')
 
 torch.manual_seed(3407)
+np.random.seed(3407)
+
 
 DDR_SIZE = 0x10000
 MAX_LINE_LENGTH = 1000
@@ -146,9 +149,7 @@ class App(customtkinter.CTk):
         
         try: original_image = Image.open("1.png")
         except: original_image = Image.open("src/GiTae/1.png")
-        # resized_image = original_image.resize((177, 96), Image.ANTIALIAS)  # Adjust the size as needed
-        resized_image = original_image.resize((177, 96), Image.LANCZOS)
-
+        resized_image = original_image.resize((177, 96), Image.LANCZOS)  # Adjust the size as needed
         self.image = ImageTk.PhotoImage(resized_image)
 
         background_color = (255, 255, 255)  # White background color
@@ -1177,7 +1178,7 @@ class App(customtkinter.CTk):
         self.Show_Text(f'Number of training images  : {Fore.LIGHTYELLOW_EX}{len(self.train_dataset._image_paths)}'   , clr=Fore.BLUE)
         self.Show_Text(f'Batch size                 : {Fore.LIGHTYELLOW_EX}{self.args.batch_size}'                  , clr=Fore.BLUE)
         print()
-        # self.Check_mAP()
+        
         # self.Show_Text(f'Number of original images: {Fore.LIGHTYELLOW_EX}{len(self.train_dataset_full._image_paths)}'               , clr=Fore.BLUE)
         print()
         
@@ -1410,7 +1411,7 @@ class App(customtkinter.CTk):
                             help='list servers, storage, or both (default: %(default)s)')
         parser.add_argument('--pretrained', dest='pretrained',
                             # default="", type=str)
-                            default="Dataset/Dataset/pretrained/yolov2_best_map.pth", type=str)
+                            default="Dataset/Dataset/pretrained/scratch.pth", type=str)
                             # default="./weights/yolov2_epoch_2.pth", type=str)
                             # default="Dataset/Dataset/pretrained/yolov2_epoch_80.pth", type=str)
                             # default="epoch1/fp16/fpga/2024-01-10-11:05:05.163996-Epoch_0.pth", type=str)
@@ -1482,13 +1483,11 @@ class App(customtkinter.CTk):
 
     def Load_Weights(self):
         s = time.time()
-        self.PreProcessing = Pre_Processing(Mode =   self.Mode,
-                                            Brain_Floating_Point =   self.Brain_Floating_Point,
-                                            Exponent_Bits        =   self.Exponent_Bits,
-                                            Mantissa_Bits        =   self.Mantissa_Bits)
-        self.Weight, self.Bias, self.Gamma, self.Beta, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
-        
-        # # Initialize Pre-Trained Weight
+        # self.PreProcessing = Pre_Processing(Mode =   self.Mode,
+        #                                     Brain_Floating_Point =   self.Brain_Floating_Point,
+        #                                     Exponent_Bits        =   self.Exponent_Bits,
+        #                                     Mantissa_Bits        =   self.Mantissa_Bits)
+        # self.Weight, self.Bias, self.Gamma, self.Beta, self.Running_Mean_Dec, self.Running_Var_Dec = self.PreProcessing.WeightLoader()
         # self.Shoaib = Shoaib_Code(  Weight_Dec=self.Weight, 
         #                             Bias_Dec=self.Bias, 
         #                             Beta_Dec=self.Beta, 
@@ -1507,7 +1506,7 @@ class App(customtkinter.CTk):
 
         
         
-        self.loaded_weights = self.load_weights_from_pth(_path = self.args.pretrained)
+        self.loaded_weights = self.load_weights_from_pth_new(_path = self.args.pretrained)
         # Weight, Bias, Gamma_WeightBN, BetaBN, Running_Mean_Dec, Running_Var_Dec 
 
 
@@ -1598,8 +1597,7 @@ class App(customtkinter.CTk):
         
 
         # ------------ Test Images
-        # self.imdb_test_name                 = 'voc_2007_test-car'
-        self.imdb_test_name                 = 'voc_2007_test'
+        self.imdb_test_name                 = 'voc_2007_test-car'
         self.test_dataset                   = self.get_dataset(self.imdb_test_name)
         self.test_dataloader                = DataLoader(  self.test_dataset, 
                                                             batch_size=self.args.batch_size, 
@@ -2093,7 +2091,7 @@ class App(customtkinter.CTk):
             yolo_output = [item[0].data for item in yolo_output]
                 
             # detections = yolo_eval(yolo_output, im_info, conf_threshold=0.2, nms_threshold=0.5)
-            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.45, nms_threshold=0.5)
+            detections = yolo_eval(yolo_output, im_info, conf_threshold=0.6, nms_threshold=0.4)
             
             if len(detections) > 0:
                 det_boxes = detections[:, :5].cpu().numpy()
@@ -2102,7 +2100,7 @@ class App(customtkinter.CTk):
                 temp_image_path = 'Output/temp.jpg'
                 plt.imsave(temp_image_path, _img)
                 img = Image.open(temp_image_path)
-                # im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=self.classes)
+                im2show = draw_detection_boxes(img, det_boxes, det_classes, class_names=self.classes)
                         
                 self.count['detections']+=1
                 self.Show_Text(f"{len(detections)} Detections", end='')
@@ -2110,8 +2108,8 @@ class App(customtkinter.CTk):
                 # plt.figure('Input Image')
                 # plt.imshow(_img)
                 plt.figure(f'Output Image')
-                # plt.imshow(im2show)
-                # plt.show(block=True)
+                plt.imshow(im2show)
+                plt.show(block=True)
                 
             else:
                 self.count['no_detections']+=1
@@ -2286,6 +2284,81 @@ class App(customtkinter.CTk):
         plt.imshow(img)
         plt.show()
 
+
+    def load_weights_from_pth_new(self, _path=''):
+
+        if self.mode == "Pytorch_BN"   :  model = self.Pytorch_bn
+        if self.mode == "Python_BN"    :  model = self.Python_bn         
+        if self.mode == "Pytorch_LN"   :  model = self.Pytorch           
+        if self.mode == "Python"       :  model = self.Python            
+        if self.mode == "FPGA"         :  model = self.FPGA              
+        
+        if self.mode == "PytorchSim_LN":  model = self.TorchSimulation_LN
+        if self.mode == "PytorchSim_BN":  model = self.TorchSimulation_BN
+        if self.mode == "RFFP_CUDA"    :  model = self.RFFP_CUDA         
+        
+        if self.mode == "PythonSim"    :  model = self.PythonSimulation  
+        if self.mode == "PythonCUDA"   :  model = self.CUDA32            
+        if self.mode == "PythonCUDA16" :  model = self.CUDA16            
+
+        self.pretrained_checkpoint = torch.load(_path,map_location='cpu')
+        loaded_model = torch.load(_path,map_location='cpu')['model']
+
+    
+        
+        if "scratch.pth" in _path:
+            self.Show_Text(f'--> Starting training from scratch.'   , clr=Fore.BLUE)
+            self.args.output_dir = self.args.output_dir + '/Scratch'
+
+        else:   
+            self.args.output_dir = self.args.output_dir + '/Pretrained'
+            self.Show_Text(f"Pretrained Path            : {Fore.LIGHTYELLOW_EX}{_path}"   , clr=Fore.BLUE)
+            
+
+            if 'epoch' in self.pretrained_checkpoint.keys(): 
+                self.Show_Text(f"Pretrained Epochs          : {Fore.LIGHTYELLOW_EX}{self.pretrained_checkpoint['epoch']}"   , clr=Fore.BLUE)
+            #     self.args.start_epoch += self.pretrained_checkpoint['epoch']
+            #     self.args.max_epochs  += self.pretrained_checkpoint['epoch']
+            # else:
+            #     self.args.start_epoch += 50
+            #     self.args.max_epochs  += 50
+            
+            # if 'map' in self.pretrained_checkpoint.keys(): 
+            #     self.Show_Text(f"      mAP    : {self.pretrained_checkpoint['map']}"  , clr=Fore.LIGHTYELLOW_EX)
+            
+        
+        try:
+            self.custom_model.load_state_dict(loaded_model)
+            _model_state_dict = self.custom_model.state_dict()        
+        except:
+            _model_state_dict = loaded_model
+
+        for param, val in model.modtorch_model.params.items():
+            for param1, val1 in loaded_model.items():
+                if (param == param1):
+                    model.modtorch_model.params[param] = val1.cuda()
+
+        Weight = [model.modtorch_model.params['W0'], model.modtorch_model.params['W1'], model.modtorch_model.params['W2'], model.modtorch_model.params['W3'], model.modtorch_model.params['W4'],
+                    model.modtorch_model.params['W5'], model.modtorch_model.params['W6'], model.modtorch_model.params['W7'], model.modtorch_model.params['W8']]
+        Bias = model.modtorch_model.params['b8']
+        Gamma = [model.modtorch_model.params['gamma0'], model.modtorch_model.params['gamma1'], model.modtorch_model.params['gamma2'], model.modtorch_model.params['gamma3'],
+                    model.modtorch_model.params['gamma4'],
+                    model.modtorch_model.params['gamma5'], model.modtorch_model.params['gamma6'], model.modtorch_model.params['gamma7']]
+        Beta = [model.modtorch_model.params['beta0'], model.modtorch_model.params['beta1'], model.modtorch_model.params['beta2'], model.modtorch_model.params['beta3'],
+                model.modtorch_model.params['beta4'], model.modtorch_model.params['beta5'],
+                model.modtorch_model.params['beta6'], model.modtorch_model.params['beta7']]
+        Running_Mean = [model.modtorch_model.bn_params[0]['running_mean'], model.modtorch_model.bn_params[1]['running_mean'],
+                        model.modtorch_model.bn_params[2]['running_mean'],
+                        model.modtorch_model.bn_params[3]['running_mean'], model.modtorch_model.bn_params[4]['running_mean'],
+                        model.modtorch_model.bn_params[5]['running_mean'],
+                        model.modtorch_model.bn_params[6]['running_mean'], model.modtorch_model.bn_params[7]['running_mean']]
+        Running_Var = [model.modtorch_model.bn_params[0]['running_var'], model.modtorch_model.bn_params[1]['running_var'],
+                        model.modtorch_model.bn_params[2]['running_var'],
+                        model.modtorch_model.bn_params[3]['running_var'], model.modtorch_model.bn_params[4]['running_var'],
+                        model.modtorch_model.bn_params[5]['running_var'],
+                        model.modtorch_model.bn_params[6]['running_var'], model.modtorch_model.bn_params[7]['running_var']]
+        
+        return Weight, Bias, Gamma, Beta, Running_Mean, Running_Var
 
     def load_weights_from_pth(self, _path=''):
         """
