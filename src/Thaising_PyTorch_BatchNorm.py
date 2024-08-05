@@ -97,9 +97,7 @@ class TorchSimulation_BN(object):
             self.params['gamma{}'.format(i)] = self.Gamma[i]
             self.params['beta{}'.format(i)] = self.Beta[i]
         self.params['W8'] = self.Weight[8]
-        self.params['b8'] = self.Bias
-
-    
+        self.params['b8'] = self.Bias    
         
     def Forward(self, data):
         try:

@@ -44,7 +44,6 @@ from src.batchnorm_pytorch import *
 from src.Wathna_pytorch import *
 from src.Thaising_PyTorch import *
 from src.Thaising_PyTorch_BatchNorm import *
-from src.GiTae import *
 
 from tqdm import tqdm
 

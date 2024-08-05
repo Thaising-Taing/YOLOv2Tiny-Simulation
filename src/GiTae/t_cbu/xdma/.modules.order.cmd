@@ -1,1 +1,0 @@
-cmd_/home/msis/training/yolov2/src/GiTae/t_cbu/xdma/modules.order := {   echo /home/msis/training/yolov2/src/GiTae/t_cbu/xdma/xdma.ko; :; } | awk '!x[$$0]++' - > /home/msis/training/yolov2/src/GiTae/t_cbu/xdma/modules.order

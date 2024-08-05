@@ -52,7 +52,6 @@ class Torch_Conv(object):
                                                                                                                   n, f, height, width]
 
         dx = dx[:, :, 1:-1, 1:-1]  # delete padded "pixels"
-        print(dx.shape)
 
         return dx, dw
 
